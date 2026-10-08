@@ -3,6 +3,8 @@ import * as I from '@/components/icones/evokaa16'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
+import { vendasPagas } from '../../lib/vendasPagas'
+import { toCsv, downloadCsv, csvFilename, slugArquivo } from '../../lib/exportCsv'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { useEventSurveys } from '../../hooks/useProducerTools'
@@ -36,19 +38,14 @@ export default function PostEventReport() {
     queryKey: ['pos-evento-numeros', selectedEventId],
     enabled: !!selectedEventId,
     queryFn: async () => {
-      const [ingressos, pagos] = await Promise.all([
+      const [ingressos, vendas] = await Promise.all([
         // participantes = ingressos válidos (ativo ou usado); cancelado, reembolsado e transferido não contam
         supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', selectedEventId!).in('status', ['active', 'used']),
-        // ponytail: soma no navegador, cortada no max_rows (1.000) do PostgREST; soma exata com RPC/view de vendas (F2)
-        supabase.from('orders').select('total').eq('event_id', selectedEventId!).eq('status', 'paid'),
+        // soma exata no banco (RPC produtor_vendas_pagas), sem o corte de 1.000 pedidos
+        vendasPagas({ eventId: selectedEventId }),
       ])
       if (ingressos.error) throw ingressos.error
-      if (pagos.error) throw pagos.error
-      const linhas = (pagos.data ?? []) as unknown as { total: number }[]
-      return {
-        participants: ingressos.count ?? 0,
-        revenue: linhas.reduce((s, o) => s + (Number(o.total) || 0), 0),
-      }
+      return { participants: ingressos.count ?? 0, revenue: Number(vendas.total) || 0, pedidos: Number(vendas.pedidos) || 0 }
     },
   })
 
@@ -97,6 +94,22 @@ export default function PostEventReport() {
   const nps = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
   const avgRating = total > 0 ? (surveys.reduce((s, r) => s + r.score, 0) / total).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'
 
+  function exportar() {
+    const linhas = [
+      { Indicador: 'Evento', Valor: selectedEvent?.title ?? '' },
+      { Indicador: 'NPS', Valor: total > 0 ? nps : '' },
+      { Indicador: 'Respostas da pesquisa', Valor: total },
+      { Indicador: 'Promotores (9–10)', Valor: promoters },
+      { Indicador: 'Neutros (7–8)', Valor: passives },
+      { Indicador: 'Detratores (0–6)', Valor: detractors },
+      { Indicador: 'Nota média', Valor: avgRating === '—' ? '' : avgRating },
+      { Indicador: 'Participantes (ingressos ativos ou usados)', Valor: statsQ.data?.participants ?? 0 },
+      { Indicador: 'Pedidos pagos', Valor: statsQ.data?.pedidos ?? 0 },
+      { Indicador: 'Vendas bruto (R$)', Valor: (statsQ.data?.revenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+    ]
+    downloadCsv(csvFilename(`pos-evento-${slugArquivo(selectedEvent?.title, selectedEventId!)}`), toCsv(linhas, ['Indicador', 'Valor']))
+  }
+
   const carregando = surveysQ.isLoading || statsQ.isLoading
   const erro = surveysQ.isError || statsQ.isError
 
@@ -124,6 +137,12 @@ export default function PostEventReport() {
           />
         ) : (
           <>
+            {statsQ.data?.pedidos === 0 && (
+              <p role="status" className="mb-3 text-sm text-muted-foreground">Ainda não há pedidos pagos neste evento. Participantes e vendas aparecem zerados por isso.</p>
+            )}
+            <div className="mb-3 flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportar}>Exportar CSV</Button>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Stat label="NPS" value={total > 0 ? (nps > 0 ? `+${nps}` : nps) : '—'} hint={total > 0 ? `${total} resposta(s)` : 'Sem respostas'} />
               <Stat label="Nota média" value={avgRating} />
