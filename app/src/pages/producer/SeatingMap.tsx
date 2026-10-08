@@ -8,6 +8,7 @@ import * as I from '@/components/icones/evokaa16'
 import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
 import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
+import { tetoPorPedido } from '@/lib/lotacao'
 import { Button } from '@/components/ui/button'
 
 // Tipos de ferramentas do editor
@@ -571,7 +572,7 @@ export default function SeatingMap() {
         if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
         const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean; max_per_order: number | null }[] // ticket_types não está nos tipos gerados
         setTiposCarregados(true)
-        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(t => ({ id: t.id, name: t.name, price: t.price, max: t.max_per_order ?? (Number(t.price) === 0 ? 10 : null) })))
+        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(t => ({ id: t.id, name: t.name, price: t.price, max: tetoPorPedido(t) })))
       })
     return () => { cancelado = true }
   }, [eventId])
