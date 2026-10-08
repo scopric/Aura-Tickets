@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { montarBordero } from "../_shared/borderoXlsx.ts";
+import { buscarLogo } from "../_shared/logoProdutor.ts";
 import { mfaOk } from "../_shared/mfa.ts";
 import { dataSP, unicos, type Ingresso, type Pedido, type Tipo } from "../_shared/borderoDados.ts";
 
@@ -59,10 +60,13 @@ serve(async (req) => {
       todas<Pedido>((de, ate) => db.from("orders").select(colPed).eq("event_id", eventId).eq("status", "paid").order("created_at").order("id").range(de, ate) as never),
       todas<Ingresso>((de, ate) => db.from("tickets").select(colIng).eq("event_id", eventId).in("status", ["active", "used"]).order("created_at").order("id").range(de, ate) as never),
       db.from("ticket_types").select("id, name, price, quantity_total, is_active").eq("event_id", eventId).order("sort_order"),
-      db.from("producer_profiles").select("company_name").eq("id", ev.producer_id).maybeSingle(),
+      db.from("producer_profiles").select("company_name, logo_url").eq("id", ev.producer_id).maybeSingle(),
       db.rpc("produtor_vendas_pagas", { p_de: null, p_ate: null, p_event_id: eventId }),
     ]);
     if (tiposR.error || rpc.error) throw (tiposR.error || rpc.error);
+    // Se a consulta do perfil falhou (por exemplo, coluna logo_url ainda ausente), o nome da produtora não pode sumir: busca só ele
+    let nomeProdutora = perfil.data?.company_name;
+    if (perfil.error && !nomeProdutora) nomeProdutora = (await db.from("producer_profiles").select("company_name").eq("id", ev.producer_id).maybeSingle()).data?.company_name;
     const resumo = rpc.data as { total: number; pedidos: number; reembolsados: { pedidos: number; total: number } };
 
     const ids = [...new Set(pedidos.map((p) => p.coupon_id).filter(Boolean))] as string[];
@@ -74,7 +78,8 @@ serve(async (req) => {
 
     const bytes = await montarBordero({
       evento: { titulo: ev.title, local: [ev.venue_name, ev.venue_city].filter(Boolean).join(" · "), data: ev.date || (ev.start_date ? dataSP(ev.start_date).dia : ""), status: STATUS[ev.status] ?? ev.status },
-      produtora: perfil.data?.company_name || "Produtora",
+      produtora: nomeProdutora || "Produtora",
+      logoProdutor: await buscarLogo(perfil.data?.logo_url, ev.producer_id),
       geradoEm: new Date().toISOString(),
       pessoais,
       pedidos: unicos(pedidos), ingressos: unicos(ingressos), tipos: (tiposR.data ?? []) as Tipo[], cupons,

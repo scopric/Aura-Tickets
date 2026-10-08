@@ -33,6 +33,8 @@ export type OpcoesPdf = {
   titulo: string
   evento: string
   produtora?: string
+  /** URL pública da logo do produtor (producer_profiles.logo_url): vai no canto direito do cabeçalho */
+  logoProdutor?: string | null
   resumo?: [string, string][]
   colunas: ColunaPdf[]
   linhas: Record<string, string>[]
@@ -43,18 +45,27 @@ export type OpcoesPdf = {
 const MARCA: [number, number, number] = [12, 35, 64]
 const ACENTO: [number, number, number] = [29, 104, 196]
 
-async function logoComoDataUrl(): Promise<string | null> {
+// Imagem (URL pública) como PNG em data URL, com as medidas. Passa pelo canvas: o jsPDF não lê WebP e o PNG mantém a transparência.
+// Falha de rede, CORS ou formato = null: o PDF sai sem essa imagem.
+async function imagemComoPng(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
   try {
-    const r = await fetch('/images/logo-evokaa-sm.png')
+    const r = await fetch(url, { signal: AbortSignal.timeout(5000) }) // Storage que trava não pode prender o botão
     if (!r.ok) return null
-    const b = await r.blob()
-    return await new Promise(res => { const f = new FileReader(); f.onload = () => res(String(f.result)); f.onerror = () => res(null); f.readAsDataURL(b) })
+    // decodifica já reduzida (480 px de largura): arquivo que declara dezenas de milhares de pixels não estoura a memória
+    const bmp = await createImageBitmap(await r.blob(), { resizeWidth: 480, resizeQuality: 'high' })
+    try {
+      const c = document.createElement('canvas')
+      c.width = bmp.width; c.height = bmp.height
+      c.getContext('2d')?.drawImage(bmp, 0, 0)
+      return { dataUrl: c.toDataURL('image/png'), w: bmp.width, h: bmp.height }
+    } finally { bmp.close() }
   } catch { return null }
 }
 
 /** PDF A4 em pé: logo e cabeçalho em toda página, resumo na primeira, tabela paginada com cabeçalho repetido e rodapé "Página X de Y". */
 export async function baixarPdf(o: OpcoesPdf) {
-  const [{ jsPDF }, { default: autoTable }, logo] = await Promise.all([import('jspdf'), import('jspdf-autotable'), logoComoDataUrl()])
+  const [{ jsPDF }, { default: autoTable }, logoEvokaa, logoProd] = await Promise.all([import('jspdf'), import('jspdf-autotable'), imagemComoPng('/images/logo-evokaa-sm.png'), o.logoProdutor ? imagemComoPng(o.logoProdutor) : null])
+  const logo = logoEvokaa?.dataUrl
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const larg = doc.internal.pageSize.getWidth()
   const alt = doc.internal.pageSize.getHeight()
@@ -62,6 +73,10 @@ export async function baixarPdf(o: OpcoesPdf) {
 
   const cabecalho = () => {
     if (logo) doc.addImage(logo, 'PNG', 40, 28, 38, 36)
+    if (logoProd) { // até 110 x 36 pt, na proporção do arquivo, encostada na margem direita
+      const esc = Math.min(1, 110 / logoProd.w, 36 / logoProd.h)
+      doc.addImage(logoProd.dataUrl, 'PNG', larg - 40 - logoProd.w * esc, 28, logoProd.w * esc, logoProd.h * esc)
+    }
     doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(...MARCA).text(o.titulo, 88, 44)
     doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(90, 100, 118).text([o.evento, o.produtora, `gerado em ${gerado}`].filter(Boolean).join(' · '), 88, 60)
     doc.setDrawColor(...ACENTO).setLineWidth(1.2).line(40, 74, larg - 40, 74)

@@ -1,6 +1,7 @@
 import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -24,6 +25,18 @@ export default function ProducerBordero() {
   const lista = eventos.data ?? []
   const [eventId, trocar] = useEventoDaUrl(lista.map(e => e.id))
   const evento = lista.find(e => e.id === eventId)
+  const { user } = useAuth()
+  // logo e nome do produtor para o cabeçalho do PDF; falhar aqui só tira a logo (o PDF não depende dela)
+  const perfil = useQuery({
+    queryKey: ['bordero-perfil', user?.id],
+    enabled: !!user?.id,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      // ponytail: os tipos do banco ainda não têm logo_url; cast até regenerar types/database.ts
+      const { data } = await supabase.from('producer_profiles').select('company_name, logo_url' as never).eq('id', user!.id).maybeSingle()
+      return (data as unknown as { company_name: string | null; logo_url: string | null } | null) ?? null
+    },
+  })
 
   const dados = useQuery({
     queryKey: ['producer-bordero', eventId],
@@ -76,8 +89,9 @@ export default function ProducerBordero() {
     if (!r || !evento) return
     setGerando('pdf')
     try {
+      const perfilPdf = perfil.data !== undefined ? perfil.data : (await perfil.refetch()).data // clicou antes de a logo chegar
       await baixarPdf({
-        arquivo: `${nomeBase}.pdf`, titulo: 'Borderô', evento: evento.title,
+        arquivo: `${nomeBase}.pdf`, titulo: 'Borderô', evento: evento.title, produtora: perfilPdf?.company_name || undefined, logoProdutor: perfilPdf?.logo_url,
         resumo: [['Pedidos pagos', String(r.nPedidos)], ['Total pago pelos compradores', brl(r.total)], ...r.porForma.map(f => [`Forma: ${f.chave}`, brl(f.total)] as [string, string])],
         colunas: [{ titulo: 'Pedido', chave: 'pedido' }, { titulo: 'Data', chave: 'data' }, { titulo: 'Forma', chave: 'forma' }, { titulo: 'Ingressos', chave: 'ingressos', direita: true }, { titulo: 'Desconto', chave: 'desconto', direita: true }, { titulo: 'Taxa serviço', chave: 'servico', direita: true }, { titulo: 'Taxa pagto.', chave: 'pagto', direita: true }, { titulo: 'Total', chave: 'total', direita: true }],
         linhas: dados.data!.pedidos.map(p => ({ pedido: p.id.slice(0, 8).toUpperCase(), data: dataBR(diaBR(p.created_at)), forma: forma(p.payment_method), ingressos: m(p.subtotal), desconto: m(p.discount), servico: m(p.service_fee), pagto: m(p.processing_fee), total: m(p.total) })),
