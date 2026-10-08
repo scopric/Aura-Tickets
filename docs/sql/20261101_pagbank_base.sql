@@ -5,7 +5,7 @@
 --    payload: guardar só o mínimo necessário (nunca dado de cartão); quem grava é a Edge Function.
 -- 2) Índice único parcial em orders(gateway_payment_id): o mesmo pagamento do gateway não paga dois pedidos. ABORTA se já houver duplicata.
 -- 3) 'pagbank' no CHECK de payments.gateway (mantém stripe, woovi, pagseguro).
--- 4) confirmar_pedido_pago(order, gateway_payment_id, valor em centavos, event_id opcional): SÓ service_role. Contrato do retorno:
+-- 4) confirmar_pedido_pago(order, gateway_payment_id, valor em centavos, event_id opcional, p_pago_em opcional): SÓ service_role. Contrato do retorno:
 --    EXIGEM ESTORNO no PagBank (o dinheiro entrou e o pedido NÃO vira paid por ele):
 --      'estorno'          pagamento tardio (pedido cancelled/failed/refunded ou vencido), segundo pagamento de pedido já pago
 --                         (resultado 'pagamento_duplicado'), evento/tipo não vendável, limite por conta, lotação, gatilho de assento/CPF;
@@ -25,7 +25,7 @@
 --    pago com max_per_order explícito, o teto "por pessoa" só é imposto NO PAGAMENTO (a reserva só confere por pedido): o cliente pode pagar
 --    e levar 'estorno'. O ideal é a reserva recusar antes de cobrar: pendência/decisão do Ricardo (reservar_ingressos não foi alterada aqui).
 --    p_pago_em: quando o PagBank registrou o pagamento (paid_at da consulta à cobrança, NUNCA do corpo do webhook). O prazo é medido nesse
---    instante (no máximo agora), não na chegada do webhook: webhook atrasado não vira estorno de pagamento feito em dia. Sem ele, vale now().
+--    instante (entre a criação do pedido e agora: data anterior à criação conta como a criação, futura como agora), não na chegada do webhook: webhook atrasado não vira estorno de pagamento feito em dia. Sem ele, vale now().
 --    PRAZO: vale reservado_ate (10 min na criação por reservar_ingressos; sem ele, 30 min do created_at). O vencimento do QR Pix
 --    criado na fatia 2 DEVE ser <= reservado_ate, senão o cliente paga um Pix ainda válido que aqui vira 'estorno'.
 --    A emissão dos ingressos REPLICA o trecho de emissão de confirmar_pedido_gratis (20261030a): essa função é recriada a partir de
@@ -108,7 +108,7 @@ begin
   elsif o.status <> 'pending' then
     -- cancelado pelo cron (ou failed/refunded): não revive, o chamador estorna
     v_ret := 'estorno'; v_res := 'pagamento_tardio';
-  elsif o.created_at <= least(coalesce(p_pago_em, now()), now()) - interval '30 minutes' or (o.reservado_ate is not null and o.reservado_ate <= least(coalesce(p_pago_em, now()), now())) then
+  elsif o.created_at <= least(greatest(coalesce(p_pago_em, now()), o.created_at), now()) - interval '30 minutes' or (o.reservado_ate is not null and o.reservado_ate <= least(greatest(coalesce(p_pago_em, now()), o.created_at), now())) then
     v_ret := 'estorno'; v_res := 'pagamento_tardio'; -- pendente vencido que o cron ainda não cancelou
   elsif p_valor_pago_centavos::bigint is distinct from round(o.total * 100)::bigint then
     v_ret := 'valor_divergente'; v_res := 'valor_divergente: pago ' || coalesce(p_valor_pago_centavos::text, 'null') || ', esperado ' || round(o.total * 100)::bigint;

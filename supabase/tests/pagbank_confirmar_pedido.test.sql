@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(44);
+select plan(45);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -224,12 +224,19 @@ select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a7', '
 -- Um pedido por vez: criar outro pedido pendente da mesma conta cancela o anterior (uma reserva aberta por conta).
 select pg_temp.como('postgres');
 select pg_temp.novo('fc000000-0000-4000-8000-0000000000d6', 'fc000000-0000-4000-8000-0000000000b1', 1, 50, 0, 50, 'inteira', now() - interval '1 minute');
+update public.orders set created_at = now() - interval '9 minutes' where id = 'fc000000-0000-4000-8000-0000000000d6'; -- pedido criado há 9 min, pago há 5, reserva vencida há 1
 select pg_temp.como('service_role');
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d6', 'ORDE_D6', 5000, null, now() - interval '5 minutes'), 'pago', 'pago em dia (5 min atrás), webhook atrasado, reserva vencida agora: pago');
 select pg_temp.como('postgres');
 select pg_temp.novo('fc000000-0000-4000-8000-0000000000d7', 'fc000000-0000-4000-8000-0000000000b1', 1, 50, 0, 50, 'inteira', now() - interval '1 minute');
 select pg_temp.como('service_role');
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d7', 'ORDE_D7', 5000, null, now() - interval '30 seconds'), 'estorno', 'pago depois do fim da reserva: estorno');
+
+-- p_pago_em muito antigo (antes de o pedido existir) conta como a criação do pedido: não ressuscita reserva vencida
+select pg_temp.como('postgres');
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000d8', 'fc000000-0000-4000-8000-0000000000b1', 1, 50, 0, 50, 'inteira', now() - interval '1 minute');
+select pg_temp.como('service_role');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d8', 'ORDE_D8', 5000, null, '1970-01-01'::timestamptz), 'estorno', 'p_pago_em de 1970 não vence a reserva: estorno');
 
 -- pedido inexistente
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000ff', 'ORDE_9', 11000), 'nao_encontrado', 'pedido inexistente: nao_encontrado');
