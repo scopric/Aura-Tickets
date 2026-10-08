@@ -7,7 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { useProducerEvents } from '../../hooks/useEvents'
 import type { Tema } from '../../lib/tema'
 import {
-  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, hrefDaTela, normaliza, rotuloSecao, telasDe, textoDaTela, type Escopo,
+  DASHBOARDS, INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, hrefDaTela, normaliza, rotuloSecao, telasDe, textoDaTela, type Escopo,
 } from '../../lib/navegacaoProdutor'
 import { ICONE, dataCurta } from './lateralComum'
 
@@ -52,7 +52,7 @@ export default function BuscaRapida({ onFechar }: { onFechar: () => void }) {
 
   // acha pelo texto da tela, pelo nome do mapa ("Financeiro" acha Resumo) e pela seção
   const telas = [
-    ...(escopo === 'produtora' ? [INICIO] : []),
+    ...(escopo === 'produtora' ? [INICIO, DASHBOARDS] : []),
     ...SECOES.flatMap(s => telasDe(escopo, s)),
   ].filter(t => bate(`${textoDaTela(t, escopo)} ${t.tela} ${t.secao}`)).slice(0, consulta ? 8 : 5) // sem consulta, só 5 (prancha)
   const doProdutor = eventos.filter(e => bate(e.title)).slice(0, 8) // ponytail: 8 mais recentes; achar um mais antigo é digitando o nome
