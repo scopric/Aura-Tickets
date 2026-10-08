@@ -102,8 +102,9 @@ function clientIp(headers: Headers): string | null {
 // ficaria bloqueado para sempre, e com ele o /64 inteiro); a aceita nunca é apagada, então a rajada segue barrada.
 // Devolve a resposta de recusa, ou null para seguir.
 // prefixo: chave separada por canal (ex. 'convite-conta:'), na mesma tabela e com o mesmo limite.
-export async function limitarPorIp(req: Request, supabaseAdmin: SupabaseClient, json: (b: unknown, s?: number) => Response, prefixo = "") {
-  const chave = clientIp(req.headers);
+export async function limitarPorIp(req: Request, supabaseAdmin: SupabaseClient, json: (b: unknown, s?: number) => Response, prefixo = "", opcoes?: { chave?: string; max?: number }) {
+  // opcoes (pagbank-criar-pedido, com login): chave própria (ex. id do usuário) no lugar do IP e teto diferente de 5
+  const chave = opcoes?.chave ?? clientIp(req.headers);
   const ip = chave && prefixo + chave;
   if (!ip) return json({ error: "Não foi possível identificar a origem da requisição." }, 400);
   const { data: hit, error: hitError } = await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip }).select("id").single();
@@ -117,7 +118,7 @@ export async function limitarPorIp(req: Request, supabaseAdmin: SupabaseClient, 
     console.error("[limite por IP] falhou:", error.message);
     return json({ error: "Não foi possível processar agora. Tente de novo." }, 500);
   }
-  if ((count ?? 0) > 5) {
+  if ((count ?? 0) > (opcoes?.max ?? 5)) {
     const { error: delError } = await supabaseAdmin.from("contact_rate_limit_hits").delete().eq("id", hit!.id);
     if (delError) console.error("[limite por IP] recusa não apagou o registro:", delError.message);
     return json({ error: "Muitas tentativas. Tente de novo em alguns minutos." }, 429);
