@@ -31,14 +31,14 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(rotasDoApp).toContain(ROTA_CRIAR_EVENTO)
   })
 
-  it('tela "Em breve" (ComingSoon) não entra no mapa: o menu só mostra telas prontas (Decisões 22 e 209)', () => {
+  it('tela "Em breve" (ComingSoon) não entra no mapa: o menu só mostra telas prontas (Decisões 22 e 213)', () => {
     for (const t of NAV) {
       const linha = app.split('\n').find(l => l.includes(`path="${t.rota}"`)) ?? ''
       expect(linha, t.tela).not.toMatch(/<ComingSoon/)
     }
   })
 
-  it('Decisão 209: as 7 rotas planejadas existem e mostram o cartão "Em breve", fora do menu', () => {
+  it('Decisão 213: as 7 rotas planejadas existem e mostram o cartão "Em breve", fora do menu', () => {
     for (const r of ['brand', 'comunicacao', 'assinatura', 'evokaa-store', 'marketing', 'antecipacao', 'parcelamento']) {
       const linha = app.split('\n').find(l => l.includes(`path="/producer/${r}"`)) ?? ''
       expect(linha, r).toMatch(/<ComingSoon /)

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// Decisão 209: a paleta antiga (espresso/plum/cream, font-serif, brilho) não volta ao painel do produtor.
+// Decisão 213: a paleta antiga (espresso/plum/cream, font-serif, brilho) não volta ao painel do produtor.
 const PASTAS = ['pages/producer', 'components/producer']
 const AVULSOS = ['components/ComingSoon.tsx', 'components/ProducerLayout.tsx']
 // Exceção: o mapa antigo é de outra sessão (editor novo em /producer/lugar-marcado-v2) e sai com ele.
