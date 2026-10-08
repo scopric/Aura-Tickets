@@ -1,11 +1,11 @@
 -- pgTAP de docs/sql/20261030a_venda_servidor_meia.sql. Só no banco local descartável: aplicar antes os de docs/sql até
--- 20261030a (e os anteriores, 20261028_limite_por_cpf inclusive; precisa de pr7_hmac e do segredo pr7_pii_key no Vault local)
+-- 20261030a (e os anteriores, 20261028_limite_por_cpf e o passo 2 do PR 7 (20261007_pr7_cripto_passo2: pr7_anonimizar_pii) inclusive; precisa de pr7_hmac e do segredo pr7_pii_key no Vault local)
 -- e rodar `supabase test db`. Tudo em begin ... rollback. Nunca contra produção. NÃO precisa do arquivo B.
 -- CPFs FICTÍCIOS, válidos só pelo algoritmo dos dígitos: 529.982.247-25, 111.444.777-35.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(88);
+select plan(91);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -364,6 +364,15 @@ select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000004');
 select lives_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, 'admin (com MFA) destrava a conta');
 select pg_temp.como('postgres');
 select is((select cpf_compra_hmac from public.profiles where id = 'fd000000-0000-4000-8000-000000000002'), null, 'cpf_compra_hmac zerado pelo suporte');
+
+-- 14. Anonimização da conta zera o CPF preso (pr7_anonimizar_pii de produção + 1 linha)
+select pg_temp.como('postgres');
+update public.profiles set cpf_compra_hmac = repeat('a', 64) where id = 'fd000000-0000-4000-8000-000000000003';
+select lives_ok($$select public.pr7_anonimizar_pii('fd000000-0000-4000-8000-000000000003')$$, 'pr7_anonimizar_pii roda');
+select is((select cpf_compra_hmac from public.profiles where id = 'fd000000-0000-4000-8000-000000000003'), null, 'conta anonimizada: cpf_compra_hmac zerado');
+select ok(position('cpf_compra_hmac (20261030)' in pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure)) > 0
+  and not has_function_privilege('authenticated', 'public.pr7_anonimizar_pii(uuid)', 'execute') and has_function_privilege('service_role', 'public.pr7_anonimizar_pii(uuid)', 'execute'),
+  'pr7_anonimizar_pii com a marca e só service_role executa');
 
 select * from finish();
 rollback;

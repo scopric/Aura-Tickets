@@ -11,9 +11,9 @@
 -- motivo:'cpf_da_conta'} com mensagem fixa que não diz qual é o CPF. A conferência da conta vem ANTES de qualquer consulta a
 -- orders por CPF, então uma conta travada só consegue testar o CPF dela. O suporte destrava com admin_limpar_cpf_compra(uid).
 -- Risco que resta: quem cria contas novas prende um CPF de terceiro em cada uma (1 sonda por conta); o limite por IP/Edge
--- Function continua pendente (20261028). A coluna não é lida nem escrita por anon/authenticated; a anonimização da conta
--- (pr7_anonimizar_pii, 20261007) AINDA NÃO zera a coluna: falta `update public.profiles set cpf_compra_hmac = null`
--- nela (não recriada aqui). Mudanças:
+-- Function continua pendente (20261028). A coluna não é lida nem escrita por anon/authenticated. A anonimização da conta (pr7_anonimizar_pii, texto de produção em
+-- 20261007_pr7_cripto_passo2.sql, md5 21483c3e…) é recriada aqui com UMA linha a mais que zera profiles.cpf_compra_hmac (marca
+-- 'cpf_compra_hmac (20261030)'). Pré-requisito: o passo 2 do PR 7 aplicado (a checagem prévia aborta sem ele). Mudanças:
 -- 1. Colunas: ticket_types.permite_meia (padrão true; UPDATE para authenticated: o produtor liga e desliga); order_items.beneficio
 --    ('inteira'|'meia'), meia_tipo, taxa_unit; orders.reservado_ate. tickets NÃO ganha coluna: a portaria lê o benefício por
 --    order_item_id. Tabela beneficios_uf (benefício estadual por UF), vazia, RLS ligada, SELECT para anon.
@@ -93,6 +93,12 @@ begin
      or to_regprocedure('public.tipo_no_mapa(uuid)') is null or to_regprocedure('public.evento_acesso(uuid)') is null
      or to_regprocedure('public.mesa_pedido_guard()') is null then
     raise exception 'faltam pr7_hmac, gf_mfa_ok, tipo_no_mapa, evento_acesso ou mesa_pedido_guard';
+  end if;
+  if to_regprocedure('public.pr7_anonimizar_pii(uuid)') is null then
+    raise exception 'falta pr7_anonimizar_pii (20261007_pr7_cripto_passo2)';
+  end if;
+  if md5(pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure)) not in ('21483c3e14d146da97a2726ec6230244', 'a76ffc7d7b2f3891b0429dfb60e0eedf') then
+    raise exception 'pr7_anonimizar_pii mudou desde a leitura de produção (md5 %): refazer a partir da definição atual', md5(pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure));
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'orders_cpf_hash' and tgrelid = 'public.orders'::regclass) then
     raise exception 'falta o gatilho orders_cpf_hash (20261028_limite_por_cpf)';
@@ -472,6 +478,23 @@ $function$;
 revoke execute on function public.confirmar_pedido_gratis(uuid) from public, anon, authenticated;
 grant execute on function public.confirmar_pedido_gratis(uuid) to authenticated;
 
+-- 4b. Anonimização da conta (texto de produção + zerar cpf_compra_hmac) ----------------------------------------------------
+create or replace function public.pr7_anonimizar_pii(p_uid uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.producer_profiles
+    set cnpj_enc = null, cnpj_hmac = null, pix_key_enc = null, bank_account_enc = public.pr7_enc('{}')
+    where id = p_uid;
+  update public.withdrawals
+    set pix_key_enc = null, bank_account_enc = public.pr7_enc('{}')
+    where producer_id = p_uid;
+  update public.platform_affiliates set cpf_enc = null, cpf_hmac = null where user_id = p_uid;
+  update public.profiles set cpf_enc = null where id = p_uid;
+  update public.profiles set cpf_compra_hmac = null where id = p_uid; -- cpf_compra_hmac (20261030)
+end $$;
+revoke all on function public.pr7_anonimizar_pii(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.pr7_anonimizar_pii(uuid) to service_role;
+
 -- 5. Vitrine ------------------------------------------------------------------------------------------------------------
 -- Mesma conta do guard, só leitura. Preço/taxa em reais; disponiveis e meias_disponiveis nulos = tipo sem lotação (sem teto).
 create or replace function public.vitrine_ingressos(p_event_id uuid)
@@ -816,6 +839,11 @@ begin
      or not (select relrowsecurity from pg_class where oid = 'public.tentativas_reserva'::regclass) then
     raise exception 'privilégios de pedido_do_navegador, tentativas_reserva ou UPDATE de orders/order_items fora do esperado';
   end if;
+  if position('cpf_compra_hmac (20261030)' in pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure)) = 0
+     or not has_function_privilege('service_role', 'public.pr7_anonimizar_pii(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.pr7_anonimizar_pii(uuid)', 'execute') or has_function_privilege('anon', 'public.pr7_anonimizar_pii(uuid)', 'execute') then
+    raise exception 'pr7_anonimizar_pii sem a marca ou com EXECUTE fora do esperado (só service_role)';
+  end if;
   foreach r in array array['anon', 'authenticated'] loop
     foreach f in array array['select', 'insert', 'update'] loop
       if has_column_privilege(r, 'public.profiles', 'cpf_compra_hmac', f) then raise exception '% tem % em profiles.cpf_compra_hmac', r, f; end if;
@@ -856,6 +884,7 @@ commit;
 --   alter table public.orders drop column if exists reservado_ate;
 --   alter table public.order_items drop column if exists meia_tipo, drop column if exists taxa_unit, drop column if exists beneficio;
 --   alter table public.ticket_types drop column if exists permite_meia;
+--   (pr7_anonimizar_pii: recriar com o texto de produção, md5 21483c3e…)
 --   drop function if exists public.admin_limpar_cpf_compra(uuid); alter table public.profiles drop column if exists cpf_compra_hmac;
 --   drop table if exists public.tentativas_reserva; drop function if exists public.pedido_do_navegador(uuid);
 --   drop trigger if exists ticket_types_sem_meia_mesa on public.ticket_types; drop function if exists public.ticket_types_sem_meia_mesa();
