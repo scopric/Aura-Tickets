@@ -31,10 +31,19 @@ const criar = (extra: Record<string, unknown> = {}, items: any[] = ITENS) => {
 describe('useCheckout: criar pedido pela reservar_ingressos', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('p_itens não leva null em lugar nenhum (o servidor recusa meia_tipo null com "Item inválido")', async () => {
+    mockRpc()
+    await criar({}, [{ ticket_type_id: 'tt_1', quantity: 1 }, { ticket_type_id: 'tt_1', quantity: 1, beneficio: 'meia', meia_tipo: 'pcd' }])
+    const itens = (reservou()![1] as { p_itens: unknown[] }).p_itens
+    expect(JSON.stringify(itens)).not.toContain('null')
+    expect(itens[0]).not.toHaveProperty('meia_tipo')
+    expect(itens[1]).toHaveProperty('meia_tipo', 'pcd')
+  })
+
   it('chama a rpc com p_itens (quantidade, beneficio, meia_tipo) e devolve os valores do servidor e o prazo', async () => {
     mockRpc()
     const o = await criar()
-    expect(reservou()![1]).toEqual({ p_event_id: 'event_123', p_itens: [{ ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'inteira', meia_tipo: null }], p_cupom: null, p_cpf: null })
+    expect(reservou()![1]).toEqual({ p_event_id: 'event_123', p_itens: [{ ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'inteira' }], p_cupom: null, p_cpf: null })
     expect(o).toMatchObject({ id: 'order_new', total: 110, subtotal: 100, desconto: 0, taxa: 10, customer_email: 'a@b.com' })
     expect(o.venceEm - Date.now()).toBeGreaterThan(599_000) // reservado_ate - agora = 10 min, no relógio daqui
     expect(o.venceEm - Date.now()).toBeLessThanOrEqual(600_000)
@@ -44,7 +53,7 @@ describe('useCheckout: criar pedido pela reservar_ingressos', () => {
     mockRpc()
     await criar({ cupom: ' VERAO ' }, [{ ticket_type_id: 'tt_1', quantity: 1 }, { ticket_type_id: 'tt_1', quantity: 2, beneficio: 'meia', meia_tipo: 'estudante' }])
     expect(reservou()![1]).toMatchObject({
-      p_itens: [{ ticket_type_id: 'tt_1', quantidade: 1, beneficio: 'inteira', meia_tipo: null }, { ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'meia', meia_tipo: 'estudante' }],
+      p_itens: [{ ticket_type_id: 'tt_1', quantidade: 1, beneficio: 'inteira' }, { ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'meia', meia_tipo: 'estudante' }],
       p_cupom: 'VERAO',
     })
   })
