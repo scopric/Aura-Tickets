@@ -515,6 +515,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           ings={ings} setIngs={setIngs} sujo={ingSujo} salvando={salvandoIng} tentou={tentouIng || mostrarFaltas} faltam={faltam} onSalvar={() => void salvarIngressos()}
           onRemover={g => { if (!g.novo) setRemovidos(r => [...r, g.id]); setIngs(l => l.filter(i => i.id !== g.id)) }}
           onAlternar={g => void alternarIngresso(g)} alternando={alternando} classificacao={form.classificacao} aDefinir={form.local_modo === 'a_definir'} fimEvento={fimEvento}
+          previa={{ eventoId: evento.id, corEvento: form.accent_color, titulo: form.title, data: form.inicioD, hora: form.inicioH, local: form.local_modo === 'online' ? 'Online' : form.venue_name }}
         />
       )
       case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} faltam={faltam} />
