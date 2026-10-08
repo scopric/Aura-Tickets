@@ -72,7 +72,7 @@ describe('campo do Scanner', () => {
     const u = userEvent.setup()
     render(<MemoryRouter><ProducerCheckIn /></MemoryRouter>)
     const campo = screen.getByLabelText('Código do ingresso')
-    expect(campo).toHaveAttribute('placeholder', expect.stringContaining(EXEMPLO_CODIGO))
+    expect(campo).toHaveAttribute('placeholder', 'Leia o QR ou digite o código do ingresso')
 
     await u.type(campo, UUID.slice(0, 35))
     expect(invoke).not.toHaveBeenCalled()
@@ -121,5 +121,26 @@ describe('campo do Scanner', () => {
     await u.type(screen.getByLabelText('Código do ingresso'), 'ABC123{Enter}')
     await waitFor(() => expect(screen.getByText('Inválido')).toBeInTheDocument())
     expect(invoke).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('QR dinâmico (Decisão 211)', () => {
+  const ID = '3f2504e04f8941d39a0c0305e82c3301'
+  const DIN = `E1.${ID}.ABCDEF23`
+  it('E1.<id>.<código> é código completo e é normalizado (id minúsculo, código maiúsculo)', () => {
+    expect(codigoCompleto(DIN)).toBe(true)
+    expect(codigoCompleto(`  ${DIN}\r\n`)).toBe(true)
+    expect(normalizarCodigo(` e1.${ID.toUpperCase()}.abcdef23 `)).toBe(DIN)
+    expect(codigoCompleto(DIN.slice(0, -1))).toBe(false)
+    expect(codigoCompleto(`E2.${ID}.ABCDEF23`)).toBe(false)
+    expect(codigoCompleto(`E1.${ID}.ABCDEF18`)).toBe(false) // 1 e 8 não existem em base32
+  })
+  it('mensagens: QR vencido, QR fixo aposentado e leituras demais têm rótulo próprio', () => {
+    expect(motivoLeitura({ http: 404, valid: false, message: 'Código inválido ou vencido. Peça para atualizar o QR na tela do celular.' }).rotulo).toBe('QR vencido')
+    expect(motivoLeitura({ http: 200, valid: false, message: 'Este código fixo não vale mais. Peça para o participante abrir o QR no app.' }).rotulo).toBe('Use o QR do app')
+    const demais = motivoLeitura({ http: 429, valid: false, message: 'Muitas leituras seguidas. Espere um instante.' })
+    expect(demais.rotulo).toBe('Leituras demais')
+    expect(demais.falha).toBe(true)
+    expect(motivoLeitura({ http: 404, valid: false, message: 'Ingresso não encontrado ou inválido para este evento' }).rotulo).toBe('Inválido')
   })
 })

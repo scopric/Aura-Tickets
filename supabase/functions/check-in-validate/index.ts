@@ -5,11 +5,43 @@
 // Pode operar: o produtor do evento, membro aceito da equipe dele com papel admin ou editor
 // (team_members) ou admin da plataforma com manage_tickets (gf_admin_can: admin só com 2FA e o código).
 // Conta com 2FA: só com o código.
-// Respostas: 200 { valid, message, ... } (inclusive "já utilizado"); 404 ingresso não encontrado;
-// 400 corpo inválido; 401 sem login; 403 sem permissão ou sem o código do 2FA.
+// Dois formatos de código: o QR dinâmico "E1.<id>.<código>" (muda a cada 30 s; vale a janela atual ±1, ~90 s; Decisão 211) e o UUID fixo
+// de antes (tickets.qr_code), que só vale enquanto o ingresso não passou a usar o dinâmico (tickets.qr_dinamico_desde) e QR_FIXO_ACEITO estiver ligado.
+// Respostas: 200 { valid, message, ... } (inclusive "já utilizado"); 404 ingresso não encontrado ou código inválido/vencido;
+// 400 corpo inválido; 401 sem login; 403 sem permissão ou sem o código do 2FA; 429 leituras demais.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { corsHeaders } from '../_shared/cors.ts'
+import { lerQr, verificar } from '../_shared/ingressoCodigo.ts'
 import { adminCan, mfaOk } from '../_shared/mfa.ts'
+
+// Quando o Ricardo decidir, false = só o QR dinâmico entra (o UUID fixo deixa de valer para todos os ingressos).
+const QR_FIXO_ACEITO = true
+const MSG_FIXO = 'Este código fixo não vale mais. Peça para o participante abrir o QR no app.'
+const MSG_VENCIDO = 'Código inválido ou vencido. Peça para atualizar o QR na tela do celular.'
+
+// ponytail: contadores em memória por instância da função (primeira barreira contra palpite em série; 40 bits por janela já tornam isso inviável).
+// Se virar problema real, mover para o banco. Cada mapa guarda { n, desde } por chave.
+// Por operador conta toda leitura; por ingresso conta só FALHA (leitura válida não gasta o limite: a portaria legítima nunca se bloqueia).
+const OPERADOR_POR_MIN = 120, INGRESSO_POR_MIN = 10, JANELA_MS = 60_000
+const operadores = new Map<string, { n: number; desde: number }>()
+const ingressos = new Map<string, { n: number; desde: number }>()
+function dentro(mapa: Map<string, { n: number; desde: number }>, chave: string, limite: number): boolean {
+  const agora = Date.now()
+  if (mapa.size > 5000) for (const [k, v] of mapa) if (agora - v.desde > JANELA_MS) mapa.delete(k)
+  const v = mapa.get(chave)
+  if (!v || agora - v.desde > JANELA_MS) { mapa.set(chave, { n: 1, desde: agora }); return true }
+  return ++v.n <= limite
+}
+const bloqueado = (mapa: Map<string, { n: number; desde: number }>, chave: string, limite: number) => {
+  const v = mapa.get(chave)
+  return !!v && Date.now() - v.desde <= JANELA_MS && v.n >= limite
+}
+function anotarFalha(mapa: Map<string, { n: number; desde: number }>, chave: string) {
+  const agora = Date.now()
+  const v = mapa.get(chave)
+  if (!v || agora - v.desde > JANELA_MS) mapa.set(chave, { n: 1, desde: agora })
+  else v.n++
+}
 
 Deno.serve(async (req) => {
   const cors = corsHeaders(req)
@@ -25,6 +57,7 @@ Deno.serve(async (req) => {
   const { data: { user } } = await admin.auth.getUser(token)
   if (!user) return json(401, { error: 'Faça login para fazer o check-in.' })
   if (!(await mfaOk(req))) return json(403, { error: 'Confirme o código do 2FA (saia e entre de novo).' })
+  if (!dentro(operadores, user.id, OPERADOR_POR_MIN)) return json(429, { error: 'Muitas leituras seguidas. Espere um instante.' })
 
   let qrCode = '', eventId = ''
   try {
@@ -61,11 +94,34 @@ Deno.serve(async (req) => {
   }
   if (!pode) return json(403, { error: 'Você não tem permissão para fazer check-in neste evento.' })
 
-  const { data: ticket, error: ticketError } = await admin.from('tickets')
-    .select('id, user_id, status, checked_in_at, buyer_name, ticket_types(name)')
-    .eq('qr_code', qrCode).eq('event_id', eventId).maybeSingle()
+  // QR dinâmico (E1.<id>.<código>) busca pelo id; o UUID fixo busca por qr_code.
+  // O limite por ingresso é por EVENTO + ingresso: quem não opera este evento (já barrado acima) nunca gasta o limite da portaria legítima.
+  const dinamico = lerQr(qrCode)
+  const chaveIng = dinamico ? `${eventId}:${dinamico.ticketId}` : ''
+  if (dinamico && bloqueado(ingressos, chaveIng, INGRESSO_POR_MIN)) return json(429, { error: 'Muitas leituras deste ingresso. Espere um instante.' })
+  const consulta = admin.from('tickets')
+    // '*' de propósito: se o SQL 20261031c ainda não foi aplicado, qr_dinamico_desde vem undefined e o QR fixo segue valendo como hoje (a função
+    // não devolve o registro). Com colunas nomeadas, a coluna ausente derrubaria o check-in de todo mundo com 500.
+    .select('*, ticket_types(name)')
+    .eq('event_id', eventId)
+  const { data: ticket, error: ticketError } = await (dinamico ? consulta.eq('id', dinamico.ticketId) : consulta.eq('qr_code', qrCode)).maybeSingle()
   if (ticketError) return falhou('ingresso', ticketError.message)
-  if (!ticket) return json(404, { valid: false, message: 'Ingresso não encontrado ou inválido para este evento' })
+  // Mesma resposta para ingresso que não existe, de outro evento ou com código errado/vencido: nada de oráculo.
+  if (dinamico) {
+    if (!ticket) { anotarFalha(ingressos, chaveIng); return json(404, { valid: false, message: MSG_VENCIDO }) }
+    const segredo = Deno.env.get('INGRESSO_SEGREDO') ?? ''
+    if (segredo.length < 32) return falhou('segredo', 'INGRESSO_SEGREDO ausente ou curto')
+    if (!(await verificar(segredo, ticket.id, ticket.transfer_count, dinamico.codigo, Date.now()))) {
+      anotarFalha(ingressos, chaveIng)
+      console.warn('[check-in-validate] código dinâmico inválido', { operador: user.id, ingresso: ticket.id }) // nunca o código
+      return json(404, { valid: false, message: MSG_VENCIDO })
+    }
+    ingressos.delete(chaveIng) // código certo: zera as falhas deste ingresso
+  } else {
+    if (!ticket) return json(404, { valid: false, message: 'Ingresso não encontrado ou inválido para este evento' })
+    // QR fixo: vale só até o dono abrir o dinâmico (e só enquanto o Ricardo mantiver QR_FIXO_ACEITO)
+    if (!QR_FIXO_ACEITO || ticket.qr_dinamico_desde) return json(200, { valid: false, message: MSG_FIXO })
+  }
 
   if (ticket.status === 'used') {
     return json(200, { valid: false, message: 'Ingresso já foi utilizado.', checkedInAt: ticket.checked_in_at, buyerName: ticket.buyer_name })

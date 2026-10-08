@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { useEventosDaEquipe } from '../../hooks/useEventosDaEquipe'
-import { codigoCompleto, codigoCurto, EXEMPLO_CODIGO, LEITURA_CODIGO_CURTO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
+import { codigoCompleto, codigoCurto, LEITURA_CODIGO_CURTO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
 
 interface TicketCheck {
   id: string
@@ -391,7 +391,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                   aria-label="Código do ingresso"
                   value={search}
                   onChange={e => {
-                    // Valida sozinho só quando o código tem o formato real (36 caracteres); antes disso, só com Enter
+                    // Valida sozinho só quando o código tem o formato real (uuid de 36 caracteres ou QR dinâmico E1 de 44); antes disso, só com Enter
                     if (codigoCompleto(e.target.value)) {
                       handleScan(normalizarCodigo(e.target.value))
                       setSearch('')
@@ -403,7 +403,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                       setSearch('')
                     }
                   }}
-                  placeholder={`Código do ingresso (ex: ${EXEMPLO_CODIGO})`}
+                  placeholder="Leia o QR ou digite o código do ingresso"
                   className="mx-auto h-14 max-w-md text-center font-mono text-base tracking-wide md:text-base"
                 />
               </div>
