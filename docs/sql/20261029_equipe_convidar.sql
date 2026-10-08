@@ -16,8 +16,9 @@
 -- 3) Insert direto em team_members sai (regra team_members_dono_insert e grant de insert de authenticated): permitia
 --    gravar vínculo com qualquer user_id (até admin) sem as guardas. Nada no app nem nas funções insere direto
 --    (conferido com grep em app/src e supabase/functions em 07/10/2026). Update e delete do dono continuam.
--- RISCO RESIDUAL (decisão do Ricardo): gf_mfa_ok aceita conta SEM fator de 2FA; só quem tem fator precisa do código
--- nesta sessão. Produtor sem 2FA convida e vê a equipe. Exigir fator do produtor é decisão de produto, não deste arquivo.
+-- RISCO RESIDUAL: gf_mfa_ok aceita conta SEM fator de 2FA; só quem tem fator precisa do código nesta sessão. Nesta versão,
+-- produtor sem 2FA convida e vê a equipe. Fechado para CONVIDAR por 20261030c_equipe_convite_email.sql (Decisão 191: fator
+-- confirmado e aal2); team_lista continua como aqui.
 -- Como aplicar: ensaiar com ROLLBACK, depois colar inteiro no SQL Editor (UTF-8 via pbcopy, nunca TextEdit).
 -- Uma transação, idempotente. Aplicar ANTES de mesclar o front. Testes: supabase/tests/team_convidar.test.sql.
 -- NÃO mover para supabase/migrations/.

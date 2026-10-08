@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validarContato, validarEmail } from "../_shared/validar.ts";
 import { colors, emailShell, escapeHtml, limitarPorIp, sendMail } from "../_shared/email.ts";
-import { adminCan } from "../_shared/mfa.ts";
+import { adminCan, comoQuemChamou } from "../_shared/mfa.ts";
+import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -228,7 +229,7 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
 // Tipos que só existem para mandar e-mail: sem RESEND_API_KEY, 503 antes de qualquer efeito (inclusive
 // antes de marcar a flag do boas-vindas). `contact` grava a mensagem mesmo assim; `newsletter_subscribe` e
 // `unsubscribe` não mandam e-mail.
-const MANDA_EMAIL = ["welcome", "signup_notification", "newsletter", "order_confirmation", "ticket_delivery"];
+const MANDA_EMAIL = ["welcome", "signup_notification", "newsletter", "order_confirmation", "ticket_delivery", "team_invite"];
 
 // Comparação em tempo constante (SHA-256 dos dois lados, byte a byte): mesma do chat-notify.
 async function mesmoSegredo(a: string, b: string) {
@@ -417,6 +418,35 @@ serve(async (req) => {
         console.error(`[${emailType}] envio falhou:`, e.message);
         return json({ error: "Não foi possível enviar o e-mail." }, 502);
       }
+    }
+
+    // CONVITE DA EQUIPE (emailType: 'team_invite') — o TeamManager chama logo depois de team_convidar. Não recebe destinatário,
+    // id nem texto: o banco (team_convite_email_reservar, com o JWT de quem chamou) diz quem receber, só vínculos pendentes
+    // DESTE produtor, convidados nos últimos 10 min e uma vez por par a cada 7 dias (docs/sql/20261030c_equipe_convite_email.sql).
+    // Exige 2FA lá. A reserva já conta como enviada; só a falha desfaz (com a marca da reserva), então um resultado perdido
+    // não reenvia. Resposta só {ok, enviados}/{ok:false}; o log não tem endereço nem o texto da Resend (ela costuma repeti-lo).
+    if (emailType === "team_invite") {
+      const caller = await getCaller(req);
+      if (!caller) return json({ ok: false }, 401);
+      const { data: fila, error: filaError } = await comoQuemChamou(req).rpc("team_convite_email_reservar");
+      if (filaError) {
+        console.error("[team_invite] reservar falhou:", filaError.code);
+        return json({ ok: false }, filaError.code === "42501" ? 403 : 500);
+      }
+      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      // Em paralelo (no máximo 5 convites): um por vez estouraria o tempo da função se a Resend demorar.
+      const resultados = await Promise.allSettled(((fila ?? []) as { user_id: string; email: string; role: string; produtor: string; reserva: string }[]).map(async (c) => {
+        try {
+          const { subject, html } = montarConviteEquipe(c.produtor, c.role, APP_URL);
+          await sendMail(c.email, subject, html, from);
+        } catch (e) {
+          const { error } = await admin.rpc("team_convite_email_resultado", { p_producer: caller.id, p_user: c.user_id, p_reserva: c.reserva, p_ok: false });
+          if (error) console.error("[team_invite] resultado falhou:", error.code);
+          throw e;
+        }
+      }));
+      const enviados = resultados.filter((r) => r.status === "fulfilled").length;
+      return enviados < resultados.length ? json({ ok: false }, 502) : json({ ok: true, enviados });
     }
 
     // FORMULÁRIO DE CONTATO (emailType: 'contact') — canal público, sem login. Também não

@@ -1,4 +1,4 @@
--- pgTAP de docs/sql/20261029_equipe_convidar.sql. Banco com o baseline + docs/sql até este arquivo; `supabase test db`.
+-- pgTAP de docs/sql/20261029_equipe_convidar.sql (com a guarda de 2FA de 20261030c_equipe_convite_email.sql). Banco com o baseline + docs/sql até este arquivo; `supabase test db`.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
@@ -14,13 +14,15 @@ end $f$;
 grant execute on function pg_temp.como(text, uuid, text) to anon, authenticated;
 grant execute on all functions in schema extensions to anon, authenticated;
 
--- 01 produtor (com fator), 02 participante, 03 colaborador da Evokaa (admin), 04 participante,
+-- 01, 05 e 11 produtores (todos com fator verificado: convidar exige 2FA, 20261030c), 02 participante, 03 colaborador da Evokaa (admin), 04 participante,
 -- 05 outro produtor, 06..10 participantes, 11 produtor para o limite de tentativas
 insert into auth.users (id, email, raw_user_meta_data)
 select ('f3000000-0000-4000-8000-0000000000' || n)::uuid, 'u' || n || '@teste-convidar.local', '{}'
 from unnest(array['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11']) n;
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
-values ('f3000000-0000-4000-9000-000000000001', 'f3000000-0000-4000-8000-000000000001', 'teste', 'totp', 'verified', now(), now());
+values ('f3000000-0000-4000-9000-000000000001', 'f3000000-0000-4000-8000-000000000001', 'teste', 'totp', 'verified', now(), now()),
+  ('f3000000-0000-4000-9000-000000000005', 'f3000000-0000-4000-8000-000000000005', 'teste', 'totp', 'verified', now(), now()),
+  ('f3000000-0000-4000-9000-000000000011', 'f3000000-0000-4000-8000-000000000011', 'teste', 'totp', 'verified', now(), now());
 update public.profiles set role = 'producer' where id in ('f3000000-0000-4000-8000-000000000001', 'f3000000-0000-4000-8000-000000000005', 'f3000000-0000-4000-8000-000000000011');
 update public.profiles set role = 'admin', admin_permissions = array['manage_users']::text[] where id = 'f3000000-0000-4000-8000-000000000003';
 
