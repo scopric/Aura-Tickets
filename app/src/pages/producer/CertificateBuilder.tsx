@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useLogoProdutor } from '../../hooks/useLogoProdutor'
 import { PageHeader, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,7 +78,16 @@ export default function CertificateBuilder() {
   const [accentColor, setAccentColor] = useState<string | null>(null) // null = cor do modelo
   const [fields, setFields] = useState<CertField[]>(defaultFields)
   const [selectedField, setSelectedField] = useState<string | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null) // logo própria deste modelo (envio feito aqui); null = usa a do organizador
+  // Logo salva em Configurações > Organizador: vale quando o modelo não tem logo própria. Ao salvar o modelo ela é gravada nele,
+  // para o certificado já emitido não mudar se o organizador trocar a logo depois.
+  const { logo: logoOrganizador } = useLogoProdutor()
+  const logoSalva = logoOrganizador.data ?? null
+  const logoEfetiva = logoUrl ?? logoSalva
+  // Modelo salvo guarda a URL da logo do organizador da época: qualquer arquivo do bucket logos-produtor é "do organizador", não logo própria
+  const doOrganizador = (u: string | null) => !!u && u.includes('/storage/v1/object/public/logos-produtor/')
+  const logoPropria = !!logoUrl && !doOrganizador(logoUrl)
+  const logoAntiga = doOrganizador(logoUrl) && !!logoSalva && logoUrl !== logoSalva // o organizador trocou a logo depois de o modelo ser salvo
   const [sigUrl, setSigUrl] = useState<string | null>(null)
   const [previewName, setPreviewName] = useState('Ana Beatriz Silva')
   const [previewEvent, setPreviewEvent] = useState('Workshop de Design Thinking')
@@ -123,7 +133,8 @@ export default function CertificateBuilder() {
       // as never: types/database.ts desatualizado (pendência supabase gen types)
       .upsert({
         event_id: eventId,
-        template: { selectedTemplate, accentColor, fields, logoUrl, sigUrl },
+        // sem campo Logo no modelo, não grava a logo do organizador (o produtor tirou a logo do certificado)
+        template: { selectedTemplate, accentColor, fields, logoUrl: fields.some(f => f.type === 'logo') ? logoEfetiva : logoUrl, sigUrl },
         is_active: true,
       } as never, { onConflict: 'event_id' })
       .select('id')
@@ -187,7 +198,8 @@ export default function CertificateBuilder() {
 
   const selected = fields.find(f => f.id === selectedField)
   // com `loading` o botão não fica `disabled` (senão cinza e sem spinner); o loading já bloqueia o clique
-  const podeSalvar = !!eventId && carregadoPara === eventId
+  // espera também a logo do organizador: salvar antes dela chegar gravaria o modelo sem logo
+  const podeSalvar = !!eventId && carregadoPara === eventId && !logoOrganizador.isLoading
 
   const header = (
     <PageHeader
@@ -278,8 +290,17 @@ export default function CertificateBuilder() {
                 <Label htmlFor="upload-logo-input" className="mb-1.5 text-xs text-muted-foreground">Logo do evento</Label>
                 <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => fileInputRef.current?.click()}>
-                  {logoUrl ? <img src={logoUrl} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
+                  {logoEfetiva ? <img src={logoEfetiva} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
                 </Button>
+                {(logoPropria || logoAntiga) && logoSalva && (
+                  <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-1 text-xs" onClick={() => setLogoUrl(null)}>{logoAntiga ? 'Usar a logo atual do organizador' : 'Usar a logo do organizador'}</Button>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {logoPropria ? 'Logo enviada só para este modelo.'
+                    : logoAntiga ? 'Logo do organizador guardada neste modelo (a de Configurações mudou depois).'
+                    : logoSalva ? <>Usando a logo salva em <Link to="/producer/settings" className="underline underline-offset-2">Configurações &gt; Organizador</Link>. Envie outra para trocar só aqui.</>
+                    : <>Salve a logo em <Link to="/producer/settings" className="underline underline-offset-2">Configurações &gt; Organizador</Link> e ela aparece aqui; salve o modelo para guardá-la.</>}
+                </p>
               </div>
               <div>
                 <Label htmlFor="upload-sig-input" className="mb-1.5 text-xs text-muted-foreground">Assinatura</Label>
@@ -420,8 +441,8 @@ export default function CertificateBuilder() {
                     color: field.color,
                     width: `${field.width}%`,
                   }}>
-                  {field.type === 'logo' && logoUrl && <img src={logoUrl} alt="Logo do evento no certificado" className="mx-auto max-h-16 object-contain" />}
-                  {field.type === 'logo' && !logoUrl && <div className="text-xs text-neutral-500">LOGO</div>}
+                  {field.type === 'logo' && logoEfetiva && <img src={logoEfetiva} alt="Logo do evento no certificado" className="mx-auto max-h-16 object-contain" />}
+                  {field.type === 'logo' && !logoEfetiva && <div className="text-xs text-neutral-500">LOGO</div>}
                   {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do produtor no certificado" className="mx-auto max-h-10 object-contain" />}
                   {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
                   {field.type === 'qrcode' && <I.Qr size={48} className="text-white" aria-hidden="true" />}
