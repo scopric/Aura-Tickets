@@ -2,20 +2,23 @@
 -- Meia-entrada por categoria (decisão do Ricardo, 08/10/2026; PR A, só SQL). Ramo feat/meia-estadual.
 -- O que faz:
 --   1. beneficios_uf: 11 categorias estaduais (ES, PE, SP, PR, BA, SC, PB), idempotente (on conflict do update).
---   2. reservar_ingressos e reservar_assentos: só acrescentam 'idoso' à lista dos nacionais (resto igual à produção).
+--   2. reservar_ingressos e reservar_assentos: acrescentam 'idoso' à lista dos nacionais; em reservar_assentos o idoso também não é barrado
+--      por "lotação 0 = sem meia" (igual ao gatilho). Idoso segue barrado em mesa, coletiva, grátis e permite_meia=false. Resto igual à produção.
 --   3. order_items_estoque_guard: o IDOSO FICA FORA da cota de 40% (a cota, a recusa "Restam % meias" e a regra "lotação 0 = sem meia"
 --      valem só para meia_tipo diferente de 'idoso'; o idoso conta no estoque total e respeita permite_meia, mesa e coletiva; como não
 --      usa as vagas guardadas à cota, a vaga do idoso sai do mesmo saldo da inteira).
 --      PONTO A CONFIRMAR PELO JURÍDICO: é interpretação. A Lei 12.933/2013, art. 1º, § 10, limita a 40% as meias de estudante, pessoa
 --      com deficiência e jovem; o idoso vem do Estatuto (Lei 10.741/2003, art. 23). Fontes não reabertas nesta sessão: [?].
+--      RISCO DE RECEITA: idoso fora da cota = meia por declaração, sem teto, até haver portaria. Aceitar ou não é decisão do Ricardo;
+--      confirmar o enquadramento é do jurídico.
 --      Se o jurídico disser que o idoso entra na cota, basta tirar o filtro `meia_tipo is distinct from 'idoso'` nos 4 lugares
 --      marcados "idoso fora da cota" no gatilho, e nos 2 da vitrine (meias e a cota).
 --   4. vitrine_ingressos (mesma assinatura): lugar marcado volta a ter meia (tirou `not tipo_no_mapa` de meia_ok e da cota); em lugar
 --      marcado a reserva da cota não é descontada de `disponiveis` (igual ao gatilho: lá v_reserva = 0); idoso fora da contagem de meias.
 --   5. meia_beneficios(p_event_id) nova: lista [{codigo, nome, documento, cota}] para o comprador (5 nacionais + os da UF do evento).
 -- ORDEM: depois de 20261031_taxa_meia_sem_piso.sql e 20261101_pagbank_base.sql. Pré-requisito conferido no bloco 0: as 3 funções são
---   as de produção de 08/10/2026 (md5 de pg_get_functiondef) OU já as desta versão (re-executável). O gatilho não tem md5 conferido
---   (não foi lido em produção): quem aplica deve comparar antes, se quiser.
+--   as 3 funções e o gatilho de produção de 08/10/2026 (md5 de pg_get_functiondef; gatilho 8066ba88a8803a4a0c8ffd9b342f611e) OU já os desta
+--   versão (re-executável).
 -- Como aplicar: ensaiar com ROLLBACK, depois colar inteiro no SQL Editor (UTF-8 via pbcopy, nunca TextEdit). Uma transação, pode rodar de novo.
 -- Testes: supabase/tests/meia_categorias.test.sql (só em banco local descartável).
 -- NÃO mover para supabase/migrations/.
@@ -25,13 +28,13 @@
 begin;
 set local lock_timeout = '5s';
 
--- 0. Pré-requisito: reservar_assentos, reservar_ingressos e vitrine_ingressos são as de produção (08/10/2026) ou já as desta versão.
+-- 0. Pré-requisito: reservar_assentos, reservar_ingressos, vitrine_ingressos e order_items_estoque_guard são as de produção (08/10/2026) ou já as desta versão.
 do $$
 declare
   r record;
 begin
   for r in select * from (values
-    ('public.reservar_assentos(uuid, text[], jsonb)', 'ad22829b3ced06c077eeb891d762e546', 'c26f70d2ebbbb3f60a72fef3cef9ce2b'),
+    ('public.reservar_assentos(uuid, text[], jsonb)', 'ad22829b3ced06c077eeb891d762e546', '35f303f51b974cfa74b122a68ee589d4'),
     ('public.reservar_ingressos(uuid, jsonb, text, text)', 'f0df531cc931ebf60f83cc4f5ead3154', '6dc15447ebf574b2e1b7095f5f91de80'),
     ('public.vitrine_ingressos(uuid)', 'e7d24bb295cc584f954515745b017040', '49c9caea08647f8a77a97e9063025aec')) v(f, antigo, novo) loop
     if to_regprocedure(r.f) is null then
@@ -171,7 +174,7 @@ begin
                                   join public.ticket_types tt on tt.id = r.tt
                                  where r.seat_key = e.v ->> 'seat_key' and r.stype = 'seat'
                                    and tt.permite_meia and tt.price > 0 and tt.type not in ('mesa', 'coletiva')
-                                   and (coalesce(tt.quantity_total, 0) > 0 or coalesce(tt.capacity, 0) > 0))) then -- lotação 0 = cota de 40% sem base: sem meia
+                                   and (e.v ->> 'meia_tipo' = 'idoso' or coalesce(tt.quantity_total, 0) > 0 or coalesce(tt.capacity, 0) > 0))) then -- lotação 0 = cota de 40% sem base: sem meia, exceto idoso (fora da cota; igual ao gatilho)
     raise exception 'Meia-entrada não disponível para algum dos lugares escolhidos' using errcode = '22023';
   end if;
   -- marca o tipo de meia em cada lugar (nulo = inteira)
