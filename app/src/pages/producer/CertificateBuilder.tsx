@@ -72,7 +72,8 @@ export default function CertificateBuilder() {
   const participantesQ = useParticipantesCertificado(eventId)
   const participantes = participantesQ.data?.lista ?? []
   // Logo salva em Configurações > Organizador: vale quando o modelo não tem logo própria. Ao salvar, é gravada no modelo
-  // (o certificado já emitido não muda se o organizador trocar a logo depois). Passa pelo mesmo filtro de imagem do resto.
+  // (modelo salvo com a logo mantém a da época se o organizador trocar depois; modelo nunca salvo com logo acompanha a logo atual,
+  // também ao reimprimir os emitidos: o PDF sempre usa o modelo atual). Passa pelo mesmo filtro de imagem do resto.
   const { logo: logoOrg } = useLogoProdutor()
   const logoSalva = imagemSegura(logoOrg.data ?? null)
   const logoEfetiva = logoUrl ?? logoSalva
