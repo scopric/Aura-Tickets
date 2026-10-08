@@ -277,7 +277,7 @@ export function useCreateCoupon() {
 }
 
 /** Cupons em massa (lote e CSV): blocos de 100 pelo mesmo INSERT do produtor (RLS: producer_id e evento dele).
- *  O índice de código é global (upper(code)): bloco que bate num código repetido é regravado linha a linha para achar quais. */
+ *  O código é único por produtor (upper(code), SQL 20261031d; antes era global): bloco que bate num código repetido é regravado linha a linha para achar quais. */
 export function useCreateCouponsBulk() {
   const { user } = useAuth()
   const queryClient = useQueryClient()

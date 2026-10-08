@@ -50,6 +50,8 @@ const diaLocal = (iso: string | null) => {
 const erroCupom = (e: unknown, padrao: string) => {
   const { code, message = '' } = (e ?? {}) as { code?: string; message?: string }
   if (code === '23505') return 'Esse código já existe'
+  if (code === '23514' && message.includes('coupons_code_formato')) return 'Código inválido: use de 2 a 30 letras, números, hífen ou sublinhado'
+  if (code === '23514' && message.includes('coupons_teto')) return 'Você atingiu o limite de 5000 cupons'
   if (code === '23514' && message.includes('coupons_value_chk')) return 'Valor do desconto inválido'
   if (code === '23514' && message.includes('coupons_periodo_chk')) return 'As datas do cupom são inválidas'
   if (code === '23514' && message.includes('coupons_limites_chk')) return 'O limite de pedidos é inválido'
@@ -101,6 +103,7 @@ export default function ProducerCoupons() {
     e.preventDefault()
     const code = form.code.trim().toUpperCase()
     if (!code) { toast.error('Informe o código'); return }
+    if ((!editando || code !== editando.code.toUpperCase()) && !/^[A-Z0-9][A-Z0-9_-]{1,29}$/.test(code)) { toast.error('Código inválido: use de 2 a 30 letras sem acento, números, hífen ou sublinhado, sem espaço'); return }
     const value = Number(form.value)
     // discount_value é numeric(10,2)
     if (!(value >= 0.01 && value <= 99999999.99)) { toast.error('O desconto precisa ficar entre 0,01 e 99.999.999,99'); return }
