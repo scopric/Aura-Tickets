@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { errosDeIngresso, precoDe, type Ing } from '../../../lib/painelEvento'
 import { brl, calcularTaxa } from '../../../lib/taxa'
 import { Faixa, SegmentadoComSetas, type Faltam } from './campos'
+import BotaoPrevia, { type DadosPrevia } from '../PreviaIngresso'
 
 const TIPO_FIXO: Record<string, string> = { individual: 'Individual', coletiva: 'Mesa coletiva', vip: 'VIP', mesa: 'Mesa' }
 
 // Seção "Ingressos": gravação própria ("Salvar ingressos"), separada do salvamento automático do evento.
-export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir, fimEvento, faltam }: {
+export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir, fimEvento, faltam, previa }: {
   ings: Ing[]
   setIngs: (l: Ing[]) => void
   sujo: boolean
@@ -26,6 +27,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
   aDefinir: boolean
   fimEvento?: number // instante do fim do evento (limite do fim da venda)
   faltam?: Faltam
+  previa?: DadosPrevia // dados do evento para a prévia do ingresso
 }) {
   const n = useRef(0)
   const muda = (id: string, p: Partial<Ing>) => setIngs(ings.map(i => (i.id === id ? { ...i, ...p } : i)))
@@ -142,6 +144,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
                   <Label htmlFor={`${id}-meia`} className="font-normal">Aceita meia-entrada</Label>
                 </div>
               )}
+              {previa && <span className="ml-auto"><BotaoPrevia dados={previa} tipo={g.nome} /></span>}
             </div>
             {g.tipo === 'coletiva' && classificacao !== 'A18' && (
               <Faixa tom="atencao" className="py-2">Só maiores de 18 compram a Mesa coletiva.</Faixa>
