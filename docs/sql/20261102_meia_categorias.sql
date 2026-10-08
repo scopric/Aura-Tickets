@@ -36,7 +36,8 @@ begin
   for r in select * from (values
     ('public.reservar_assentos(uuid, text[], jsonb)', 'ad22829b3ced06c077eeb891d762e546', '35f303f51b974cfa74b122a68ee589d4'),
     ('public.reservar_ingressos(uuid, jsonb, text, text)', 'f0df531cc931ebf60f83cc4f5ead3154', '6dc15447ebf574b2e1b7095f5f91de80'),
-    ('public.vitrine_ingressos(uuid)', 'e7d24bb295cc584f954515745b017040', '49c9caea08647f8a77a97e9063025aec')) v(f, antigo, novo) loop
+    ('public.vitrine_ingressos(uuid)', 'e7d24bb295cc584f954515745b017040', '49c9caea08647f8a77a97e9063025aec'),
+    ('public.order_items_estoque_guard()', '8066ba88a8803a4a0c8ffd9b342f611e', '849c0b5a80d823b269963d6f24385fbc')) v(f, antigo, novo) loop
     if to_regprocedure(r.f) is null then
       raise exception 'falta %: aplicar antes os SQL anteriores de docs/sql', r.f;
     end if;
