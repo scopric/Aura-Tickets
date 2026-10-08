@@ -25,6 +25,7 @@ export interface DbTicketType {
   min_per_order?: number // mínimo por pedido (coluna real, padrão 1)
   max_per_order?: number | null // máximo por pedido (nulo: vale 10; ver tetoPorPedido)
   max_por_cpf?: number | null // limite por CPF do comprador (nulo: sem limite)
+  permite_meia?: boolean // aceita meia-entrada (Tela 06; mesa e coletiva nunca)
   lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null
   sale_end: string | null
@@ -449,6 +450,7 @@ export function useUpdateEvent() {
           quantity_total: t.capacity ? Number(t.capacity) : 0,
           ...(t.perks ? { perks: t.perks } : {}),
           ...(t.inclui_bebida !== undefined ? { inclui_bebida: t.inclui_bebida } : {}),
+          ...(t.permite_meia !== undefined ? { permite_meia: t.permite_meia } : {}),
           ...(t.sale_start !== undefined ? { sale_start: t.sale_start } : {}),
           ...(t.sale_end !== undefined ? { sale_end: t.sale_end } : {}),
           ...(t.min_per_order !== undefined ? { min_per_order: t.min_per_order } : {}),
@@ -465,7 +467,7 @@ export function useUpdateEvent() {
           if (error) throw error
           if (data?.length !== 1) throw new Error('Não foi possível salvar um dos ingressos') // RLS que barra devolve 0 linhas sem erro
         } else {
-          novos.push({ ...campos, perks: t.perks || [], inclui_bebida: !!t.inclui_bebida, event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
+          novos.push({ ...campos, perks: t.perks || [], inclui_bebida: !!t.inclui_bebida, permite_meia: !!t.permite_meia, event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
         }
       }
 

@@ -354,7 +354,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         eventId: evento.id, event: {},
         tickets: ings.map(i => ({
           id: i.novo ? undefined : i.id, name: i.nome.trim(), price: precoDe(i.preco) ?? 0, capacity: quantidadeDe(i.qtd) ?? 0,
-          inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'], sale_start: vendaParaBanco(i.inicioVenda), sale_end: vendaParaBanco(i.fimVenda),
+          inclui_bebida: i.bebida, permite_meia: i.meia && i.tipo !== 'coletiva' && i.tipo !== 'mesa', type: i.tipo as DbTicketType['type'], sale_start: vendaParaBanco(i.inicioVenda), sale_end: vendaParaBanco(i.fimVenda),
           description: i.descricao.trim().slice(0, 500) || null, ...pedidoParaBanco(i),
         })),
       })

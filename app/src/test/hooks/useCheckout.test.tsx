@@ -12,116 +12,92 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>
 )
 
-// Preço 50, 2 ingressos: subtotal 100 + taxa 10% (5 por ingresso) = 110.
+const EVENTO = { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }
 const ITENS = [{ ticket_type_id: 'tt_1', quantity: 2 }]
-const minutosAtras = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
-const pendente = (total: number, min: number, metodo = 'pix') => ({
-  id: 'order_old', total, status: 'pending', payment_method: metodo, gateway_payment_id: 'PAY-OLD',
-  created_at: minutosAtras(min), order_items: [{ ticket_type_id: 'tt_1', quantity: 2 }],
-})
+const OK = { ok: true, order_id: 'order_new', subtotal: 100, desconto: 0, taxa: 10, total: 110, reservado_ate: '2026-10-30T12:10:00Z', agora: '2026-10-30T12:00:00Z' }
 
-// from('orders'): select().eq().eq().eq() -> pendentes; insert().select().single() -> novo pedido. from('order_items'): insert.
-function mockBanco(pendentes: unknown[], preco: number | null = 50, orderInsert: unknown = { data: { id: 'order_new', total: 110, gateway_payment_id: 'PAY-NEW' }, error: null }) {
-  const inserts: Record<string, unknown[]> = { orders: [], order_items: [] }
-  vi.mocked(supabase.from).mockImplementation(((t: string) => ({
-    select: () => { const q: any = { eq: () => q, then: (r: any) => r({ data: pendentes, error: null }) }; return q },
-    insert: (v: unknown) => { inserts[t].push(v); return { select: () => ({ single: () => Promise.resolve(orderInsert) }), then: (r: any) => r({ error: null }) } },
-  })) as any)
-  vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', price: preco }] }, error: null } as any)
-  return inserts
+// rpc: evento_publico (checagens prévias) e reservar_ingressos (a única porta de compra)
+function mockRpc(reserva: unknown = { data: OK, error: null }, ingressos: unknown[] = [{ id: 'tt_1', name: 'Pista', price: 50 }]) {
+  vi.mocked(supabase.rpc).mockImplementation(((nome: string) =>
+    Promise.resolve(nome === 'evento_publico' ? { data: { evento: EVENTO, ingressos }, error: null } : reserva)) as any)
 }
+const reservou = () => vi.mocked(supabase.rpc).mock.calls.find(c => c[0] === 'reservar_ingressos')
 
-const criar = (metodo: 'pix' | 'credit_card' = 'pix') => {
+const criar = (extra: Record<string, unknown> = {}, items: any[] = ITENS) => {
   const { result } = renderHook(() => useCreateOrder(), { wrapper })
-  return result.current.mutateAsync({ event_id: 'event_123', items: ITENS, payment_method: metodo })
+  return result.current.mutateAsync({ event_id: 'event_123', items, ...extra })
 }
 
-describe('useCheckout — criar pedido', () => {
+describe('useCheckout: criar pedido pela reservar_ingressos', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('cria pedido novo com total, subtotal e taxa calculados com o preço do banco (evento_publico)', async () => {
-    const ins = mockBanco([])
+  it('chama a rpc com p_itens (quantidade, beneficio, meia_tipo) e devolve os valores do servidor e o prazo', async () => {
+    mockRpc()
     const o = await criar()
-    expect(supabase.rpc).toHaveBeenCalledWith('evento_publico', { p_ref: 'event_123' })
-    expect(ins.orders[0]).toMatchObject({ user_id: 'user_456', subtotal: 100, service_fee: 10, total: 110, status: 'pending', payment_method: 'pix' })
-    expect(ins.order_items[0]).toEqual([{ order_id: 'order_new', ticket_type_id: 'tt_1', quantity: 2, unit_price: 50, subtotal: 100 }])
-    expect(o.id).toBe('order_new')
+    expect(reservou()![1]).toEqual({ p_event_id: 'event_123', p_itens: [{ ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'inteira', meia_tipo: null }], p_cupom: null, p_cpf: null })
+    expect(o).toMatchObject({ id: 'order_new', total: 110, subtotal: 100, desconto: 0, taxa: 10, customer_email: 'a@b.com' })
+    expect(o.venceEm - Date.now()).toBeGreaterThan(599_000) // reservado_ate - agora = 10 min, no relógio daqui
+    expect(o.venceEm - Date.now()).toBeLessThanOrEqual(600_000)
   })
 
-  it('reaproveita pedido pendente < 20 min com mesmo total, itens e forma de pagamento', async () => {
-    const ins = mockBanco([pendente(110, 5)])
-    const o = await criar()
-    expect(o.id).toBe('order_old')
-    expect(o.total_amount).toBe(110)
-    expect(ins.orders).toHaveLength(0)
+  it('1 inteira + 2 meias monta p_itens certo e manda o cupom limpo', async () => {
+    mockRpc()
+    await criar({ cupom: ' VERAO ' }, [{ ticket_type_id: 'tt_1', quantity: 1 }, { ticket_type_id: 'tt_1', quantity: 2, beneficio: 'meia', meia_tipo: 'estudante' }])
+    expect(reservou()![1]).toMatchObject({
+      p_itens: [{ ticket_type_id: 'tt_1', quantidade: 1, beneficio: 'inteira', meia_tipo: null }, { ticket_type_id: 'tt_1', quantidade: 2, beneficio: 'meia', meia_tipo: 'estudante' }],
+      p_cupom: 'VERAO',
+    })
   })
 
-  it.each([
-    ['total diferente (preço mudou)', [pendente(90, 5)]],
-    ['mais de 20 min', [pendente(110, 25)]],
-    ['outra forma de pagamento', [pendente(110, 5, 'credit_card')]],
-  ])('cria pedido novo quando %s', async (_n, pend) => {
-    const ins = mockBanco(pend)
-    const o = await criar()
-    expect(o.id).toBe('order_new')
-    expect(ins.orders).toHaveLength(1)
+  it('ok:false vira erro com a mensagem e o motivo do servidor', async () => {
+    mockRpc({ data: { ok: false, motivo: 'cupom_invalido', mensagem: 'Cupom inválido' }, error: null })
+    await expect(criar({ cupom: 'X' })).rejects.toMatchObject({ message: 'Cupom inválido', motivo: 'cupom_invalido' })
+    mockRpc({ data: { ok: false, motivo: 'indisponivel', mensagem: 'Não foi possível reservar' }, error: null })
+    await expect(criar()).rejects.toMatchObject({ message: 'Não foi possível reservar', motivo: 'indisponivel' })
   })
 
-  it('ingresso sem preço no banco dá erro e não grava nada', async () => {
-    const ins = mockBanco([], null)
-    await expect(criar()).rejects.toThrow('Ingresso sem preço')
-    expect(ins.orders).toHaveLength(0)
+  it('erro do banco (ex.: 22023) propaga com o code', async () => {
+    mockRpc({ data: null, error: { message: 'Muitas tentativas', code: '22023' } })
+    await expect(criar()).rejects.toMatchObject({ message: 'Muitas tentativas', code: '22023' })
   })
 
-  it('tipo com venda encerrada não cria pedido', async () => {
-    const ins = mockBanco([], 50)
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, sale_end: '2020-01-01T00:00:00Z' }] }, error: null } as any)
+  it('não grava nada direto em orders nem order_items', async () => {
+    mockRpc()
+    await criar()
+    expect(supabase.from).not.toHaveBeenCalled()
+  })
+
+  it('tipo com venda encerrada não chama a reservar_ingressos', async () => {
+    mockRpc(undefined, [{ id: 'tt_1', name: 'Pista', price: 50, sale_end: '2020-01-01T00:00:00Z' }])
     await expect(criar()).rejects.toThrow('Pista: Vendas encerradas')
-    expect(ins.orders).toHaveLength(0)
+    expect(reservou()).toBeUndefined()
   })
 
-  it('acima do máximo por pedido não cria pedido (pago com max_per_order)', async () => {
-    const ins = mockBanco([], 50)
-    vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, max_per_order: 1 }] }, error: null } as never)
-    await expect(criar()).rejects.toThrow('Pista: máximo de 1 por pedido')
-    expect(ins.orders).toHaveLength(0)
+  it('acima do máximo por pedido (inteira + meia somam) não reserva', async () => {
+    mockRpc(undefined, [{ id: 'tt_1', name: 'Pista', price: 50, max_per_order: 2 }])
+    await expect(criar({}, [{ ticket_type_id: 'tt_1', quantity: 1 }, { ticket_type_id: 'tt_1', quantity: 2, beneficio: 'meia', meia_tipo: 'pcd' }])).rejects.toThrow('Pista: máximo de 2 por pedido')
+    expect(reservou()).toBeUndefined()
   })
 
   describe('limite por CPF', () => {
-    const comLimite = () => vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, max_por_cpf: 2 }] }, error: null } as never)
-    const criarCom = (customer_cpf?: string) => {
-      const { result } = renderHook(() => useCreateOrder(), { wrapper })
-      return result.current.mutateAsync({ event_id: 'event_123', items: ITENS, payment_method: 'pix', customer_cpf })
-    }
+    const comLimite = [{ id: 'tt_1', name: 'Pista', price: 50, max_por_cpf: 2 }]
 
-    it('sem limite no tipo, a coluna customer_cpf não vai no insert (mesmo se a tela mandar)', async () => {
-      const ins = mockBanco([])
-      await criarCom('529.982.247-25')
-      expect(ins.orders[0]).not.toHaveProperty('customer_cpf')
+    it('sem limite no tipo, p_cpf vai null (mesmo se a tela mandar)', async () => {
+      mockRpc()
+      await criar({ customer_cpf: '529.982.247-25' })
+      expect(reservou()![1]).toMatchObject({ p_cpf: null })
     })
 
     it('com limite, manda só os dígitos do CPF', async () => {
-      const ins = mockBanco([]); comLimite()
-      await criarCom('529.982.247-25')
-      expect(ins.orders[0]).toMatchObject({ customer_cpf: '52998224725' })
+      mockRpc(undefined, comLimite)
+      await criar({ customer_cpf: '529.982.247-25' })
+      expect(reservou()![1]).toMatchObject({ p_cpf: '52998224725' })
     })
 
-    it('com limite e sem CPF, manda null (o banco recusa com a mensagem dele)', async () => {
-      const ins = mockBanco([]); comLimite()
-      await criarCom()
-      expect(ins.orders[0]).toMatchObject({ customer_cpf: null })
+    it('com limite e sem CPF, manda null (o servidor recusa com a mensagem dele)', async () => {
+      mockRpc(undefined, comLimite)
+      await criar()
+      expect(reservou()![1]).toMatchObject({ p_cpf: null })
     })
-
-    it('com limite, não reaproveita pedido pendente igual', async () => {
-      const ins = mockBanco([pendente(110, 5)]); comLimite()
-      const o = await criarCom('11144477735')
-      expect(o.id).toBe('order_new')
-      expect(ins.orders).toHaveLength(1)
-    })
-  })
-
-  it('propaga erro do banco ao criar o pedido', async () => {
-    mockBanco([], 50, { data: null, error: { message: 'Database error' } })
-    await expect(criar()).rejects.toMatchObject({ message: 'Database error' })
   })
 })
