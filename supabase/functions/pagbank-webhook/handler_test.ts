@@ -4,7 +4,9 @@ import { assinatura, handler, type Deps } from "./handler.ts";
 import { PagbankErro } from "../_shared/pagbank.ts";
 
 const TOKEN = "TOK-123456789";
-const ENV: Record<string, string> = { PAGBANK_TOKEN: TOKEN, PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" };
+const ENV: Record<string, string> = {
+  PAGBANK_TOKEN: TOKEN, PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com", SUPABASE_URL: "https://p.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "srk",
+};
 const OID = "11111111-1111-4111-8111-111111111111";
 const ORDE = "ORDE_052C2EE2-E469-47CD-8815-F0CF04D24FE6";
 const CHAR = "CHAR_63D0ADD3-AEEF-4E15-97F7-CD54DE47E3F9";
@@ -16,7 +18,7 @@ const consulta = (status = "PAID", o: Record<string, unknown> = {}) => ({
 // corpo como o PagBank manda (mesmo formato da consulta), com CPF e e-mail para provar que não vazam no log
 const CORPO = JSON.stringify({ ...consulta(), customer: { email: "ana@x.com", tax_id: "52998224725" } });
 
-function montar(o: { rpc?: string | Error; consulta?: unknown; falhaConsulta?: boolean; falhaCancel?: boolean; env?: Record<string, string> } = {}) {
+function montar(o: { rpc?: string | Error; consulta?: unknown; releitura?: unknown; falhaConsulta?: boolean; falhaCancel?: boolean; env?: Record<string, string> } = {}) {
   const pagbank: { caminho: string; init: any }[] = [];
   const rpc: Record<string, unknown>[] = [];
   const logs: string[] = [];
@@ -24,7 +26,11 @@ function montar(o: { rpc?: string | Error; consulta?: unknown; falhaConsulta?: b
     env: k => (o.env ?? ENV)[k] ?? "",
     pagbank: (caminho, init) => {
       pagbank.push({ caminho, init });
-      if (caminho.startsWith("/orders/")) return o.falhaConsulta ? Promise.reject(new PagbankErro(504, "timeout")) : Promise.resolve((o.consulta ?? consulta()) as any);
+      if (caminho.startsWith("/orders/")) {
+        if (o.falhaConsulta) return Promise.reject(new PagbankErro(504, "timeout"));
+        const n = pagbank.filter(p => p.caminho.startsWith("/orders/")).length;
+        return Promise.resolve((n > 1 && o.releitura ? o.releitura : o.consulta ?? consulta()) as any);
+      }
       return o.falhaCancel ? Promise.reject(new PagbankErro(400, `PagBank POST -> 400 Bearer ${TOKEN}`)) : Promise.resolve({ status: "CANCELED" });
     },
     confirmar: args => { rpc.push(args); return o.rpc instanceof Error ? Promise.reject(o.rpc) : Promise.resolve(o.rpc ?? "pago"); },
@@ -32,9 +38,9 @@ function montar(o: { rpc?: string | Error; consulta?: unknown; falhaConsulta?: b
   };
   return { deps, pagbank, rpc, logs };
 }
-const req = async (corpo = CORPO, h: Record<string, string> | null = null, method = "POST") =>
+const req = async (corpo: string | Uint8Array = CORPO, h: Record<string, string> | null = null, method = "POST") =>
   new Request("https://p.supabase.co/functions/v1/pagbank-webhook", {
-    method, body: method === "POST" ? corpo : undefined,
+    method, body: method === "POST" ? corpo as BodyInit : undefined,
     headers: h ?? { "content-type": "application/json", "x-authenticity-token": await assinatura(TOKEN, corpo) },
   });
 
@@ -70,7 +76,7 @@ Deno.test("corpo adulterado depois de assinado -> 401", async () => {
 });
 
 Deno.test("sem PAGBANK_TOKEN -> 503", async () => {
-  const m = montar({ env: { PAGBANK_BASE_URL: "x" } });
+  const m = montar({ env: { ...ENV, PAGBANK_TOKEN: "" } });
   assertEquals((await handler(await req(), m.deps)).status, 503);
   assertEquals(m.pagbank.length, 0);
 });
@@ -131,20 +137,79 @@ for (const res of ["estorno", "valor_divergente"]) {
     assertEquals((await handler(await req(), m.deps)).status, 200);
     const c = m.pagbank[1];
     assertEquals(c.caminho, `/charges/${CHAR}/cancel`);
-    assertEquals(c.init, { method: "POST", body: { amount: { value: 10000 } }, idempotencia: `estorno:${CHAR}` });
+    assertEquals(c.init, { method: "POST", body: { amount: { value: 10000 } } }); // sem chave de idempotência (o PagBank a queima na falha)
   });
 }
 Deno.test("estorno falhando -> 5xx com alerta mascarado", async () => {
   const m = montar({ rpc: "estorno", falhaCancel: true });
   assert((await handler(await req(), m.deps)).status >= 500);
-  assert(m.logs.some(l => l.includes("ALERTA")));
+  assert(m.logs.some(l => l.startsWith("ALERTA_PAGBANK ESTORNO_FALHOU 11111111")));
+  assert(!m.logs.join().includes(TOKEN));
+});
+Deno.test("estorno falha na 1ª (400) e o reenvio tenta de novo, sem chave fixa", async () => {
+  const m1 = montar({ rpc: "estorno", falhaCancel: true });
+  assertEquals((await handler(await req(), m1.deps)).status, 502);
+  const m2 = montar({ rpc: "estorno" });
+  assertEquals((await handler(await req(), m2.deps)).status, 200);
+  const cancel = [...m1.pagbank, ...m2.pagbank].filter(p => p.caminho.endsWith("/cancel"));
+  assertEquals(cancel.length, 2);
+  assert(cancel.every(p => p.init.idempotencia === undefined));
+});
+Deno.test("cancelamento falha mas a releitura mostra a charge CANCELED -> sucesso", async () => {
+  const m = montar({ rpc: "estorno", falhaCancel: true, releitura: consulta("CANCELED") });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+  assert(!m.logs.some(l => l.includes("ALERTA")));
+});
+Deno.test("charge já CANCELED na consulta -> 200 sem RPC nem cancelamento", async () => {
+  const m = montar({ consulta: consulta("CANCELED") });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+  assertEquals([m.rpc.length, m.pagbank.length], [0, 1]);
+});
+Deno.test("PAID já toda estornada + estorno -> 200 sem novo cancelamento", async () => {
+  const cs = consulta();
+  (cs.charges[0].amount.summary as any).refunded = 10000;
+  const m = montar({ rpc: "estorno", consulta: cs });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+  assertEquals(m.pagbank.length, 1);
+});
+Deno.test("2 charges PAID -> ALERTA e 200, sem RPC nem estorno", async () => {
+  const cs = consulta();
+  cs.charges.push({ ...cs.charges[0], id: CHAR.replace("63D0", "0000") });
+  const m = montar({ rpc: "estorno", consulta: cs });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+  assertEquals([m.rpc.length, m.pagbank.length], [0, 1]);
+  assert(m.logs.some(l => l.startsWith("ALERTA_PAGBANK VARIAS_PAID")));
+});
+const enc = (s: string) => new TextEncoder().encode(s);
+const junta = (...xs: Uint8Array[]) => { const t = new Uint8Array(xs.reduce((n, x) => n + x.length, 0)); let p = 0; for (const x of xs) { t.set(x, p); p += x.length; } return t; };
+Deno.test("corpo com BOM assinado pelos bytes crus é aceito", async () => {
+  const b = junta(new Uint8Array([0xef, 0xbb, 0xbf]), enc(CORPO));
+  const m = montar();
+  assertEquals((await handler(await req(b, { "x-authenticity-token": await assinatura(TOKEN, b) }), m.deps)).status, 200);
+  assertEquals(m.rpc.length, 1);
+  // o mesmo corpo sem o BOM não confere com essa assinatura
+  assertNotEquals(await assinatura(TOKEN, b), await assinatura(TOKEN, CORPO));
+});
+Deno.test("corpo com byte UTF-8 inválido assinado pelos bytes crus é aceito", async () => {
+  const b = junta(enc(CORPO.slice(0, -1) + ',"x":"'), new Uint8Array([0xff]), enc('"}'));
+  const m = montar();
+  assertEquals((await handler(await req(b, { "x-authenticity-token": await assinatura(TOKEN, b) }), m.deps)).status, 200);
+  assertEquals(m.rpc.length, 1);
+});
+Deno.test("token com espaço/quebra no fim ainda confere", async () => {
+  const m = montar({ env: { ...ENV, PAGBANK_TOKEN: TOKEN + " \n" } });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+});
+Deno.test("sem SUPABASE_SERVICE_ROLE_KEY -> 503", async () => {
+  const m = montar({ env: { ...ENV, SUPABASE_SERVICE_ROLE_KEY: "" } });
+  assertEquals((await handler(await req(), m.deps)).status, 503);
 });
 for (const res of ["conflito", "nao_encontrado"]) {
   Deno.test(`PAID + ${res} -> NÃO estorna, 200 com alerta`, async () => {
     const m = montar({ rpc: res });
     assertEquals((await handler(await req(), m.deps)).status, 200);
     assertEquals(m.pagbank.length, 1);
-    assert(m.logs.some(l => l.includes("ALERTA") && l.includes(res)));
+    assert(m.logs.some(l => l.startsWith(`ALERTA_PAGBANK ${res.toUpperCase()} 11111111`)));
   });
 }
 Deno.test("exceção da RPC -> 5xx com alerta, sem estorno", async () => {
