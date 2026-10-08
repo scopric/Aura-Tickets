@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, PDFFont, PDFString, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import qrcode from "npm:qrcode-generator@1.4.4";
 import { formatarHora } from "./hora.ts";
 import { caber, dimensoes } from "./logoProdutor.ts";
@@ -131,6 +131,8 @@ export async function gerarPdf(ingressos: IngressoPdf[], logo?: { bytes: Uint8Ar
       }
     }
 
+    // No celular o QR não se escaneia na própria tela: o toque nele abre o link.
+    page.node.addAnnot(pdf.context.register(pdf.context.obj({ Type: "Annot", Subtype: "Link", Rect: [qx, qy, qx + lado, qy + lado], Border: [0, 0, 0], A: { Type: "Action", S: "URI", URI: PDFString.of(t.link) } })));
     const abra = "Abra no celular: o QR de entrada aparece lá e muda a cada 30 segundos.";
     page.drawText(abra, { x: (595 - negrito.widthOfTextAtSize(abra, 11)) / 2, y: 124, size: 11, font: negrito, color: TEXTO });
     const aviso = "Ingresso nominal e pessoal. Entre com a conta usada na compra.";

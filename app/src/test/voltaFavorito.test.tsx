@@ -33,6 +33,20 @@ describe('voltaValida', () => {
   })
 })
 
+describe('volta do QR do PDF', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it('aceita só /app/tickets?evento=<id>&qr=1 e não marca evento para salvar', () => {
+    const qr = '/app/tickets?evento=abc-123&qr=1'
+    expect(voltaValida(qr)).toBe(qr)
+    for (const ruim of ['/app/tickets?evento=a&qr=1&x=//evil.com', '/app/tickets?evento=a/b&qr=1', '/app/tickets?qr=1', '/app/tickets?evento=a&qr=1#x', '//app/tickets?evento=a&qr=1']) {
+      expect(voltaValida(ruim)).toBeNull()
+    }
+    expect(consumirVolta('user', qr)).toBe(qr)
+    expect(pegarSalvarPendente('abc-123')).toBe(false)
+  })
+})
+
 describe('consumirVolta', () => {
   beforeEach(() => sessionStorage.clear())
 

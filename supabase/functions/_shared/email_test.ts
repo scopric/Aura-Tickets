@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { blocoLogoProdutor, emailShell } from "./email.ts";
 import { montarConviteEquipe } from "./conviteEquipe.ts";
+import { PDFDict, PDFDocument, PDFName, PDFString } from "npm:pdf-lib@1.17.1";
 import { gerarPdf, ingressosParaPdf } from "./ingressoPdf.ts";
 import { emailIngresso, partesDaData, resumoDosTipos } from "./emailIngresso.ts";
 
@@ -53,7 +54,7 @@ Deno.test("PDF do ingresso: horário sem segundos e o código só dentro do QR",
   assert(texto.includes(hex("20h")), "o horário tem de aparecer no PDF");
   assertFalse(texto.includes(hex("20:00:00")) || texto.includes(hex("20:00")));
   assert(texto.includes(hex("Pista".toUpperCase())), "o texto do PDF é legível pelo teste");
-  assertFalse(texto.includes(hex("TESTE-ABC123")));
+  assertFalse(texto.includes(hex("TESTE-ABC123").toUpperCase()));
 });
 
 Deno.test("PDF do ingresso: o QR é o link do evento, sem código de entrada", async () => {
@@ -66,6 +67,10 @@ Deno.test("PDF do ingresso: o QR é o link do evento, sem código de entrada", a
   const maiusc = (t: string) => hex(t).toUpperCase(); // pdf-lib grava o hexadecimal em maiúsculas
   assert(texto.includes(maiusc("Abra no celular: o QR de entrada aparece lá e muda a cada 30 segundos.")));
   assertFalse(texto.includes(maiusc("Apresente")) || texto.includes(maiusc(qr)));
+  // o QR é um link tocável (PDF aberto no próprio celular)
+  const doc = await PDFDocument.load(await gerarPdf([pagina]));
+  const anot = doc.getPage(0).node.Annots()!.lookup(0, PDFDict);
+  assertEquals(anot.lookup(PDFName.of("A"), PDFDict).lookup(PDFName.of("URI"), PDFString).decodeText(), pagina.link);
   // sem id do evento, cai na lista de ingressos
   assertEquals(ingressosParaPdf({ events: {} }, [{ status: "active" }])[0].link, "https://app.evokaa.com.br/app/tickets");
 });
