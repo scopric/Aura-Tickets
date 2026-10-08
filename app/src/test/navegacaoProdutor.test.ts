@@ -31,14 +31,22 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(rotasDoApp).toContain(ROTA_CRIAR_EVENTO)
   })
 
-  it('tela "Em construção" (ComingSoon ou ComingSoonRoute) não entra no mapa (Decisão 22)', () => {
+  it('tela "Em breve" (ComingSoon) não entra no mapa: o menu só mostra telas prontas (Decisões 22 e 213)', () => {
     for (const t of NAV) {
       const linha = app.split('\n').find(l => l.includes(`path="${t.rota}"`)) ?? ''
       expect(linha, t.tela).not.toMatch(/<ComingSoon/)
     }
   })
 
-  it('V7: a Visão geral é a tela do evento no mapa e não está atrás de "Em construção"', () => {
+  it('Decisão 213: as 7 rotas planejadas existem e mostram o cartão "Em breve", fora do menu', () => {
+    for (const r of ['brand', 'comunicacao', 'assinatura', 'evokaa-store', 'marketing', 'antecipacao', 'parcelamento']) {
+      const linha = app.split('\n').find(l => l.includes(`path="/producer/${r}"`)) ?? ''
+      expect(linha, r).toMatch(/<ComingSoon /)
+      expect(NAV.map(t => t.rota), r).not.toContain(`/producer/${r}`)
+    }
+  })
+
+  it('V7: a Visão geral é a tela do evento no mapa e não está atrás de "Em breve"', () => {
     const pasta = NAV.find(t => t.tela === 'Pasta do evento')!
     expect(pasta.rota).toBe('/producer/event/:eventId')
     expect(pasta.noEvento).toBe('Visão geral')

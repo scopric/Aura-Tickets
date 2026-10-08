@@ -19,7 +19,7 @@ import { Loader2 } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 
 import FeatureGuard from './components/FeatureGuard'
-import { ComingSoonRoute } from './components/ComingSoon'
+import ComingSoon from './components/ComingSoon'
 import { trackPageView, trackEvent, semHash } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
@@ -37,7 +37,6 @@ const AppLayout = lazy(() => import('./components/AppLayout'))
 const Home = lazy(() => import('./pages/Home'))
 const EventPage = lazy(() => import('./pages/EventPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
-const BrandStudio = lazy(() => import('./pages/BrandStudio'))
 const ContactPage = lazy(() => import('./pages/Contact'))
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
@@ -68,30 +67,24 @@ const TableCalculator = lazy(() => import('./pages/producer/TableCalculator'))
 const ProducerCalculator = lazy(() => import('./pages/producer/Calculator'))
 const ProducerFAQ = lazy(() => import('./pages/producer/FAQ'))
 const ProducerPiggyBank = lazy(() => import('./pages/producer/PiggyBank'))
-const ProducerSubscription = lazy(() => import('./pages/producer/Subscription'))
 const ProducerEventBanners = lazy(() => import('./pages/producer/EventBanners'))
 const ProducerEventGallery = lazy(() => import('./pages/producer/EventGallery'))
 const ProducerAffiliates = lazy(() => import('./pages/producer/Affiliates'))
 const ProducerCheckIn = lazy(() => import('./pages/producer/CheckIn'))
 const EquipeCheckIn = lazy(() => import('./pages/producer/CheckIn').then(m => ({ default: m.EquipeCheckIn })))
 const Equipe = lazy(() => import('./pages/app/Equipe'))
-const ProducerCommunications = lazy(() => import('./pages/producer/Communications'))
 const ProducerTasks = lazy(() => import('./pages/producer/Tasks'))
 const ProducerCoupons = lazy(() => import('./pages/producer/Coupons'))
 const ProducerPartners = lazy(() => import('./pages/producer/Partners'))
 const ProducerTimeline = lazy(() => import('./pages/producer/Timeline'))
 const ProducerSettings = lazy(() => import('./pages/producer/ProducerSettings'))
 const TeamManager = lazy(() => import('./pages/producer/TeamManager'))
-const EvokaaStore = lazy(() => import('./pages/producer/EvokaaStore'))
 const InterestList = lazy(() => import('./pages/producer/InterestList'))
 const Certificates = lazy(() => import('./pages/producer/Certificates'))
 const CertificateBuilder = lazy(() => import('./pages/producer/CertificateBuilder'))
-const Marketing = lazy(() => import('./pages/producer/Marketing'))
 const EvokaaAcademy = lazy(() => import('./pages/producer/EvokaaAcademy'))
 const SeatingMap = lazy(() => import('./pages/producer/SeatingMap'))
 const OrganizerApp = lazy(() => import('./pages/producer/OrganizerApp'))
-const AdvancePayment = lazy(() => import('./pages/producer/AdvancePayment'))
-const Installments = lazy(() => import('./pages/producer/Installments'))
 const PostEventReport = lazy(() => import('./pages/producer/PostEventReport'))
 
 // Admin pages (lazy loaded)
@@ -397,7 +390,7 @@ function Layout() {
               <Route path="/producer/event-manager" element={<Navigate to="/producer/events" replace />} />
               <Route path="/producer/event/:eventId" element={<ComChaveDoEvento><EventOverview /></ComChaveDoEvento>} />
               <Route path="/producer/planner" element={<Navigate to="/producer/events/new" replace />} />
-              <Route path="/producer/brand" element={<ComingSoonRoute title="O Brand Studio"><BrandStudio /></ComingSoonRoute>} />
+              <Route path="/producer/brand" element={<ComingSoon titulo="O Brand Studio" descricao="Logo, cores e estilo do ingresso do produtor, ligados ao plano PRO." />} />
               <Route path="/producer/crm" element={<FeatureGuard featureKey="crm"><ProducerCRM /></FeatureGuard>} />
               <Route path="/producer/central" element={<ProtectedRoute allowedRoles={['producer']}><ProducerCentral /></ProtectedRoute>} />
               <Route path="/producer/finance" element={<ProducerFinance />} />
@@ -410,27 +403,27 @@ function Layout() {
               <Route path="/producer/galeria" element={<ProducerEventGallery />} />
               <Route path="/producer/afiliados" element={<FeatureGuard featureKey="affiliates"><ProducerAffiliates /></FeatureGuard>} />
               <Route path="/producer/checkin" element={<FeatureGuard featureKey="checkin"><ProducerCheckIn /></FeatureGuard>} />
-              <Route path="/producer/comunicacao" element={<ComingSoonRoute title="A Comunicação com participantes"><FeatureGuard featureKey="communications"><ProducerCommunications /></FeatureGuard></ComingSoonRoute>} />
+              <Route path="/producer/comunicacao" element={<ComingSoon titulo="Comunicação com participantes" descricao="Mensagens aos participantes do evento por e-mail e WhatsApp." />} />
               <Route path="/producer/tarefas" element={<ProducerTasks />} />
               <Route path="/producer/cupons" element={<ProducerCoupons />} />
               <Route path="/producer/parceiros" element={<ProducerPartners />} />
               <Route path="/producer/timeline" element={<ProducerTimeline />} />
               <Route path="/producer/faq" element={<ProducerFAQ />} />
               <Route path="/producer/settings" element={<ProducerSettings />} />
-              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
+              <Route path="/producer/assinatura" element={<ComingSoon titulo="Assinatura" descricao="Plano PRO para estilizar o ingresso e liberar extras. Por enquanto tudo está liberado." />} />
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<Navigate to="/producer/events/new" replace />} />
-              <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
+              <Route path="/producer/evokaa-store" element={<ComingSoon titulo="Evokaa Store" descricao="Loja de produtos e serviços para quem produz eventos." />} />
               <Route path="/producer/bordero" element={<ProducerBordero />} />
               <Route path="/producer/participantes" element={<ProducerParticipantes />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
-              <Route path="/producer/marketing" element={<ComingSoonRoute title="O Marketing"><Marketing /></ComingSoonRoute>} />
+              <Route path="/producer/marketing" element={<ComingSoon titulo="Marketing" descricao="Pixel e UTM por link, receita por origem de venda e QR de cartaz." />} />
               <Route path="/producer/academy" element={<EvokaaAcademy />} />
               <Route path="/producer/app" element={<OrganizerApp />} />
-              <Route path="/producer/antecipacao" element={<ComingSoonRoute title="A Antecipação de recebíveis"><AdvancePayment /></ComingSoonRoute>} />
-              <Route path="/producer/parcelamento" element={<ComingSoonRoute title="O Parcelamento"><Installments /></ComingSoonRoute>} />
+              <Route path="/producer/antecipacao" element={<ComingSoon titulo="Antecipação de recebíveis" descricao="Simulador com o custo efetivo, comparado a esperar o repasse." />} />
+              <Route path="/producer/parcelamento" element={<ComingSoon titulo="Parcelamento" descricao="Simulador de parcelamento do repasse, com o custo efetivo." />} />
               <Route path="/producer/pos-evento" element={<PostEventReport />} />
             </Route>
 
