@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 
@@ -130,5 +130,39 @@ describe('Checkout: meia-entrada', () => {
     await new Promise(r => setTimeout(r, 20))
     const opcoes = screen.getAllByRole('option').map(o => o.textContent)
     expect(opcoes).toEqual(['Estudante', 'Pessoa com deficiência', 'Acompanhante de pessoa com deficiência', 'Jovem de baixa renda'])
+  })
+
+  it('carrinho restaurado com categoria fora da lista (RPC falhou): volta ao padrão estudante', async () => {
+    montar({ 'tt1|meia|idoso': 1, 'tt1|meia|es_professor': 1 })
+    await screen.findByText('2 × Pista (meia-entrada)')
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+    fireEvent.click(screen.getByRole('button', { name: /Continuar para Pagamento/ }))
+    await waitFor(() => expect(h.estado).not.toBeNull())
+    expect((h.estado as { itemsSummary: unknown[] }).itemsSummary).toEqual([expect.objectContaining({ quantity: 2, beneficio: 'meia', meia_tipo: 'estudante' })])
+  })
+
+  it('idoso sem teto (disponiveis nulo): não mostra "Infinity"', async () => {
+    h.beneficios = CATEGORIAS
+    h.vitrine = [{ ...VITRINE[0], disponiveis: null }]
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    fireEvent.change(await screen.findByLabelText('Quem tem direito à meia'), { target: { value: 'idoso' } })
+    expect(document.body.textContent).not.toMatch(/Infinity/)
+    expect(document.body.textContent).not.toMatch(/até .* disponíveis/)
+  })
+
+  it('trocar o evento limpa a categoria escolhida', async () => {
+    h.beneficios = CATEGORIAS
+    function Troca() { const n = useNavigate(); return <button onClick={() => n('/checkout', { state: { eventId: 'e2', cart: {} } })}>trocar</button> }
+    render(
+      <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart: {} } }]}>
+        <Troca /><Routes><Route path="/checkout" element={<Checkout />} /></Routes>
+      </MemoryRouter></QueryClientProvider>
+    )
+    const sel = await screen.findByLabelText('Quem tem direito à meia')
+    fireEvent.change(sel, { target: { value: 'idoso' } })
+    expect((sel as HTMLSelectElement).value).toBe('idoso')
+    fireEvent.click(screen.getByText('trocar'))
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
   })
 })
