@@ -2,7 +2,7 @@ import { diaBR } from './visaoEvento'
 
 // Contas do Borderô (E5): só o que o banco já grava. Valor por tipo de ingresso fica de fora (tickets.price_paid nasce 0
 // e order_items.unit_price é média com taxa): aqui os tipos só têm contagem.
-export type PedidoPago = { id: string; total: number; payment_method: string | null; created_at: string }
+export type PedidoPago = { id: string; total: number; payment_method: string | null; created_at: string; subtotal?: number | null; discount?: number | null; service_fee?: number | null; processing_fee?: number | null }
 export type IngressoDoTipo = { id: string; ticket_type_id: string; status: string; checked_in_at: string | null; ticket_types: { name: string } | null }
 
 const FORMA: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão de crédito', boleto: 'Boleto' }

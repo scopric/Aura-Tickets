@@ -1,12 +1,15 @@
 import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
+import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { brl } from '../../lib/taxa'
-import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
+import { toCsv, downloadCsv, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
 import { diaBR } from '../../lib/visaoEvento'
+import { baixarBorderoXlsx, baixarPdf } from '../../lib/exportar'
 import { forma, dataBR, resumoBordero, type PedidoPago, type IngressoDoTipo } from '../../lib/bordero'
 import { PageHeader, Stat, EmptyState, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -30,7 +33,7 @@ export default function ProducerBordero() {
       const [pedidos, ingressos] = await Promise.all([
         fetchAllRows<PedidoPago>((de, ate) =>
           supabase.from('orders')
-            .select('id, total, payment_method, created_at')
+            .select('id, total, payment_method, created_at, subtotal, discount, service_fee, processing_fee')
             .eq('event_id', eventId!).eq('status', 'paid')
             .order('created_at', { ascending: false }).order('id')
             .range(de, ate) as unknown as PromiseLike<{ data: PedidoPago[] | null; error: unknown }>),
@@ -48,10 +51,40 @@ export default function ProducerBordero() {
 
   const r = dados.data ? resumoBordero(dados.data.pedidos, dados.data.ingressos) : null
 
-  const exportar = () => downloadCsv(csvFilename(`bordero-${slugArquivo(evento?.title, eventId!)}`), toCsv(
-    dados.data!.pedidos.map(p => ({ pedido: p.id, data: dataBR(diaBR(p.created_at)), forma: forma(p.payment_method), total: virgula(Number(p.total) || 0) })),
-    ['pedido', 'data', 'forma', 'total'],
+  const [pessoais, setPessoais] = useState(false)
+  const [gerando, setGerando] = useState<'xlsx' | 'pdf' | null>(null)
+  const nomeBase = `evokaa-bordero-${slugArquivo(evento?.title, eventId ?? '')}-${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}`
+  const m = (v: number | null | undefined) => brl(Number(v) || 0)
+
+  const exportar = () => downloadCsv(`${nomeBase}.csv`, toCsv(
+    dados.data!.pedidos.map(p => ({
+      pedido: p.id, data: dataBR(diaBR(p.created_at)), forma: forma(p.payment_method),
+      ingressos: virgula(Number(p.subtotal) || 0), desconto: virgula(Number(p.discount) || 0),
+      taxa_servico: virgula(Number(p.service_fee) || 0), taxa_pagamento: virgula(Number(p.processing_fee) || 0), total: virgula(Number(p.total) || 0),
+    })),
+    ['pedido', 'data', 'forma', 'ingressos', 'desconto', 'taxa_servico', 'taxa_pagamento', 'total'],
   ))
+
+  const exportarXlsx = async () => {
+    setGerando('xlsx')
+    try { await baixarBorderoXlsx(eventId!, pessoais, `${nomeBase}${pessoais ? '-com-dados-pessoais' : ''}.xlsx`) }
+    catch (e) { toast.error((e as Error).message) }
+    finally { setGerando(null) }
+  }
+
+  const exportarPdf = async () => {
+    if (!r || !evento) return
+    setGerando('pdf')
+    try {
+      await baixarPdf({
+        arquivo: `${nomeBase}.pdf`, titulo: 'Borderô', evento: evento.title,
+        resumo: [['Pedidos pagos', String(r.nPedidos)], ['Total pago pelos compradores', brl(r.total)], ...r.porForma.map(f => [`Forma: ${f.chave}`, brl(f.total)] as [string, string])],
+        colunas: [{ titulo: 'Pedido', chave: 'pedido' }, { titulo: 'Data', chave: 'data' }, { titulo: 'Forma', chave: 'forma' }, { titulo: 'Ingressos', chave: 'ingressos', direita: true }, { titulo: 'Desconto', chave: 'desconto', direita: true }, { titulo: 'Taxa serviço', chave: 'servico', direita: true }, { titulo: 'Taxa pagto.', chave: 'pagto', direita: true }, { titulo: 'Total', chave: 'total', direita: true }],
+        linhas: dados.data!.pedidos.map(p => ({ pedido: p.id.slice(0, 8).toUpperCase(), data: dataBR(diaBR(p.created_at)), forma: forma(p.payment_method), ingressos: m(p.subtotal), desconto: m(p.discount), servico: m(p.service_fee), pagto: m(p.processing_fee), total: m(p.total) })),
+      })
+    } catch { toast.error('Não consegui gerar o PDF. Tente de novo em instantes.') }
+    finally { setGerando(null) }
+  }
 
   const header = (
     <PageHeader
@@ -59,11 +92,14 @@ export default function ProducerBordero() {
       description={evento ? `Vendas pagas de ${evento.title}` : 'Vendas pagas de um evento'}
       actions={
         <>
-          <Button variant="outline" className="print:hidden" onClick={exportar} disabled={!dados.data?.pedidos.length}>
-            <I.Baixar aria-hidden="true" />Exportar CSV
+          <Button variant="outline" onClick={exportarXlsx} loading={gerando === 'xlsx'} disabled={!dados.data?.pedidos.length || !!gerando}>
+            <I.Baixar aria-hidden="true" />Planilha (XLSX)
           </Button>
-          <Button variant="outline" className="print:hidden" onClick={() => window.print()} disabled={!r}>
-            <I.Imprimir aria-hidden="true" />Salvar em PDF
+          <Button variant="outline" onClick={exportarPdf} loading={gerando === 'pdf'} disabled={!dados.data?.pedidos.length || !!gerando}>
+            <I.Imprimir aria-hidden="true" />PDF
+          </Button>
+          <Button variant="outline" onClick={exportar} disabled={!dados.data?.pedidos.length || !!gerando}>
+            <I.Baixar aria-hidden="true" />CSV
           </Button>
         </>
       }
@@ -94,10 +130,14 @@ export default function ProducerBordero() {
 
   const aviso = (
     <div className="mb-6 rounded-[10px] border border-border bg-card p-4">
-      <p className="text-sm font-medium text-foreground">Este documento ainda não é o borderô completo.</p>
+      <p className="text-sm font-medium text-foreground">A planilha traz 8 abas: resumo, finanças, canais, tipos de ingresso, check-ins, vendas por dia, pedidos e ingressos.</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        O total é o que o comprador pagou, com a taxa de serviço dentro. Ainda não entram: taxas da Evokaa e de processamento, reembolsos, repasse, meia-entrada e valor por tipo de ingresso (só a contagem).
+        O total é o que o comprador pagou, com as taxas dentro. <span className="font-medium text-foreground">Em breve:</span> parcelas, repasse, reembolso por pedido, meia-entrada contra os 40%, canal (balcão, cortesia, afiliado), despesas e resultado, link de leitura e envio agendado.
       </p>
+      <label className="mt-3 flex min-h-11 items-center gap-2 text-sm text-foreground">
+        <input type="checkbox" checked={pessoais} onChange={e => setPessoais(e.target.checked)} className="size-4" />
+        Incluir nome e e-mail dos compradores na planilha (dados pessoais, uso restrito)
+      </label>
     </div>
   )
 
