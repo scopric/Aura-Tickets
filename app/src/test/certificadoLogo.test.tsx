@@ -28,8 +28,8 @@ const montar = () => render(<MemoryRouter><QueryClientProvider client={new Query
 const botaoSalvar = () => screen.getByRole('button', { name: /Salvar/ })
 
 describe('logo no certificado', () => {
-  beforeEach(() => { db.template = {}; db.upserts = []; db.logo = null; db.carregandoLogo = false })
-  afterEach(() => { cleanup(); vi.clearAllMocks() })
+  beforeEach(() => { vi.stubEnv('VITE_SUPABASE_URL', 'https://rwaezeqyuhxrssntcxdv.supabase.co'); db.template = {}; db.upserts = []; db.logo = null; db.carregandoLogo = false })
+  afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllEnvs() })
 
   it('sem logo própria e com logo do organizador, usa a do organizador e diz de onde vem', async () => {
     db.logo = SALVA

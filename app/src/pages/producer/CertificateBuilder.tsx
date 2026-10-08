@@ -1,65 +1,35 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type PointerEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useParticipantesCertificado } from '../../hooks/useProducerTools'
 import { useLogoProdutor } from '../../hooks/useLogoProdutor'
-import { PageHeader, EmptyState, selectNativo } from '@/components/producer/ui'
+import {
+  FONTES, LIMITES, MODELOS, VARIAVEIS, aplicarModelo, camposPadrao, dataLonga, desfazer, erroDaImagem, histVazio, imagemSegura,
+  modeloComCor, modeloPorId, mover, refazer, registrar, sanearTemplate,
+  type Alinhamento, type Campo, type DadosCertificado, type FonteId, type Hist,
+} from '../../lib/certificados'
+import { PageHeader, EmptyState, Erro, selectNativo } from '@/components/producer/ui'
+import { CertificadoDesenho, ImpressaoCertificados, MiniaturaModelo } from '@/components/producer/CertificadoDesenho'
+import GaleriaModelos from '@/components/producer/GaleriaModelos'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Segmented } from '@/components/ui/toggle-group'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
-interface CertField {
-  id: string
-  type: 'text' | 'logo' | 'signature' | 'qrcode' | 'date' | 'hours'
-  label: string
-  x: number
-  y: number
-  fontSize: number
-  color: string
-  value: string
-  width: number
-  height: number
-}
-
-interface CertTemplate {
-  id: string
-  name: string
-  category: string
-  bgColor: string
-  accentColor: string
-  borderStyle: string
-  preview: string
-}
-
-// Cores do próprio certificado (o papel é sempre claro); não são cores do painel
-const templates: CertTemplate[] = [
-  { id: 'classic', name: 'Clássico elegante', category: 'geral', bgColor: '#ffffff', accentColor: '#1a0e14', borderStyle: 'border-8 border-double', preview: 'Bordas duplas, tipografia serifada' },
-  { id: 'modern', name: 'Moderno minimalista', category: 'tech', bgColor: '#f8f7f5', accentColor: '#7a3b69', borderStyle: 'border-l-4', preview: 'Linha lateral, fonte limpa' },
-  { id: 'corporate', name: 'Corporativo', category: 'corporativo', bgColor: '#ffffff', accentColor: '#1e3a5f', borderStyle: 'border', preview: 'Azul corporativo, faixa no topo' },
-  { id: 'creative', name: 'Criativo artístico', category: 'arte', bgColor: '#fdf6f0', accentColor: '#d97706', borderStyle: 'border-4 border-dashed', preview: 'Cores quentes, borda tracejada' },
-  { id: 'academic', name: 'Acadêmico', category: 'educacao', bgColor: '#ffffff', accentColor: '#374151', borderStyle: 'border-2', preview: 'Sóbrio e formal' },
-  { id: 'sport', name: 'Esporte e bem-estar', category: 'esporte', bgColor: '#f0fdf4', accentColor: '#16a34a', borderStyle: 'border-4', preview: 'Verde, borda larga' },
-]
-
-const defaultFields: CertField[] = [
-  { id: 'logo', type: 'logo', label: 'Logo', x: 50, y: 8, fontSize: 0, color: '', value: '', width: 80, height: 40 },
-  { id: 'title', type: 'text', label: 'Título', x: 50, y: 22, fontSize: 28, color: '#1a0e14', value: 'Certificado de Participação', width: 80, height: 40 },
-  { id: 'subtitle', type: 'text', label: 'Subtítulo', x: 50, y: 32, fontSize: 14, color: '#7a3b69', value: 'Reconhecemos que', width: 80, height: 25 },
-  { id: 'participant', type: 'text', label: 'Nome do participante', x: 50, y: 44, fontSize: 32, color: '#1a0e14', value: '{{NOME}}', width: 80, height: 50 },
-  { id: 'event', type: 'text', label: 'Evento', x: 50, y: 56, fontSize: 16, color: '#44403c', value: 'participou do {{EVENTO}}', width: 80, height: 30 },
-  { id: 'details', type: 'text', label: 'Detalhes', x: 50, y: 64, fontSize: 12, color: '#78716c', value: 'realizado em {{DATA}} com carga horária de {{HORAS}}h', width: 80, height: 25 },
-  { id: 'signature', type: 'signature', label: 'Assinatura', x: 70, y: 80, fontSize: 14, color: '#1a0e14', value: '{{ASSINATURA}}', width: 100, height: 30 },
-  { id: 'sigLabel', type: 'text', label: 'Legenda da assinatura', x: 70, y: 88, fontSize: 10, color: '#a8a29e', value: 'Assinatura do Produtor', width: 100, height: 15 },
-  { id: 'qrcode', type: 'qrcode', label: 'QR Code', x: 15, y: 78, fontSize: 0, color: '', value: '', width: 50, height: 50 },
-  { id: 'date', type: 'date', label: 'Data de emissão', x: 15, y: 92, fontSize: 10, color: '#a8a29e', value: '{{DATA_EMISSAO}}', width: 50, height: 15 },
-]
+// O que desfazer/refazer guarda: os campos e o modelo (trocar de modelo também volta)
+interface Estado { fields: Campo[]; modelo: string; accent: string | null }
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const painel = 'rounded-[10px] border border-border bg-card p-4'
+const campoNum = 'min-h-11'
+const CORES = ['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2']
+const ALINHAMENTOS = [{ value: 'left', label: 'Esquerda' }, { value: 'center', label: 'Centro' }, { value: 'right', label: 'Direita' }]
 
 export default function CertificateBuilder() {
   const [searchParams] = useSearchParams()
@@ -70,33 +40,48 @@ export default function CertificateBuilder() {
   // sem escolha válida, vale o primeiro evento
   const doLink = searchParams.get('eventId')
   const eventId = pickedEventId ?? (events.some(e => e.id === doLink) ? doLink : events[0]?.id) ?? null
+  const evento = events.find(e => e.id === eventId)
   // evento cujo modelo já foi lido do banco: salvar antes disso gravaria o padrão por cima do modelo salvo
   const [carregadoPara, setCarregadoPara] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('classic')
-  const [accentColor, setAccentColor] = useState<string | null>(null) // null = cor do modelo
-  const [fields, setFields] = useState<CertField[]>(defaultFields)
+  const [estado, setEstado] = useState<Estado>({ fields: camposPadrao(), modelo: 'classic', accent: null })
+  const [hist, setHist] = useState<Hist<Estado>>(histVazio)
   const [selectedField, setSelectedField] = useState<string | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null) // logo própria deste modelo (envio feito aqui); null = usa a do organizador
-  // Logo salva em Configurações > Organizador: vale quando o modelo não tem logo própria. Ao salvar o modelo ela é gravada nele,
-  // para o certificado já emitido não mudar se o organizador trocar a logo depois.
-  const { logo: logoOrganizador } = useLogoProdutor()
-  const logoSalva = logoOrganizador.data ?? null
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [sigUrl, setSigUrl] = useState<string | null>(null)
+  const [horas, setHoras] = useState('')
+  const [previewName, setPreviewName] = useState('Ana Beatriz Silva')
+  // evento e data da prévia partem do evento real; o que o produtor digita vale só para o evento em que digitou
+  const [exemplo, setExemplo] = useState<{ eventId: string | null; evento?: string; data?: string }>({ eventId: null })
+  const ex: typeof exemplo = exemplo.eventId === eventId ? exemplo : { eventId }
+  const previewEvent = ex.evento ?? evento?.title ?? 'Workshop de Design Thinking'
+  const previewDate = ex.data ?? (dataLonga(evento?.date) || '15 de junho de 2026')
+  const [participanteId, setParticipanteId] = useState('')
+  const [galeria, setGaleria] = useState(false)
+  const [modeloPendente, setModeloPendente] = useState<string | null>(null)
+  const [imprimindo, setImprimindo] = useState(0) // número do pedido de impressão (0 = nenhum); vira a key do contêiner
+  const pedidos = useRef(0)
+  const arrasto = useRef<(() => void) | null>(null)
+  // logo/assinatura que o banco tinha mas o saneamento recusou: ficam guardadas para o Salvar não apagar sem o produtor perceber
+  const [descartadas, setDescartadas] = useState<{ logo?: unknown; sig?: unknown }>({})
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const sigInputRef = useRef<HTMLInputElement>(null)
+  const papelRef = useRef<HTMLDivElement>(null)
+
+  const participantesQ = useParticipantesCertificado(eventId)
+  const participantes = participantesQ.data?.lista ?? []
+  // Logo salva em Configurações > Organizador: vale quando o modelo não tem logo própria. Ao salvar, é gravada no modelo
+  // (o certificado já emitido não muda se o organizador trocar a logo depois). Passa pelo mesmo filtro de imagem do resto.
+  const { logo: logoOrg } = useLogoProdutor()
+  const logoSalva = imagemSegura(logoOrg.data ?? null)
   const logoEfetiva = logoUrl ?? logoSalva
-  // Modelo salvo guarda a URL da logo do organizador da época: qualquer arquivo do bucket logos-produtor é "do organizador", não logo própria
+  // modelo salvo guarda a URL da logo do organizador da época: qualquer arquivo do bucket logos-produtor é "do organizador"
   const doOrganizador = (u: string | null) => !!u && u.includes('/storage/v1/object/public/logos-produtor/')
   const logoPropria = !!logoUrl && !doOrganizador(logoUrl)
   const logoAntiga = doOrganizador(logoUrl) && !!logoSalva && logoUrl !== logoSalva // o organizador trocou a logo depois de o modelo ser salvo
-  const [sigUrl, setSigUrl] = useState<string | null>(null)
-  const [previewName, setPreviewName] = useState('Ana Beatriz Silva')
-  const [previewEvent, setPreviewEvent] = useState('Workshop de Design Thinking')
-  const [previewDate, setPreviewDate] = useState('15 de junho de 2025')
-  const [previewHours, setPreviewHours] = useState('8')
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const sigInputRef = useRef<HTMLInputElement>(null)
 
-  // Carrega o modelo salvo do evento escolhido (ou o padrão, se não houver)
+  // Carrega o modelo salvo do evento escolhido (ou o padrão, se não houver). O JSON do banco passa por sanearTemplate.
   useEffect(() => {
     if (!eventId) return
     let vivo = true
@@ -111,15 +96,18 @@ export default function CertificateBuilder() {
           toast.error('Não foi possível carregar o modelo deste evento.')
           return
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON livre gravado por esta tela
-        const tpl = ((data as { template?: any } | null)?.template ?? {}) as any
-        setSelectedTemplate(typeof tpl.selectedTemplate === 'string' ? tpl.selectedTemplate : 'classic')
-        // só cor hexadecimal: o valor vem do JSON do banco e vai para `style`
-        setAccentColor(/^#[0-9a-f]{6}$/i.test(tpl.accentColor) ? tpl.accentColor : null)
-        setFields(Array.isArray(tpl.fields) ? tpl.fields : defaultFields)
-        setLogoUrl(tpl.logoUrl || null)
-        setSigUrl(tpl.sigUrl || null)
+        const t = sanearTemplate((data as { template?: unknown } | null)?.template)
+        setEstado({ fields: t.fields, modelo: t.selectedTemplate, accent: t.accentColor })
+        setHist(histVazio())
+        setLogoUrl(t.logoUrl)
+        setSigUrl(t.sigUrl)
+        setDescartadas({ logo: t.logoDescartada, sig: t.sigDescartada })
+        if (t.logoDescartada || t.sigDescartada) {
+          toast.warning(`${t.logoDescartada && t.sigDescartada ? 'O logo e a assinatura salvos antes estão' : t.logoDescartada ? 'O logo salvo antes está' : 'A assinatura salva antes está'} num formato que não é mais aceito; envie de novo em PNG, JPG ou WebP.`)
+        }
+        setHoras(t.horas)
         setSelectedField(null)
+        setParticipanteId('')
         setCarregadoPara(eventId)
       })
     return () => { vivo = false }
@@ -133,8 +121,7 @@ export default function CertificateBuilder() {
       // as never: types/database.ts desatualizado (pendência supabase gen types)
       .upsert({
         event_id: eventId,
-        // sem campo Logo no modelo, não grava a logo do organizador (o produtor tirou a logo do certificado)
-        template: { selectedTemplate, accentColor, fields, logoUrl: fields.some(f => f.type === 'logo') ? logoEfetiva : logoUrl, sigUrl },
+        template: { selectedTemplate: estado.modelo, accentColor: estado.accent, fields: estado.fields, logoUrl: (fields.some(f => f.type === 'logo') ? logoEfetiva : logoUrl) ?? descartadas.logo ?? null, sigUrl: sigUrl ?? descartadas.sig ?? null, horas },
         is_active: true,
       } as never, { onConflict: 'event_id' })
       .select('id')
@@ -149,57 +136,100 @@ export default function CertificateBuilder() {
     toast.success('Modelo salvo.')
   }
 
-  const baseTemplate = templates.find(t => t.id === selectedTemplate) || templates[0]
-  const template = accentColor ? { ...baseTemplate, accentColor } : baseTemplate
+  const { fields } = estado
+  const modelo = modeloComCor(modeloPorId(estado.modelo), estado.accent)
 
-  const updateField = (id: string, updates: Partial<CertField>) => {
-    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f))
+  // Toda edição guarda o estado anterior; digitar seguido no mesmo campo (mesma chave) vira um passo só
+  const aplicar = (novo: Estado, chave: string | null = null) => {
+    setHist(h => registrar(h, estado, chave))
+    setEstado(novo)
   }
+  const updateField = (id: string, patch: Partial<Campo>, chave: string | null = null) =>
+    aplicar({ ...estado, fields: fields.map(f => (f.id === id ? { ...f, ...patch } : f)) }, chave)
+  const limparChave = () => setHist(h => (h.chave ? { ...h, chave: null } : h))
+  const selecionar = (id: string | null) => { setSelectedField(id); limparChave() }
+  const desfaz = () => { const r = desfazer(hist, estado); if (r) { setHist(r.hist); setEstado(r.estado) } }
+  const refaz = () => { const r = refazer(hist, estado); if (r) { setHist(r.hist); setEstado(r.estado) } }
 
-  const addField = (type: CertField['type']) => {
-    const newField: CertField = {
-      id: `f${Date.now()}`, type,
-      label: 'Novo campo', x: 50, y: 50,
-      fontSize: type === 'text' ? 14 : 0, color: '#1a0e14',
-      value: type === 'text' ? 'Texto' : '',
-      width: type === 'qrcode' ? 50 : type === 'logo' ? 80 : 60,
-      height: type === 'qrcode' || type === 'logo' ? 50 : 25,
+  const moverCampo = (id: string, dx: number, dy: number) =>
+    aplicar({ ...estado, fields: fields.map(f => (f.id === id ? mover(f, dx, dy) : f)) }, `mover:${id}`)
+
+  // Arrastar com mouse ou toque: um passo no histórico por arrasto
+  const arrastar = (id: string, e: PointerEvent<HTMLDivElement>) => {
+    const papel = papelRef.current
+    const campo = fields.find(f => f.id === id)
+    if (!papel || !campo || e.button > 0) return
+    selecionar(id)
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    const r = papel.getBoundingClientRect()
+    if (!r.width || !r.height) return
+    const ini = { px: e.clientX, py: e.clientY, x: campo.x, y: campo.y, antes: estado, moveu: false }
+    const andar = (m: globalThis.PointerEvent) => {
+      if (!ini.moveu) { ini.moveu = true; setHist(h => registrar(h, ini.antes)) }
+      const x = Math.min(100, Math.max(0, ini.x + ((m.clientX - ini.px) / r.width) * 100))
+      const y = Math.min(100, Math.max(0, ini.y + ((m.clientY - ini.py) / r.height) * 100))
+      setEstado(s => ({ ...s, fields: s.fields.map(f => (f.id === id ? { ...f, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 } : f)) }))
     }
-    setFields([...fields, newField])
-    setSelectedField(newField.id)
+    const fim = () => { window.removeEventListener('pointermove', andar); window.removeEventListener('pointerup', fim); window.removeEventListener('pointercancel', fim) }
+    window.addEventListener('pointermove', andar)
+    window.addEventListener('pointerup', fim)
+    window.addEventListener('pointercancel', fim)
+    arrasto.current = fim
+  }
+  useEffect(() => () => arrasto.current?.(), [])
+
+  const addField = (type: Campo['type']) => {
+    let n = fields.length
+    while (fields.some(f => f.id === `n${n}`)) n++
+    const novo: Campo = {
+      id: `n${n}`, type, label: type === 'qrcode' ? 'QR Code' : 'Novo campo', x: 50, y: 50,
+      fontSize: type === 'text' ? 14 : 0, color: modelo.tinta, value: type === 'text' ? 'Texto' : '',
+      width: type === 'qrcode' ? 12 : 60,
+    }
+    aplicar({ ...estado, fields: [...fields, novo] })
+    setSelectedField(novo.id)
   }
 
   const removeField = (id: string) => {
     if (fields.length <= 1) { toast.error('Mantenha pelo menos um campo'); return }
-    setFields(fields.filter(f => f.id !== id))
+    aplicar({ ...estado, fields: fields.filter(f => f.id !== id) })
     if (selectedField === id) setSelectedField(null)
+  }
+
+  // Troca de modelo: textos e posições ficam; pede confirmação se já houve edição nesta sessão (e dá para desfazer)
+  const usarModelo = (id: string) => aplicar({ fields: aplicarModelo(fields, modeloPorId(id)), modelo: id, accent: null })
+  const pedirModelo = (id: string) => {
+    if (id === estado.modelo) return
+    if (hist.passado.length > 0) setModeloPendente(id); else usarModelo(id)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'sig') => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
+    const erro = erroDaImagem(file)
+    if (erro) { toast.error(erro); return }
     const reader = new FileReader()
     reader.onload = (ev) => {
-      if (type === 'logo') setLogoUrl(ev.target?.result as string)
-      else setSigUrl(ev.target?.result as string)
+      const url = imagemSegura(ev.target?.result)
+      if (!url) { toast.error('Não foi possível usar essa imagem.'); return }
+      if (type === 'logo') setLogoUrl(url); else setSigUrl(url)
     }
     reader.readAsDataURL(file)
   }
 
-  const resolveValue = (field: CertField) => {
-    return field.value
-      .replace('{{NOME}}', previewName)
-      .replace('{{EVENTO}}', previewEvent)
-      .replace('{{DATA}}', previewDate)
-      .replace('{{HORAS}}', previewHours)
-      .replace('{{ASSINATURA}}', sigUrl ? '[ASSINATURA]' : '_________________')
-      .replace('{{DATA_EMISSAO}}', new Date().toLocaleDateString('pt-BR'))
+  const real = participantes.find(p => p.user_id === participanteId)
+  const dados: DadosCertificado = {
+    nome: real?.nome ?? previewName, evento: previewEvent, data: previewDate, horas: horas || '___',
+    emissao: new Date().toLocaleDateString('pt-BR'), codigo: 'EXEMPLO',
   }
 
   const selected = fields.find(f => f.id === selectedField)
+  const ehTexto = selected && (selected.type === 'text' || selected.type === 'date' || selected.type === 'hours')
   // com `loading` o botão não fica `disabled` (senão cinza e sem spinner); o loading já bloqueia o clique
   // espera também a logo do organizador: salvar antes dela chegar gravaria o modelo sem logo
-  const podeSalvar = !!eventId && carregadoPara === eventId && !logoOrganizador.isLoading
+  const podeSalvar = !!eventId && carregadoPara === eventId && !logoOrg.isLoading
+  const certificadosUrl = `/producer/certificados${eventId ? `?eventId=${eventId}` : ''}`
 
   const header = (
     <PageHeader
@@ -207,9 +237,9 @@ export default function CertificateBuilder() {
       description="Monte o modelo do certificado de cada evento, com seu logo e assinatura"
       actions={
         <>
-          <Button asChild variant="outline"><Link to="/producer/certificados"><I.SetaEsquerda aria-hidden="true" />Certificados</Link></Button>
+          <Button asChild variant="outline" className="min-h-11"><Link to={certificadosUrl}><I.SetaEsquerda aria-hidden="true" />Certificados</Link></Button>
           {events.length > 0 && (
-            <Button onClick={handleSave} disabled={!podeSalvar} loading={salvando}>
+            <Button className="min-h-11" onClick={handleSave} disabled={!podeSalvar} loading={salvando}>
               <I.Guardar aria-hidden="true" />Salvar modelo
             </Button>
           )}
@@ -229,15 +259,7 @@ export default function CertificateBuilder() {
   }
 
   if (eventsError) {
-    return (
-      <div>
-        {header}
-        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">Não foi possível carregar seus eventos.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>{isFetching ? 'Carregando…' : 'Tentar de novo'}</Button>
-        </div>
-      </div>
-    )
+    return <div>{header}<Erro texto="Não foi possível carregar seus eventos." refetch={() => refetch()} carregando={isFetching} /></div>
   }
 
   if (events.length === 0) {
@@ -247,7 +269,7 @@ export default function CertificateBuilder() {
         <EmptyState
           title="Crie um evento antes do certificado"
           description="O modelo de certificado é salvo para um evento."
-          action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild className="min-h-11"><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )
@@ -259,25 +281,43 @@ export default function CertificateBuilder() {
 
       <div className="grid gap-1.5 sm:max-w-sm">
         <Label htmlFor="editor-evento">Modelo do evento</Label>
-        <select id="editor-evento" value={eventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={selectNativo}>
+        <select id="editor-evento" value={eventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={`${selectNativo} min-h-11`}>
           {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
       </div>
 
-      {/* Templates */}
+      {/* Modelos: os 6 primeiros aqui; a galeria tem todos */}
       <section aria-labelledby="modelos" className={`${painel} mt-6`}>
-        <h2 id="modelos" className="mb-3 text-sm font-medium text-foreground">Escolha um modelo</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {templates.map(t => (
-            <button key={t.id} type="button" aria-pressed={selectedTemplate === t.id} onClick={() => { setSelectedTemplate(t.id); setAccentColor(null) }}
-              className={`rounded-lg border p-3 text-center transition-colors ${selectedTemplate === t.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-foreground/5'}`}>
-              <div className="mx-auto mb-2 h-16 w-12 rounded border" style={{ background: t.bgColor, borderColor: t.accentColor }} />
-              <div className="text-xs font-medium text-foreground">{t.name}</div>
-              <div className="text-[11px] text-muted-foreground">{t.preview}</div>
-            </button>
-          ))}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="modelos" className="text-sm font-medium text-foreground">Modelo: {modelo.nome}</h2>
+          <Button variant="outline" size="sm" className="min-h-11" onClick={() => setGaleria(true)}>Ver mais modelos ({MODELOS.length - 6})</Button>
         </div>
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          {MODELOS.slice(0, 6).map(m => (
+            <li key={m.id}>
+              <button type="button" aria-pressed={estado.modelo === m.id} onClick={() => pedirModelo(m.id)}
+                className={`block min-h-11 w-full rounded-lg border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${estado.modelo === m.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-foreground/5'}`}>
+                <MiniaturaModelo modelo={m} />
+                <span className="mt-2 block text-xs font-medium text-foreground">{m.nome}</span>
+                <span className="block text-[11px] text-muted-foreground">{m.descricao}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
+      <GaleriaModelos aberto={galeria} onFechar={() => setGaleria(false)} atual={estado.modelo} onUsar={pedirModelo} />
+      <AlertDialog open={!!modeloPendente} onOpenChange={o => { if (!o) setModeloPendente(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Trocar o modelo?</AlertDialogTitle>
+            <AlertDialogDescription>Os textos e as posições que você editou ficam. Cores e fontes dos campos voltam ao padrão do novo modelo. Dá para desfazer logo depois.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11">Voltar</AlertDialogCancel>
+            <AlertDialogAction className="min-h-11" onClick={() => { if (modeloPendente) usarModelo(modeloPendente); setModeloPendente(null) }}>Trocar modelo</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Editor Sidebar */}
@@ -288,34 +328,39 @@ export default function CertificateBuilder() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="upload-logo-input" className="mb-1.5 text-xs text-muted-foreground">Logo do evento</Label>
-                <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
+                <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => fileInputRef.current?.click()}>
                   {logoEfetiva ? <img src={logoEfetiva} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
                 </Button>
-                {(logoPropria || logoAntiga) && logoSalva && (
-                  <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-1 text-xs" onClick={() => setLogoUrl(null)}>{logoAntiga ? 'Usar a logo atual do organizador' : 'Usar a logo do organizador'}</Button>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {logoPropria ? 'Logo enviada só para este modelo.'
-                    : logoAntiga ? 'Logo do organizador guardada neste modelo (a de Configurações mudou depois).'
-                    : logoSalva ? <>Usando a logo salva em <Link to="/producer/settings" className="underline underline-offset-2">Configurações &gt; Organizador</Link>. Envie outra para trocar só aqui.</>
-                    : <>Salve a logo em <Link to="/producer/settings" className="underline underline-offset-2">Configurações &gt; Organizador</Link> e ela aparece aqui; salve o modelo para guardá-la.</>}
-                </p>
               </div>
               <div>
                 <Label htmlFor="upload-sig-input" className="mb-1.5 text-xs text-muted-foreground">Assinatura</Label>
-                <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'sig')} />
+                <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={e => handleFileChange(e, 'sig')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => sigInputRef.current?.click()}>
                   {sigUrl ? <img src={sigUrl} alt="Assinatura do produtor" className="h-8 object-contain" /> : <><I.Assinatura aria-hidden="true" />Enviar</>}
                 </Button>
               </div>
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">PNG, JPG ou WebP, até 1 MB.</p>
+            {(logoPropria || logoAntiga) && logoSalva && (
+              <Button type="button" variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => setLogoUrl(null)}>
+                <I.Imagem aria-hidden="true" />{logoAntiga ? 'Usar a logo atual do organizador' : 'Usar a logo do organizador'}
+              </Button>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              {logoPropria ? 'Logo enviada só para este modelo.'
+                : logoAntiga ? 'Logo do organizador guardada neste modelo (a de Configurações mudou depois).'
+                : logoSalva ? <>Usando a logo salva em <Link to="/producer/settings" className="text-foreground underline underline-offset-4">Configurações &gt; Organizador</Link>. Envie outra para trocar só aqui.</>
+                : <>Salve a logo em <Link to="/producer/settings" className="text-foreground underline underline-offset-4">Configurações &gt; Organizador</Link> e ela aparece aqui; salve o modelo para guardá-la.</>}
+            </p>
             <div className="mt-3">
-              <p id="cor-destaque" className="mb-1.5 text-xs text-muted-foreground">Cor de destaque</p>
-              <div role="group" aria-labelledby="cor-destaque" className="flex flex-wrap gap-2">
-                {['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2'].map(c => (
-                  <button key={c} type="button" onClick={() => setAccentColor(c)} aria-pressed={template.accentColor === c} aria-label={`Cor de destaque ${c}`}
-                    className={`size-8 rounded-full border-2 transition-transform ${template.accentColor === c ? 'scale-110 border-foreground' : 'border-transparent'}`} style={{ background: c }} />
+              <p id="cor-destaque" className="mb-1.5 text-xs text-muted-foreground">Cor de destaque (molduras e faixas)</p>
+              <div role="group" aria-labelledby="cor-destaque" className="flex flex-wrap gap-1">
+                {CORES.map(c => (
+                  <button key={c} type="button" onClick={() => aplicar({ ...estado, accent: c })} aria-pressed={modelo.accent === c} aria-label={`Cor de destaque ${c}`}
+                    className="flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className={`size-8 rounded-full border-2 transition-transform ${modelo.accent === c ? 'scale-110 border-foreground' : 'border-transparent'}`} style={{ background: c }} />
+                  </button>
                 ))}
               </div>
             </div>
@@ -323,17 +368,24 @@ export default function CertificateBuilder() {
 
           {/* Preview Data */}
           <section aria-labelledby="dados-exemplo" className={painel}>
-            <h2 id="dados-exemplo" className="mb-3 text-sm font-medium text-foreground">Dados de exemplo</h2>
+            <h2 id="dados-exemplo" className="mb-3 text-sm font-medium text-foreground">Dados da prévia</h2>
             <div className="grid gap-2">
-              <Label htmlFor="ex-nome" className="sr-only">Nome do participante</Label>
-              <Input id="ex-nome" value={previewName} onChange={e => setPreviewName(e.target.value)} placeholder="Nome do participante" />
+              <Label htmlFor="ex-participante" className="text-xs text-muted-foreground">Participante</Label>
+              <select id="ex-participante" value={participanteId} onChange={e => setParticipanteId(e.target.value)} className={`${selectNativo} min-h-11`}>
+                <option value="">Nome de exemplo</option>
+                {participantes.map(p => <option key={p.user_id} value={p.user_id}>{p.nome}</option>)}
+              </select>
+              {participantesQ.isError && <p role="alert" className="text-xs text-muted-foreground">Não foi possível carregar os participantes; use o nome de exemplo.</p>}
+              <Label htmlFor="ex-nome" className="sr-only">Nome de exemplo</Label>
+              <Input id="ex-nome" className={campoNum} value={previewName} onChange={e => setPreviewName(e.target.value.slice(0, 120))} placeholder="Nome de exemplo" disabled={!!real} />
               <Label htmlFor="ex-evento" className="sr-only">Nome do evento</Label>
-              <Input id="ex-evento" value={previewEvent} onChange={e => setPreviewEvent(e.target.value)} placeholder="Nome do evento" />
+              <Input id="ex-evento" className={campoNum} value={previewEvent} onChange={e => setExemplo({ ...ex, eventId, evento: e.target.value.slice(0, 160) })} placeholder="Nome do evento" />
               <Label htmlFor="ex-data" className="sr-only">Data</Label>
-              <Input id="ex-data" value={previewDate} onChange={e => setPreviewDate(e.target.value)} placeholder="Data" />
-              <Label htmlFor="ex-horas" className="sr-only">Horas</Label>
-              <Input id="ex-horas" value={previewHours} onChange={e => setPreviewHours(e.target.value)} placeholder="Horas" />
+              <Input id="ex-data" className={campoNum} value={previewDate} onChange={e => setExemplo({ ...ex, eventId, data: e.target.value.slice(0, 60) })} placeholder="Data" />
+              <Label htmlFor="ex-horas" className="text-xs text-muted-foreground">Carga horária (horas), vale para todos os certificados</Label>
+              <Input id="ex-horas" className={campoNum} inputMode="decimal" value={horas} onChange={e => setHoras(/^[\d.,]{0,6}$/.test(e.target.value) ? e.target.value : horas)} placeholder="Ex.: 8" />
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">Evento e data são só da prévia; na emissão e no PDF valem os do evento. A prévia mostra só o nome do participante.</p>
           </section>
 
           {/* Fields List */}
@@ -341,15 +393,15 @@ export default function CertificateBuilder() {
             <div className="mb-3 flex items-center justify-between">
               <h2 id="campos" className="text-sm font-medium text-foreground">Campos ({fields.length})</h2>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('text')} aria-label="Adicionar campo de texto"><I.Texto aria-hidden="true" /></Button>
-                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('qrcode')} aria-label="Adicionar QR Code"><I.Qr aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" className={`${icone} size-11`} onClick={() => addField('text')} aria-label="Adicionar campo de texto"><I.Texto aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" className={`${icone} size-11`} onClick={() => addField('qrcode')} aria-label="Adicionar QR Code"><I.Qr aria-hidden="true" /></Button>
               </div>
             </div>
             <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
               {fields.map(f => (
                 <li key={f.id} className={`flex items-center gap-1 rounded-md text-xs ${selectedField === f.id ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'}`}>
-                  <button type="button" aria-pressed={selectedField === f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-foreground/5">
+                  <button type="button" aria-pressed={selectedField === f.id} onClick={() => selecionar(f.id === selectedField ? null : f.id)}
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     {f.type === 'text' && <I.Texto size={14} aria-hidden="true" />}
                     {f.type === 'logo' && <I.Imagem size={14} aria-hidden="true" />}
                     {f.type === 'signature' && <I.Assinatura size={14} aria-hidden="true" />}
@@ -357,7 +409,7 @@ export default function CertificateBuilder() {
                     {f.type === 'date' && <I.Eventos size={14} aria-hidden="true" />}
                     <span className="truncate">{f.label}</span>
                   </button>
-                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeField(f.id)} aria-label={`Remover o campo ${f.label}`}>
+                  <Button variant="ghost" size="icon-sm" className={`${icone} size-11`} onClick={() => removeField(f.id)} aria-label={`Remover o campo ${f.label}`}>
                     <I.Lixeira aria-hidden="true" />
                   </Button>
                 </li>
@@ -365,100 +417,94 @@ export default function CertificateBuilder() {
             </ul>
           </section>
 
-          {/* Field Editor */}
+          {/* Propriedades do campo selecionado */}
           {selected && (
-            <section aria-labelledby="editar-campo" className={painel}>
-              <h2 id="editar-campo" className="mb-3 text-sm font-medium text-foreground">Editar: {selected.label}</h2>
+            <section aria-labelledby="editar-campo" className={painel} onBlur={limparChave}>
+              <h2 id="editar-campo" className="mb-3 text-sm font-medium text-foreground">Propriedades: {selected.label}</h2>
               <div className="space-y-3">
-                {selected.type === 'text' && (
+                {ehTexto && (
                   <>
                     <div className="grid gap-1.5">
                       <Label htmlFor="selected-field-value" className="text-xs text-muted-foreground">Texto ou variável</Label>
-                      <Input id="selected-field-value" value={selected.value} onChange={e => updateField(selected.id, { value: e.target.value })} placeholder="Use {{NOME}}, {{EVENTO}}, {{DATA}}, {{HORAS}}" />
+                      <Input id="selected-field-value" className={campoNum} maxLength={LIMITES.texto} value={selected.value} onChange={e => updateField(selected.id, { value: e.target.value }, `${selected.id}:value`)} placeholder="Use {{NOME}}, {{EVENTO}}, {{DATA}}, {{HORAS}}" />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="selected-field-font" className="text-xs text-muted-foreground">Fonte</Label>
+                      <select id="selected-field-font" className={`${selectNativo} min-h-11`} value={selected.fontFamily ?? ''} onChange={e => updateField(selected.id, { fontFamily: (e.target.value || undefined) as FonteId | undefined })}>
+                        <option value="">Padrão do modelo</option>
+                        {FONTES.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                      </select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="grid gap-1.5">
-                        <Label htmlFor="selected-field-font-size" className="text-xs text-muted-foreground">Tamanho (px)</Label>
-                        <Input id="selected-field-font-size" type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })} />
+                        <Label htmlFor="selected-field-font-size" className="text-xs text-muted-foreground">Tamanho ({LIMITES.fonteMin} a {LIMITES.fonteMax})</Label>
+                        <Input id="selected-field-font-size" className={campoNum} type="number" min={LIMITES.fonteMin} max={LIMITES.fonteMax} value={selected.fontSize}
+                          onChange={e => { const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) updateField(selected.id, { fontSize: Math.min(LIMITES.fonteMax, Math.max(LIMITES.fonteMin, n)) }, `${selected.id}:fontSize`) }} />
                       </div>
                       <div className="grid gap-1.5">
                         <Label htmlFor="selected-field-color" className="text-xs text-muted-foreground">Cor</Label>
-                        <Input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })} className="cursor-pointer p-1" />
+                        <Input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value }, `${selected.id}:color`)} className="min-h-11 cursor-pointer p-1" />
                       </div>
                     </div>
+                    <div className="grid gap-1.5">
+                      <span className="text-xs text-muted-foreground">Alinhamento</span>
+                      <Segmented label="Alinhamento do texto" size="md" className="h-11" items={ALINHAMENTOS} value={selected.align ?? 'center'} onValueChange={v => updateField(selected.id, { align: v as Alinhamento })} />
+                    </div>
+                    <Button type="button" variant="outline" className="min-h-11" aria-pressed={selected.bold ?? selected.fontSize > 20} onClick={() => updateField(selected.id, { bold: !(selected.bold ?? selected.fontSize > 20) })}>
+                      <span className="font-bold">N</span> Negrito
+                    </Button>
                   </>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="grid gap-1.5">
-                    <Label htmlFor="selected-field-pos-x" className="text-xs text-muted-foreground">Posição X (%)</Label>
-                    <Input id="selected-field-pos-x" type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })} />
+                    <Label htmlFor="selected-field-pos-x" className="text-xs text-muted-foreground">X (%)</Label>
+                    <Input id="selected-field-pos-x" className={campoNum} type="number" value={selected.x} min={0} max={100} onChange={e => { const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) updateField(selected.id, { x: Math.min(100, Math.max(0, n)) }, `${selected.id}:x`) }} />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="selected-field-pos-y" className="text-xs text-muted-foreground">Posição Y (%)</Label>
-                    <Input id="selected-field-pos-y" type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })} />
+                    <Label htmlFor="selected-field-pos-y" className="text-xs text-muted-foreground">Y (%)</Label>
+                    <Input id="selected-field-pos-y" className={campoNum} type="number" value={selected.y} min={0} max={100} onChange={e => { const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) updateField(selected.id, { y: Math.min(100, Math.max(0, n)) }, `${selected.id}:y`) }} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="selected-field-width" className="text-xs text-muted-foreground">Largura (%)</Label>
+                    <Input id="selected-field-width" className={campoNum} type="number" value={selected.width} min={ehTexto ? 10 : 5} max={ehTexto ? 100 : 40}
+                      onChange={e => { const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) updateField(selected.id, { width: Math.min(ehTexto ? 100 : 40, Math.max(ehTexto ? 10 : 5, n)) }, `${selected.id}:width`) }} />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">Para mover pelo teclado, foque o campo na prévia e use as setas (Shift anda de 5 em 5).</p>
               </div>
             </section>
           )}
 
           <p className="text-xs text-muted-foreground">
-            A emissão para os participantes é feita na tela <Link to="/producer/certificados" className="text-foreground underline underline-offset-4">Certificados</Link>. O envio por e-mail e o PDF ainda não existem.
+            A emissão para os participantes é feita na tela <Link to={certificadosUrl} className="text-foreground underline underline-offset-4">Certificados</Link>, onde também está o PDF de quem já recebeu. O envio por e-mail ainda não existe.
           </p>
         </div>
 
         {/* Preview */}
         <div className="min-w-0 lg:col-span-3">
           <div className="lg:sticky lg:top-6">
-            <h2 className="mb-3 text-sm font-medium text-foreground">Prévia do certificado</h2>
-            <div className={`relative mx-auto aspect-[1.414/1] max-w-[700px] overflow-hidden rounded-[10px] bg-white ${template.borderStyle}`}
-              style={{ borderColor: template.accentColor }}>
-              {/* Background */}
-              <div className="absolute inset-0" style={{ background: template.bgColor }} />
-
-              {/* Decorative elements */}
-              {template.id === 'classic' && (
-                <>
-                  <div className="absolute bottom-6 left-6 right-6 top-6 rounded-xl border-2" style={{ borderColor: template.accentColor + '30' }} />
-                  <div className="absolute bottom-10 left-10 right-10 top-10 rounded-xl border" style={{ borderColor: template.accentColor + '15' }} />
-                </>
-              )}
-              {template.id === 'modern' && (
-                <div className="absolute bottom-0 left-0 top-0 w-2" style={{ background: template.accentColor }} />
-              )}
-              {template.id === 'corporate' && (
-                <div className="absolute left-0 right-0 top-0 h-2" style={{ background: template.accentColor }} />
-              )}
-
-              {/* Fields */}
-              {fields.map(field => (
-                <div key={field.id}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 text-center ${selectedField === field.id ? 'ring-2 ring-primary/50' : ''} ${field.type === 'qrcode' ? 'flex items-center justify-center rounded-lg bg-neutral-900' : ''}`}
-                  style={{
-                    left: `${field.x}%`,
-                    top: `${field.y}%`,
-                    fontSize: `${field.fontSize}px`,
-                    color: field.color,
-                    width: `${field.width}%`,
-                  }}>
-                  {field.type === 'logo' && logoEfetiva && <img src={logoEfetiva} alt="Logo do evento no certificado" className="mx-auto max-h-16 object-contain" />}
-                  {field.type === 'logo' && !logoEfetiva && <div className="text-xs text-neutral-500">LOGO</div>}
-                  {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do produtor no certificado" className="mx-auto max-h-10 object-contain" />}
-                  {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
-                  {field.type === 'qrcode' && <I.Qr size={48} className="text-white" aria-hidden="true" />}
-                  {field.type === 'text' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color, fontWeight: field.fontSize > 20 ? 600 : 400 }}>{resolveValue(field)}</div>}
-                  {field.type === 'date' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
-                  {field.type === 'hours' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
-                </div>
-              ))}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-medium text-foreground">Prévia do certificado</h2>
+              <div className="flex flex-wrap items-center gap-1">
+                <Button variant="outline" size="sm" className="min-h-11" onClick={desfaz} disabled={hist.passado.length === 0}><I.Desfazer aria-hidden="true" />Desfazer</Button>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={refaz} disabled={hist.futuro.length === 0}><I.Refazer aria-hidden="true" />Refazer</Button>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={() => setImprimindo(++pedidos.current)}><I.Imprimir aria-hidden="true" />Baixar PDF</Button>
+              </div>
             </div>
+            <div className="mx-auto max-w-[700px] overflow-hidden rounded-[10px] border border-border">
+              <CertificadoDesenho modelo={modelo} campos={fields} logoUrl={logoEfetiva} sigUrl={sigUrl} dados={dados}
+                selecionado={selectedField} onSelecionar={selecionar} onMoverTeclado={moverCampo} onArrastar={arrastar} papelRef={papelRef} />
+            </div>
+            <p className="mx-auto mt-2 max-w-[700px] text-xs text-muted-foreground">
+              O PDF abre o &quot;salvar como PDF&quot; do navegador (A4 paisagem). A validação pública ainda não existe: o QR e o código ainda não confirmam o certificado.
+            </p>
 
             {/* Variables help */}
             <div className={`${painel} mt-4`}>
               <h3 className="mb-2 text-xs font-medium text-foreground">Variáveis disponíveis</h3>
               <div className="flex flex-wrap gap-2">
-                {['{{NOME}}', '{{EVENTO}}', '{{DATA}}', '{{HORAS}}', '{{ASSINATURA}}', '{{DATA_EMISSAO}}'].map(v => (
-                  <Button key={v} variant="secondary" size="sm" className="h-7 font-mono text-[11px]" onClick={() => { navigator.clipboard.writeText(v); toast.success('Variável copiada.') }} aria-label={`Copiar ${v}`}>
+                {VARIAVEIS.map(v => (
+                  <Button key={v} variant="secondary" size="sm" className="min-h-11 font-mono text-[11px]" onClick={() => { navigator.clipboard.writeText(v); toast.success('Variável copiada.') }} aria-label={`Copiar ${v}`}>
                     <I.Copiar aria-hidden="true" /> {v}
                   </Button>
                 ))}
@@ -467,6 +513,7 @@ export default function CertificateBuilder() {
           </div>
         </div>
       </div>
+      {imprimindo > 0 && <ImpressaoCertificados key={imprimindo} itens={[{ dados }]} modelo={modelo} campos={fields} logoUrl={logoEfetiva} sigUrl={sigUrl} onFim={() => setImprimindo(0)} />}
     </div>
   )
 }

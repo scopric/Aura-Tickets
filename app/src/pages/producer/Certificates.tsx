@@ -1,27 +1,42 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
+import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
-import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
+import { useEventoDaUrl, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import {
   useEventCertificates,
   useParticipantesCertificado,
   useCertificadosEmitidos,
   useEmitirCertificados,
   useRevogarCertificado,
+  type CertificadoEmitido,
 } from '../../hooks/useProducerTools'
-import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
+import { faltaSegundoFator } from '../../lib/vendasPagas'
+import { downloadCsv, csvFilename, slugArquivo } from '../../lib/exportCsv'
+import { situacaoEvento } from '../../lib/eventoProdutor'
+import { dataBR } from '../../lib/bordero'
+import { LIMITES, csvEmitidos, dataLonga, modeloComCor, modeloPorId, partesDoLote, sanearTemplate, type DadosCertificado } from '../../lib/certificados'
+import { CabecalhoEvento, EmBreve, KpiCard } from '@/components/producer/ui-evento'
+import { ImpressaoCertificados } from '@/components/producer/CertificadoDesenho'
+import { EmptyState, Erro, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const ABAS = ['participantes', 'emitidos'] as const
+type Aba = (typeof ABAS)[number]
 
 // Avatar com as iniciais, sem serviço externo (LGPD)
 const iniciais = (nome: string) =>
   nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?'
+const dataDe = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 
 function mensagemErro(err: unknown, padrao: string) {
   const code = (err as { code?: string } | null)?.code
@@ -31,23 +46,26 @@ function mensagemErro(err: unknown, padrao: string) {
   return padrao
 }
 
-function Alerta({ texto, onRetry, carregando }: { texto: string; onRetry: () => void; carregando: boolean }) {
-  return (
-    <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-foreground">{texto}</p>
-      <Button variant="outline" size="sm" onClick={onRetry} disabled={carregando}>{carregando ? 'Carregando…' : 'Tentar de novo'}</Button>
-    </div>
-  )
-}
-
 export default function Certificates() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const eventosQ = useProducerEvents()
   const events = eventosQ.data ?? []
+  const [daUrl] = useFiltroEvento()
   const [pickedEventId, setPickedEventId] = useEventoDaUrl(events.map(e => e.id))
+  // ?eventId= de outro produtor (ou apagado) não lê nada: a tela diz que não achou
+  const eventoInvalido = !!daUrl && !!eventosQ.data && !events.some(e => e.id === daUrl)
   // a lista chega depois do 1º render: sem escolha (URL ou último usado), vale o primeiro evento
-  const selectedEventId = pickedEventId ?? events[0]?.id ?? null
+  const selectedEventId = eventoInvalido ? null : (pickedEventId ?? events[0]?.id ?? null)
+  const evento = events.find(e => e.id === selectedEventId)
+  const [params, setParams] = useSearchParams()
+  const abaAtual: Aba = ABAS.find(a => a === params.get('aba')) ?? 'participantes'
   // quem recebe: só quem fez check-in (ingresso usado) ou todo mundo com ingresso válido (ativo ou usado)
   const [somenteCheckin, setSomenteCheckin] = useState(true)
+  const [revogando, setRevogando] = useState<{ id: string; nome: string } | null>(null)
+  const [impressao, setImpressao] = useState<{ id: number; itens: DadosCertificado[] } | null>(null)
+  const pedidos = useRef(0) // cada clique é um pedido novo (key do contêiner): imprime de novo mesmo sem o afterprint (Safari do iPhone)
+  const imprimir = (itens: DadosCertificado[]) => setImpressao({ id: ++pedidos.current, itens })
 
   // certificates guarda o MODELO do evento (um por evento, índice único em event_id)
   const modelosQ = useEventCertificates(selectedEventId)
@@ -57,47 +75,22 @@ export default function Certificates() {
   const emitir = useEmitirCertificados()
   const revogar = useRevogarCertificado()
 
-  const editorUrl = `/producer/certificado-editor${selectedEventId ? `?eventId=${selectedEventId}` : ''}`
-  const header = (
-    <PageHeader
-      title="Certificados"
-      description="Emita certificados para quem participou dos seus eventos"
-      actions={events.length > 0 && <Button asChild variant="outline"><Link to={editorUrl}><I.Paleta aria-hidden="true" />Editor de modelos</Link></Button>}
-    />
-  )
-
-  if (eventosQ.isLoading) {
-    return (
-      <div aria-busy="true">
-        {header}
-        <Skeleton className="h-9 w-full max-w-sm rounded-md bg-muted" />
-        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
-      </div>
-    )
-  }
-
-  if (eventosQ.isError) {
-    return <div>{header}<Alerta texto="Não foi possível carregar seus eventos." onRetry={() => eventosQ.refetch()} carregando={eventosQ.isFetching} /></div>
-  }
-
-  if (events.length === 0) {
-    return (
-      <div>
-        {header}
-        <EmptyState
-          title="Você ainda não tem eventos"
-          description="O certificado é emitido por evento, para quem tem ingresso."
-          action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
-        />
-      </div>
-    )
-  }
-
   const participantes = participantesQ.data?.lista ?? []
   const emitidos = emitidosQ.data ?? []
   const emitidoDe = new Map(emitidos.map(c => [c.user_id, c]))
+  const nomeDe = new Map(participantes.map(p => [p.user_id, p.nome]))
   const elegiveis = participantes.filter(p => !somenteCheckin || p.checkin)
   const pendentes = elegiveis.filter(p => !emitidoDe.has(p.user_id))
+
+  // lista vazia pode ser sessão sem 2FA concluído (o banco devolve vazio, sem erro): nunca mostrar "ninguém" falso
+  const semDados = !!participantesQ.data && participantes.length === 0
+  const doisFatores = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: semDados, queryFn: faltaSegundoFator })
+
+  const editorUrl = `/producer/certificado-editor${selectedEventId ? `?eventId=${selectedEventId}` : ''}`
+  const mudaAba = (v: string) => {
+    if (v === 'modelo') { navigate(editorUrl); return }
+    setParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.set('aba', v); return n }, { replace: true })
+  }
 
   const emitirPara = async (userIds: string[], ok: string) => {
     if (!modelo) return
@@ -115,113 +108,262 @@ export default function Certificates() {
     emitirPara(pendentes.map(p => p.user_id), `${pendentes.length} certificado(s) emitido(s).`)
   }
 
-  const handleRevogar = async (nome: string, id: string) => {
-    if (!modelo || !window.confirm(`Revogar o certificado de ${nome}? O código de validação deixa de valer.`)) return
+  const confirmarRevogar = async () => {
+    const alvo = revogando
+    setRevogando(null)
+    if (!modelo || !alvo) return
     try {
-      await revogar.mutateAsync({ id, certificateId: modelo.id })
+      await revogar.mutateAsync({ id: alvo.id, certificateId: modelo.id })
       toast.success('Certificado revogado.')
     } catch {
       toast.error('Não foi possível revogar o certificado.')
     }
   }
 
+  const nomeEmitido = (c: CertificadoEmitido) => nomeDe.get(c.user_id) ?? 'Nome indisponível'
+  const modeloVisual = modelo ? sanearTemplate(modelo.template) : null
+
+  // PDF: o contêiner só-impressão usa o mesmo desenho da prévia do editor, um certificado por folha
+  const dadosDe = (c: CertificadoEmitido): DadosCertificado => ({
+    nome: nomeEmitido(c), evento: evento?.title ?? '', data: dataLonga(evento?.date) || (evento?.date ? dataBR(evento.date) : ''),
+    horas: modeloVisual?.horas || '___', emissao: dataDe(c.issued_at), codigo: c.code,
+  })
+  // sem nome na lista de participantes (ingresso cancelado depois): não entra no PDF, para não sair certificado em branco
+  const comNome = emitidos.filter(c => nomeDe.has(c.user_id))
+  const semNome = emitidos.length - comNome.length
+  const partes = partesDoLote(comNome)
+
+  const exportar = () => {
+    const csv = csvEmitidos(emitidos.map(c => ({ nome: nomeEmitido(c), codigo: c.code, emitidoEm: dataDe(c.issued_at) })))
+    downloadCsv(csvFilename(`certificados-${slugArquivo(evento?.title, selectedEventId ?? 'evento')}`), csv)
+    toast.info('O arquivo tem o nome dos participantes: dado pessoal (LGPD). Não compartilhe.')
+  }
+
+  const editorBtn = <Button asChild variant="outline" className="min-h-11"><Link to={editorUrl}><I.Paleta aria-hidden="true" />Editor de modelos</Link></Button>
+  const cabecalho = evento ? (
+    <>
+      <CabecalhoEvento titulo={evento.title} situacao={situacaoEvento(evento)} detalhes={[evento.date && dataBR(evento.date)]} editarHref={`/producer/events/${evento.id}/edit`} extras={editorBtn} />
+      <h2 className="mb-4 text-lg font-semibold text-foreground">Certificados</h2>
+    </>
+  ) : (
+    <header className="mb-6">
+      <h1 className="text-2xl font-semibold leading-8 tracking-[-0.015em] text-foreground">Certificados</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Emita certificados para quem participou dos seus eventos</p>
+    </header>
+  )
+
   const carregandoLista = modelosQ.isLoading || (!!modelo && (participantesQ.isLoading || emitidosQ.isLoading))
   const erroLista = modelosQ.isError || participantesQ.isError || emitidosQ.isError
 
-  return (
-    <div>
-      {header}
-
-      <div className="grid gap-1.5 sm:max-w-sm">
-        <Label htmlFor="cert-evento">Evento</Label>
-        <select id="cert-evento" value={selectedEventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={selectNativo}>
-          {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
-        </select>
+  let corpo
+  if (eventosQ.isLoading) {
+    corpo = (
+      <div aria-busy="true" aria-label="Carregando certificados">
+        <Skeleton className="h-11 w-full max-w-sm rounded-md bg-muted" />
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
       </div>
+    )
+  } else if (eventosQ.isError) {
+    corpo = <Erro texto="Não foi possível carregar seus eventos." refetch={() => eventosQ.refetch()} carregando={eventosQ.isFetching} />
+  } else if (eventoInvalido) {
+    corpo = <EmptyState title="Evento não encontrado entre os seus" description="O link aponta para um evento que não é seu ou não existe mais." action={<Button variant="outline" className="min-h-11" onClick={() => setPickedEventId(events[0]?.id ?? null)}>Ver meus eventos</Button>} />
+  } else if (events.length === 0) {
+    corpo = (
+      <EmptyState
+        title="Você ainda não tem eventos"
+        description="O certificado é emitido por evento, para quem tem ingresso."
+        action={<Button asChild className="min-h-11"><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+      />
+    )
+  } else {
+    let conteudo
+    if (carregandoLista) {
+      conteudo = <div aria-busy="true" aria-label="Carregando certificados"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{[1, 2, 3].map(n => <Skeleton key={n} className="h-[88px] rounded-[10px] bg-muted" />)}</div><Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" /></div>
+    } else if (erroLista) {
+      conteudo = (
+        <Erro
+          texto="Não foi possível carregar os certificados deste evento."
+          refetch={() => { modelosQ.refetch(); participantesQ.refetch(); emitidosQ.refetch() }}
+          carregando={modelosQ.isFetching || participantesQ.isFetching || emitidosQ.isFetching}
+        />
+      )
+    } else if (!modelo) {
+      conteudo = (
+        <EmptyState
+          title="Este evento ainda não tem modelo de certificado"
+          description="Monte o modelo no editor; depois você emite aqui para quem participou."
+          action={<Button asChild className="min-h-11"><Link to={editorUrl}><I.Paleta aria-hidden="true" />Criar modelo</Link></Button>}
+        />
+      )
+    } else if (semDados && doisFatores.isPending) {
+      conteudo = <div aria-busy="true"><Skeleton className="h-40 rounded-[10px] bg-muted" /></div>
+    } else if (semDados && doisFatores.isError) {
+      conteudo = <Erro texto="Não consegui confirmar o seu acesso (2FA). Sem isso a lista pode parecer vazia." refetch={() => { void doisFatores.refetch() }} carregando={doisFatores.isFetching} />
+    } else if (semDados && doisFatores.data) {
+      conteudo = <EmptyState title="Confirme o 2FA para ver os participantes" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os ingressos." />
+    } else {
+      conteudo = (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <KpiCard rotulo={somenteCheckin ? 'Elegíveis (presentes)' : 'Elegíveis (ingresso válido)'} valor={elegiveis.length.toLocaleString('pt-BR')} comparacao={somenteCheckin ? 'ingresso com check-in feito' : 'ingresso ativo ou usado'} />
+            <KpiCard rotulo="Emitidos" valor={emitidos.length.toLocaleString('pt-BR')} comparacao="certificados com código" />
+            <KpiCard rotulo="Pendentes" valor={pendentes.length.toLocaleString('pt-BR')} comparacao="elegíveis sem certificado" />
+          </div>
 
-      <div className="mt-6">
-        {carregandoLista ? (
-          <Skeleton aria-busy="true" className="h-48 rounded-[10px] bg-muted" />
-        ) : erroLista ? (
-          <Alerta
-            texto="Não foi possível carregar os certificados deste evento."
-            onRetry={() => { modelosQ.refetch(); participantesQ.refetch(); emitidosQ.refetch() }}
-            carregando={modelosQ.isFetching || participantesQ.isFetching || emitidosQ.isFetching}
-          />
-        ) : !modelo ? (
-          <EmptyState
-            title="Este evento ainda não tem modelo de certificado"
-            description="Monte o modelo no editor; depois você emite aqui para quem participou."
-            action={<Button asChild><Link to={editorUrl}><I.Paleta aria-hidden="true" />Criar modelo</Link></Button>}
-          />
-        ) : (
-          <>
-            <fieldset className="rounded-[10px] border border-border bg-card p-4">
-              <legend className="px-1 text-sm font-medium text-foreground">Quem recebe</legend>
-              <div className="mt-1 grid gap-2 text-sm">
-                <label className="flex items-start gap-2">
-                  <input type="radio" name="quem-recebe" className="mt-0.5 accent-primary" checked={somenteCheckin} onChange={() => setSomenteCheckin(true)} />
-                  <span><span className="text-foreground">Só quem esteve presente</span><span className="block text-xs text-muted-foreground">Ingresso com check-in feito</span></span>
-                </label>
-                <label className="flex items-start gap-2">
-                  <input type="radio" name="quem-recebe" className="mt-0.5 accent-primary" checked={!somenteCheckin} onChange={() => setSomenteCheckin(false)} />
-                  <span><span className="text-foreground">Todos com ingresso válido</span><span className="block text-xs text-muted-foreground">Com ou sem check-in (ingresso ativo ou usado)</span></span>
-                </label>
+          <Tabs value={abaAtual} onValueChange={mudaAba} className="mt-6">
+            <TabsList aria-label="Certificados" className="max-w-full overflow-x-auto">
+              <TabsTrigger value="participantes" className="min-h-11">Participantes</TabsTrigger>
+              <TabsTrigger value="emitidos" className="min-h-11">Emitidos<span className="ml-1.5 tabular-nums text-muted-foreground">{emitidos.length.toLocaleString('pt-BR')}</span></TabsTrigger>
+              <TabsTrigger value="modelo" className="min-h-11">Modelo<I.AbrirExterno size={14} className="ml-1" aria-hidden="true" /><span className="sr-only"> (abre o editor)</span></TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {abaAtual === 'participantes' ? (
+            <>
+              <fieldset className="mt-4 rounded-[10px] border border-border bg-card p-4">
+                <legend className="px-1 text-sm font-medium text-foreground">Quem recebe</legend>
+                <div className="mt-1 grid gap-1 text-sm">
+                  <label className="flex min-h-11 items-start gap-2 py-2">
+                    <input type="radio" name="quem-recebe" className="mt-0.5 size-4 accent-primary" checked={somenteCheckin} onChange={() => setSomenteCheckin(true)} />
+                    <span><span className="text-foreground">Só quem esteve presente</span><span className="block text-xs text-muted-foreground">Ingresso com check-in feito</span></span>
+                  </label>
+                  <label className="flex min-h-11 items-start gap-2 py-2">
+                    <input type="radio" name="quem-recebe" className="mt-0.5 size-4 accent-primary" checked={!somenteCheckin} onChange={() => setSomenteCheckin(false)} />
+                    <span><span className="text-foreground">Todos com ingresso válido</span><span className="block text-xs text-muted-foreground">Com ou sem check-in (ingresso ativo ou usado)</span></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div className="mb-3 mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <SectionTitle>Participantes</SectionTitle>
+                <Button className="min-h-11" onClick={emitirTodos} disabled={pendentes.length === 0} loading={emitir.isPending}>
+                  Emitir para todos ({pendentes.length})
+                </Button>
               </div>
-            </fieldset>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Stat label={somenteCheckin ? 'Presentes' : 'Com ingresso válido'} value={elegiveis.length} />
-              <Stat label="Certificados emitidos" value={emitidos.length} />
-            </div>
-
-            <div className="mt-6 mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base font-semibold text-foreground">Participantes</h2>
-              <Button onClick={emitirTodos} disabled={pendentes.length === 0} loading={emitir.isPending}>
-                Emitir para todos ({pendentes.length})
-              </Button>
-            </div>
-
-            {elegiveis.length === 0 ? (
-              <EmptyState
-                title={participantes.length === 0 ? 'Ninguém com ingresso válido ainda' : 'Ninguém fez check-in ainda'}
-                description={participantes.length === 0
-                  ? 'Quem comprar ingresso para este evento aparece aqui.'
-                  : 'Escolha "Todos com ingresso válido" para emitir antes do check-in.'}
-              />
-            ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
-                {elegiveis.map(p => {
-                  const cert = emitidoDe.get(p.user_id)
-                  return (
-                    <li key={p.user_id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground" aria-hidden="true">{iniciais(p.nome)}</span>
-                        <p className="min-w-0 truncate text-sm font-medium text-foreground">{p.nome}</p>
+              {elegiveis.length === 0 ? (
+                <EmptyState
+                  title={participantes.length === 0 ? 'Ninguém com ingresso válido ainda' : 'Ninguém fez check-in ainda'}
+                  description={participantes.length === 0
+                    ? 'Quem comprar ingresso para este evento aparece aqui.'
+                    : 'Escolha "Todos com ingresso válido" para emitir antes do check-in.'}
+                />
+              ) : (
+                <ul aria-label="Participantes elegíveis" className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+                  {elegiveis.map(p => {
+                    const cert = emitidoDe.get(p.user_id)
+                    return (
+                      <li key={p.user_id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground" aria-hidden="true">{iniciais(p.nome)}</span>
+                          <p className="min-w-0 truncate text-sm font-medium text-foreground">{p.nome}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                          <Badge variant="secondary">{p.checkin ? 'Check-in feito' : 'Sem check-in'}</Badge>
+                          {cert ? (
+                            <Badge variant="outline"><I.Liberado size={12} aria-hidden="true" />Emitido em {dataDe(cert.issued_at)}</Badge>
+                          ) : (
+                            <Button variant="outline" size="sm" className="min-h-11" onClick={() => emitirPara([p.user_id], 'Certificado emitido.')} disabled={emitir.isPending}>Emitir</Button>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              {participantesQ.data?.cortado && (
+                <p className="mt-3 text-xs text-muted-foreground">Lista parcial: este evento tem mais de 1.000 ingressos válidos.</p>
+              )}
+              <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código. A validação pública ainda não existe: o QR e o código ainda não confirmam o certificado. O participante ainda não vê o certificado no app. Para baixar o PDF, abra a aba Emitidos.</p>
+              <p className="mt-2 text-xs text-muted-foreground">O nome no certificado é o informado na compra do ingresso, que nem sempre é o de quem participou. Confira a lista antes de emitir.</p>
+            </>
+          ) : (
+            <>
+              <div className="mb-3 mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <SectionTitle>Certificados emitidos</SectionTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0}><I.Baixar aria-hidden="true" />Exportar CSV</Button>
+                  {partes.map((parte, i) => (
+                    <Button key={i} className="min-h-11" onClick={() => imprimir(parte.map(dadosDe))}>
+                      <I.Imprimir aria-hidden="true" />{partes.length === 1 ? `Baixar PDF de todos (${parte.length})` : `Baixar PDF: ${i * LIMITES.loteMax + 1} a ${i * LIMITES.loteMax + parte.length}`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {semNome > 0 && <p role="status" className="mb-3 text-xs text-muted-foreground">{semNome} {semNome === 1 ? 'certificado ficou' : 'certificados ficaram'} fora do PDF porque a pessoa não está mais na lista de participantes (nome indisponível). Eles continuam na lista e no CSV.</p>}
+              {partes.length > 1 && <p className="mb-3 text-xs text-muted-foreground">O PDF em lote sai em partes de até {LIMITES.loteMax} certificados ({emitidos.length - semNome} no total), para o navegador não travar.</p>}
+              {emitidos.length > 0 && <p className="mb-3 text-xs text-muted-foreground">O PDF abre o &quot;salvar como PDF&quot; do navegador (A4 paisagem, um certificado por folha). Escolha &quot;Salvar como PDF&quot; como impressora.</p>}
+              {emitidos.length === 0 ? (
+                <EmptyState title="Nenhum certificado emitido ainda" description="Emita na aba Participantes; os emitidos aparecem aqui com o código." action={<Button variant="outline" className="min-h-11" onClick={() => mudaAba('participantes')}>Ir para Participantes</Button>} />
+              ) : (
+                <ul aria-label="Certificados emitidos" className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+                  {emitidos.map(c => (
+                    <li key={c.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{nomeEmitido(c)}</p>
+                        <p className="truncate font-mono text-xs text-muted-foreground">Código {c.code} · emitido em {dataDe(c.issued_at)}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Badge variant="secondary">{p.checkin ? 'Check-in feito' : 'Sem check-in'}</Badge>
-                        {cert ? (
-                          <>
-                            <span className="text-xs text-muted-foreground">Emitido em {new Date(cert.issued_at).toLocaleDateString('pt-BR')}</span>
-                            <Button variant="ghost" size="sm" className={icone} onClick={() => handleRevogar(p.nome, cert.id)} disabled={revogar.isPending}>Revogar</Button>
-                          </>
-                        ) : (
-                          <Button variant="outline" size="sm" onClick={() => emitirPara([p.user_id], 'Certificado emitido.')} disabled={emitir.isPending}>Emitir</Button>
-                        )}
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id)} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</Button>
+                        <Button variant="ghost" size="sm" className={`min-h-11 ${icone}`} onClick={() => setRevogando({ id: c.id, nome: nomeEmitido(c) })} disabled={revogar.isPending} aria-label={`Revogar o certificado de ${nomeEmitido(c)}`}>Revogar</Button>
                       </div>
                     </li>
-                  )
-                })}
-              </ul>
-            )}
-            {participantesQ.data?.cortado && (
-              <p className="mt-3 text-xs text-muted-foreground">Lista parcial: este evento tem mais de 1.000 ingressos válidos.</p>
-            )}
-            <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código de validação. O participante ainda não vê o certificado no app, e o envio por e-mail e o PDF ainda não existem.</p>
-          </>
-        )}
-      </div>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+
+          <section aria-labelledby="cert-breve" className="mt-8">
+            <SectionTitle id="cert-breve">Em breve</SectionTitle>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <EmBreve titulo="Página pública de validação" descricao="O QR e o código abrem uma página que confirma que o certificado é verdadeiro. Precisa de uma função pública nova no banco (RPC, SQL), ainda não aplicada." acao="Ativar validação" />
+              <EmBreve titulo="Enviar por e-mail ou WhatsApp" descricao="Mandar o certificado para o participante. Precisa de um tipo novo na função de e-mails (send-email), que a Evokaa ainda não publicou; o WhatsApp depende de integração própria." acao="Enviar certificados" />
+              <EmBreve titulo="Revogar com histórico" descricao="Guardar quem teve o certificado revogado e quando. Precisa de uma coluna nova no banco (revoked_at, SQL). Hoje revogar apaga o registro." acao="Ver histórico de revogações" />
+              <EmBreve titulo="Carga horária automática" descricao="Calcular as horas a partir do evento. Hoje você digita a carga horária no editor; falta definir de onde vem o número." acao="Calcular carga horária" />
+              <EmBreve titulo="Emissão automática ao fim do evento" descricao="Emitir sozinho para quem fez check-in quando o evento termina. Precisa de uma rotina agendada no banco (SQL)." acao="Ativar emissão automática" />
+              <EmBreve titulo="Lista acima de 1.000 ingressos" descricao="Hoje a lista para em 1.000 ingressos válidos. Precisa de uma função paginada no banco (RPC)." acao="Carregar todos" />
+            </div>
+          </section>
+        </>
+      )
+    }
+
+    corpo = (
+      <>
+        <div className="mb-6 grid gap-1.5 sm:max-w-sm">
+          <Label htmlFor="cert-evento">Evento</Label>
+          <select id="cert-evento" value={selectedEventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={`${selectNativo} min-h-11`}>
+            {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+          </select>
+        </div>
+        {conteudo}
+      </>
+    )
+  }
+
+  return (
+    <div>
+      {cabecalho}
+      {corpo}
+      <AlertDialog open={!!revogando} onOpenChange={o => { if (!o) setRevogando(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revogar o certificado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Revogar APAGA o registro do certificado de {revogando?.nome}: o código deixa de existir e não fica histórico da revogação (o histórico está em breve). Se emitir de novo, a pessoa recebe um código novo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11">Voltar</AlertDialogCancel>
+            <AlertDialogAction className="min-h-11" onClick={confirmarRevogar}>Revogar e apagar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {impressao && modeloVisual && (
+        <ImpressaoCertificados key={impressao.id} itens={impressao.itens.map(dados => ({ dados }))} modelo={modeloComCor(modeloPorId(modeloVisual.selectedTemplate), modeloVisual.accentColor)}
+          campos={modeloVisual.fields} logoUrl={modeloVisual.logoUrl} sigUrl={modeloVisual.sigUrl} onFim={() => setImpressao(null)} />
+      )}
     </div>
   )
 }
