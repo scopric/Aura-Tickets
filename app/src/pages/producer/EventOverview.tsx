@@ -269,8 +269,8 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
         </section>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard rotulo="Vendas" valor={brl(dados.bruto)} ajuda="Valor bruto dos pedidos pagos, com a taxa do comprador." />
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <KpiCard destaque className="sm:col-span-2" rotulo="Vendas" valor={brl(dados.bruto)} ajuda="Valor bruto dos pedidos pagos, com a taxa do comprador." />
         <KpiCard rotulo="Ingressos vendidos" valor={inteiro(dados.vendidosPeriodo)} />
         <KpiCard rotulo="Ticket médio" valor={dados.pagosQtd > 0 ? brl(dados.bruto / dados.pagosQtd) : '—'} ajuda="Valor bruto dividido pelo número de pedidos pagos." />
       </div>

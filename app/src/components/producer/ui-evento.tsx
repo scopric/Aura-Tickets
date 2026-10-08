@@ -77,15 +77,18 @@ export function BarraFiltros({ periodo, onPeriodo, periodos, filtros, onExportar
   )
 }
 
-export function KpiCard({ rotulo, valor, comparacao, ajuda }: {
+export function KpiCard({ rotulo, valor, comparacao, ajuda, destaque, className }: {
   rotulo: ReactNode; valor: ReactNode
   /** ex.: "+12% sobre o período anterior"; só aparece se houver dado */
   comparacao?: ReactNode
   /** regra do número (taxa, bruto x líquido), mostrada no "?" */
   ajuda?: string
+  /** o número que importa: maior que os outros (sem fileira de cartões iguais) */
+  destaque?: boolean
+  className?: string
 }) {
   return (
-    <Card className="gap-0 rounded-[10px] p-4 shadow-none">
+    <Card className={cn('gap-0 rounded-[10px] shadow-none', destaque ? 'p-6' : 'p-4', className)}>
       <div className="flex items-center gap-1 text-[13px] font-medium leading-5 text-muted-foreground">
         {rotulo}
         {ajuda && (
@@ -99,7 +102,7 @@ export function KpiCard({ rotulo, valor, comparacao, ajuda }: {
           </Tooltip>
         )}
       </div>
-      <p className="mt-1 font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums text-foreground">{valor}</p>
+      <p className={cn('mt-1 font-display font-semibold tabular-nums text-foreground', destaque ? 'text-[40px] leading-10 tracking-[-0.02em]' : 'text-[28px] leading-8 tracking-[-0.01em]')}>{valor}</p>
       {comparacao && <p className="mt-1 text-xs leading-4 text-muted-foreground">{comparacao}</p>}
     </Card>
   )
