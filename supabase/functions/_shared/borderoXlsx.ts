@@ -1,10 +1,12 @@
 import ExcelJS from 'npm:exceljs@4.4.0'
 import { LOGO_EVOKAA_PNG_B64 } from './logoEvokaa.ts'
+import { caber, dimensoes } from './logoProdutor.ts'
 import { AINDA_NAO, dataSP, diaBR, forma, n, porDia, porForma, porTipo, totais, type Ingresso, type Pedido, type Tipo } from './borderoDados.ts'
 
 export type EntradaBordero = {
   evento: { titulo: string; local: string; data: string; status: string }
   produtora: string
+  logoProdutor?: { bytes: Uint8Array; ext: 'png' | 'jpeg' } | null
   geradoEm: string
   pessoais: boolean
   pedidos: Pedido[] // só pagos
@@ -23,6 +25,7 @@ export async function montarBordero(e: EntradaBordero): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Evokaa'; wb.created = new Date(e.geradoEm)
   const logo = wb.addImage({ base64: LOGO_EVOKAA_PNG_B64, extension: 'png' })
+  const logoProd = e.logoProdutor ? wb.addImage({ buffer: e.logoProdutor.bytes as unknown as ExcelJS.Buffer, extension: e.logoProdutor.ext }) : null
   const pagos = e.pedidos
   const t = totais(pagos)
 
@@ -33,6 +36,8 @@ export async function montarBordero(e: EntradaBordero): Promise<Uint8Array> {
     ws.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }
     ws.headerFooter = { oddFooter: '&L&8Evokaa · Borderô&R&8Página &P de &N' }
     ws.addImage(logo, { tl: { col: 0, row: 0 }, ext: { width: 46, height: 44 } })
+    // logo do produtor na última coluna do cabeçalho, até 120x44 px, na proporção do arquivo
+    if (logoProd !== null && e.logoProdutor) ws.addImage(logoProd, { tl: { col: Math.max(larguras.length - 1, 2) + 0.05, row: 0.1 }, ext: caber(dimensoes(e.logoProdutor.bytes, e.logoProdutor.ext), 120, 44) })
     ws.getRow(1).height = 24; ws.getRow(2).height = 20; ws.getRow(3).height = 18
     ws.getCell('B1').value = `Borderô · ${nome}`; ws.getCell('B1').font = { name: 'Calibri', size: 16, bold: true, color: { argb: MARCA } }
     ws.getCell('B2').value = e.evento.titulo; ws.getCell('B2').font = { size: 12, bold: true }

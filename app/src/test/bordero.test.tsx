@@ -19,11 +19,13 @@ vi.mock('../lib/supabase', () => ({
       for (const m of ['order', 'in', 'range']) q[m] = () => q
       q.select = (c: string) => { banco.selects.push(`${tabela}:${c}`); return q }
       q.eq = (c: string, v: unknown) => { banco.eqs.push([c, v]); return q }
+      q.maybeSingle = () => Promise.resolve({ data: banco.linhas[tabela]?.[0] ?? null, error: null })
       q.then = (ok: (r: unknown) => unknown) => ok({ data: banco.erro ? null : banco.linhas[tabela] ?? [], error: banco.erro })
       return q
     },
   },
 }))
+vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 const baixou = vi.hoisted(() => vi.fn())
 const exp = vi.hoisted(() => ({ pdf: vi.fn(), xlsx: vi.fn() }))
 vi.mock('../lib/exportar', () => ({ baixarPdf: exp.pdf, baixarBorderoXlsx: exp.xlsx }))
@@ -81,7 +83,7 @@ describe('Borderô (tela)', () => {
     expect(screen.getByText('Escolha um evento', { selector: 'div' })).toBeInTheDocument()
     expect(screen.getByLabelText('Evento')).toHaveValue('')
     expect(screen.queryByRole('option', { name: /Todos/ })).toBeNull()
-    expect(banco.selects).toHaveLength(0)
+    expect(banco.selects.filter(x => /^(orders|tickets):/.test(x))).toHaveLength(0)
   })
 
   it('com vendas mostra total (com taxa), por forma, por dia e por tipo, sem valor por tipo', async () => {
@@ -113,8 +115,10 @@ describe('Borderô (tela)', () => {
   it('consulta só colunas escolhidas (sem *, CPF ou telefone) e só pedidos pagos do evento', async () => {
     montar()
     await screen.findByText('Sem vendas pagas ainda')
-    expect(banco.selects.length).toBe(2)
-    for (const s of banco.selects) expect(s).not.toMatch(/\*|cpf|phone|email|name(?!\))/i)
+    const dados = banco.selects.filter(x => /^(orders|tickets):/.test(x))
+    expect(dados.length).toBe(2)
+    expect(banco.selects.filter(x => x.startsWith('producer_profiles:'))).toEqual(['producer_profiles:company_name, logo_url']) // só nome e logo do produtor
+    for (const s of dados) expect(s).not.toMatch(/\*|cpf|phone|email|name(?!\))/i)
     expect(banco.eqs).toContainEqual(['status', 'paid'])
     expect(banco.eqs.filter(([c]) => c === 'event_id').every(([, v]) => v === 'e1')).toBe(true)
   })
@@ -134,7 +138,7 @@ describe('Borderô (tela)', () => {
   })
 
   it('CSV traz a cascata e nenhum dado pessoal; PDF e XLSX chamam o exportador (XLSX só com dado pessoal se marcado)', async () => {
-    banco.linhas = { orders: [{ ...pedido('p1', 115.5, 'pix', '2026-10-05T01:30:00Z'), subtotal: 100, discount: 0, service_fee: 12, processing_fee: 3.5 }] }
+    banco.linhas = { orders: [{ ...pedido('p1', 115.5, 'pix', '2026-10-05T01:30:00Z'), subtotal: 100, discount: 0, service_fee: 12, processing_fee: 3.5 }], producer_profiles: [{ company_name: 'Produtora X', logo_url: 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/u1/abcdefgh.png' }] }
     montar()
     await screen.findByText('Total pago pelo comprador (com taxa)')
     fireEvent.click(screen.getByRole('button', { name: 'CSV' }))
@@ -142,7 +146,7 @@ describe('Borderô (tela)', () => {
     expect(baixou.mock.calls[0][1]).toBe('\ufeffpedido;data;forma;ingressos;desconto;taxa_servico;taxa_pagamento;total\r\np1;04/10/2026;Pix;"100,00";"0,00";"12,00";"3,50";"115,50"')
     fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
     await vi.waitFor(() => expect(exp.pdf).toHaveBeenCalledTimes(1))
-    expect(exp.pdf.mock.calls[0][0]).toMatchObject({ evento: 'Festa Um', linhas: [expect.objectContaining({ pedido: 'P1', total: expect.stringContaining('115,50') })] })
+    expect(exp.pdf.mock.calls[0][0]).toMatchObject({ evento: 'Festa Um', produtora: 'Produtora X', logoProdutor: expect.stringContaining('/logos-produtor/u1/'), linhas: [expect.objectContaining({ pedido: 'P1', total: expect.stringContaining('115,50') })] })
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Planilha (XLSX)' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: 'Planilha (XLSX)' }))
     await vi.waitFor(() => expect(exp.xlsx).toHaveBeenCalledTimes(1))
