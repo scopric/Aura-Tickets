@@ -58,3 +58,52 @@ export function motivoLeitura(r: RespostaLeitura): Leitura {
   if (status === 'transferred') return { tom: 'erro', rotulo: 'Transferido', mensagem: 'Ingresso transferido: este código não libera entrada.' }
   return { tom: 'erro', rotulo: 'Indisponível', mensagem: msg || 'Ingresso indisponível' }
 }
+
+// ---- Lista e ritmo de entrada (puro; usado pela tela de check-in e testado em test/checkinLista.test.ts) ----
+
+export type SituacaoLista = 'usado' | 'pendente' | 'cancelado' | 'transferido'
+export type FiltroSituacao = 'todos' | SituacaoLista
+export const ROTULO_SITUACAO: Record<SituacaoLista, string> = { usado: 'Entrou', pendente: 'Não entrou', cancelado: 'Cancelado', transferido: 'Transferido' }
+export interface LinhaLista { name: string; ticketType: string; status: SituacaoLista; checkedInAt: string | null }
+
+export const filtrarSituacao = <T extends { status: SituacaoLista }>(linhas: T[], f: FiltroSituacao) => (f === 'todos' ? linhas : linhas.filter(l => l.status === f))
+
+/** Mais recente primeiro; quem não tem hora de entrada vai para o fim, na ordem em que veio. */
+export const ordenarPorEntrada = <T extends { checkedInAt: string | null }>(linhas: T[]) =>
+  [...linhas].sort((a, b) => (a.checkedInAt && b.checkedInAt ? Date.parse(b.checkedInAt) - Date.parse(a.checkedInAt) : a.checkedInAt ? -1 : b.checkedInAt ? 1 : 0))
+
+const FUSO = 'America/Sao_Paulo'
+const HORA_MS = 3_600_000
+const MAX_HORAS_PREENCHIDAS = 48
+const fmtDia = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-digit', month: '2-digit' })
+const fmtHora = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, hour: '2-digit', hourCycle: 'h23' })
+const fmtCompleto = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+/** Entradas por hora cheia em Brasília, com as horas vazias entre a primeira e a última preenchidas com 0 (até 48 h de intervalo; acima disso, só as horas com entrada).
+ *  O fuso de Brasília tem offset de horas inteiras, então o balde de hora do relógio universal coincide com a hora local. */
+export function ritmoPorHora(isos: (string | null)[]): { rotulo: string; qtd: number }[] {
+  const base = new Map<number, number>()
+  for (const iso of isos) {
+    const t = iso ? Date.parse(iso) : NaN
+    if (Number.isNaN(t)) continue
+    const h = Math.floor(t / HORA_MS)
+    base.set(h, (base.get(h) ?? 0) + 1)
+  }
+  if (base.size === 0) return []
+  const horas = [...base.keys()]
+  const ini = Math.min(...horas), fim = Math.max(...horas)
+  const virouDia = fmtDia.format(ini * HORA_MS) !== fmtDia.format(fim * HORA_MS)
+  const saida: { rotulo: string; qtd: number }[] = []
+  // intervalo muito longo (ex.: entradas de dias diferentes): só as horas com entrada, sem centenas de barras vazias
+  const horasDoGrafico = fim - ini > MAX_HORAS_PREENCHIDAS ? horas.sort((a, b) => a - b) : Array.from({ length: fim - ini + 1 }, (_, i) => ini + i)
+  for (const h of horasDoGrafico) {
+    const d = h * HORA_MS
+    saida.push({ rotulo: `${virouDia ? `${fmtDia.format(d)} ` : ''}${fmtHora.format(d)}h`, qtd: base.get(h) ?? 0 })
+  }
+  return saida
+}
+
+/** CSV da lista: só nome, tipo, situação e hora (sem e-mail, CPF nem código do ingresso). */
+export const COLUNAS_CSV_CHECKIN = ['Nome', 'Tipo', 'Situação', 'Hora de entrada']
+export const linhasCsvCheckin = (linhas: LinhaLista[]) =>
+  linhas.map(l => ({ Nome: l.name, Tipo: l.ticketType, Situação: ROTULO_SITUACAO[l.status], 'Hora de entrada': l.checkedInAt ? fmtCompleto.format(Date.parse(l.checkedInAt)).replace(',', '') : '' }))
