@@ -232,6 +232,7 @@ describe('Início do produtor', () => {
     montar()
     await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/12\.345,67/))
     expect(aba(/Receita bruta/).textContent).not.toMatch(/\+|Soma parcial/)
+    expect(screen.getByText(/barras mostram só os últimos 1\.000 pedidos/)).toBeTruthy()
   })
 
   it('intervalo livre e evento: consulta o banco com meia-noite de São Paulo e mostra o total', async () => {
@@ -254,6 +255,13 @@ describe('Início do produtor', () => {
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-01' } })
     await screen.findByText('A data inicial não pode ser depois da final.')
     expect(rpc.soma.mock.calls.filter(c => (c[0] as { p_event_id: unknown }).p_event_id === null && (c[0] as { p_ate: unknown }).p_ate !== null)).toHaveLength(0)
+  })
+
+  it('consulta do 2FA falhou: avisa que não deu para confirmar, sem afirmar zero', async () => {
+    rpc.nivel.mockReturnValue({ data: null, error: { message: 'falhou' } })
+    preparar([e1], [], [], { empresa: true })
+    montar()
+    await screen.findByText(/Não foi possível confirmar o 2FA/)
   })
 
   it('2FA pendente: aviso no Início', async () => {

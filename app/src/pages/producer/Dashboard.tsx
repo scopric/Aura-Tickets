@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useTourLog } from '../../hooks/useTourLog'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
-import { vendasPagas, faltaSegundoFator, janelaDoPeriodo, intervaloLivre, type VendasPagas } from '../../lib/vendasPagas'
+import { vendasPagas, segundoFatorOuNulo, intervaloLivre, type VendasPagas } from '../../lib/vendasPagas'
 import { siteUrl } from '../../lib/appHost'
 import { refDoEvento, situacaoEvento } from '../../lib/eventoProdutor'
 import { soltarConfete } from '../../lib/confete'
@@ -93,11 +93,13 @@ export default function ProducerDashboard() {
     enabled: !!user?.id,
     retry: 1,
     staleTime: 60000,
-    queryFn: () => comLimite(sinal => vendasPagas({ de: janelaDoPeriodo(periodo).de }, sinal)),
+    refetchOnWindowFocus: true,
+    // mesma janela do gráfico (janelas/meiaNoite), para o número grande bater com a soma das barras
+    queryFn: () => comLimite(sinal => vendasPagas({ de: periodo === 'tudo' ? null : new Date(janelas(periodo, Date.now()).atual.ini).toISOString() }, sinal)),
   })
 
   // (L6) zero vendas pode ser só 2FA não concluído (o banco devolve zero sem erro)
-  const fatorQ = useQuery({ queryKey: ['producer-inicio-2fa', user?.id], enabled: !!user?.id, queryFn: faltaSegundoFator })
+  const fatorQ = useQuery({ queryKey: ['producer-inicio-2fa', user?.id], enabled: !!user?.id, queryFn: segundoFatorOuNulo })
 
   // Decisão 157.1: confete no 1º evento aprovado, uma vez por conta (registro no banco; o ref cobre StrictMode e re-render
   // enquanto o registro otimista não chega). Com "reduzir movimento" não desenha, mas o registro é gravado igual.
@@ -294,7 +296,9 @@ export default function ProducerDashboard() {
   const { atual, anterior } = janelas(periodo, agora, Number.isFinite(primeira) ? primeira : undefined)
   const recLocal = resumoDe(v?.pedidos ?? [], v?.pedidosCortado ?? false, atual, anterior, agora)
   // total exato do banco vale mais que a soma cortada em 1.000 linhas; a variação (que usa a soma local) segue nula se ela foi parcial
-  const rec = exatoQ.data ? { ...recLocal, valor: Number(exatoQ.data.total) || 0, parcial: false } : recLocal
+  // Só quando a soma local foi cortada: aí a variação já é nula (sem base). Sem corte, local e banco usam a mesma janela e o número é o mesmo.
+  const exatoSubstitui = !!exatoQ.data && recLocal.parcial
+  const rec = exatoSubstitui ? { ...recLocal, valor: Number(exatoQ.data!.total) || 0, parcial: false } : recLocal
   const ing = resumoDe(v?.ingressos ?? [], v?.ingressosCortado ?? false, atual, anterior, agora)
   const ticketMedio = !rec.parcial && !ing.parcial && ing.valor > 0 && rec.valor > 0 ? rec.valor / ing.valor : null
   const ativo = metrica === 'receita' ? rec : ing
@@ -410,6 +414,7 @@ export default function ProducerDashboard() {
               ing.parcial ? 'Contagem parcial: mais de 1.000 ingressos' : '')}
           </TabsList>
           <TabsContent value={metrica} className="mt-0">
+            {metrica === 'receita' && exatoSubstitui && <p className="px-5 pt-3 text-xs text-muted-foreground">O total é exato; as barras mostram só os últimos 1.000 pedidos.</p>}
             <GraficoLinha
               key={`${metrica}-${periodo}`}
               atual={semDado ? [] : serie(linhasAtivas, atual, agora)}
@@ -442,6 +447,10 @@ export default function ProducerDashboard() {
   return (
     <div>
       {cabecalho(true)}
+      {fatorQ.data === null && (
+        // não deu para consultar o 2FA: não afirmar que o zero é verdadeiro
+        <p role="status" className="mb-6 text-sm text-muted-foreground">Não foi possível confirmar o 2FA agora. Se as vendas aparecerem zeradas, saia e entre de novo.</p>
+      )}
       {fatorQ.data && (
         <div role="alert" className="mb-6 rounded-[10px] border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground">Confirme o 2FA para ver suas vendas</p>

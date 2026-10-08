@@ -22,7 +22,11 @@ export function janelaDoPeriodo(p: Periodo, agora = Date.now()): { de: string | 
 
 /** Intervalo livre (datas AAAA-MM-DD do <input type="date">, "até" inclusivo) em ISO [de, ate), meia-noite de Brasília. Data inválida ou "de" depois de "até": { erro }. */
 export function intervaloLivre(de: string, ate: string): { de: string | null; ate: string | null } | { erro: string } {
-  const ms = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(`${d}T00:00:00-03:00`) : NaN)
+  // ida e volta: recusa dia que não existe (2026-02-30), que o Date aceitaria rolando para março
+  const ms = (d: string) => {
+    const t = /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(`${d}T00:00:00-03:00`) : NaN
+    return !Number.isNaN(t) && new Date(t - 3 * 3600000).toISOString().slice(0, 10) === d ? t : NaN
+  }
   const [a, b] = [de ? ms(de) : null, ate ? ms(ate) : null]
   if (Number.isNaN(a) || Number.isNaN(b)) return { erro: 'Data inválida. Use o seletor de datas.' }
   if (a != null && b != null && a > b) return { erro: 'A data inicial não pode ser depois da final.' }
@@ -39,6 +43,12 @@ export async function vendasPagas(f: { de?: string | null; ate?: string | null; 
 
 /** Zero vendas pode ser sessão sem 2FA concluído (o banco devolve zero, sem erro): true quando falta o segundo fator. */
 export async function faltaSegundoFator(): Promise<boolean> {
-  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  return (await segundoFatorOuNulo()) === true
+}
+
+/** Como faltaSegundoFator, mas null quando não deu para consultar (não sei): quem mostra zero não deve afirmar que está tudo certo. */
+export async function segundoFatorOuNulo(): Promise<boolean | null> {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (error) return null
   return data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2'
 }

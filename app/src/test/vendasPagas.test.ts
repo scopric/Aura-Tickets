@@ -14,5 +14,6 @@ describe('intervaloLivre', () => {
     expect(intervaloLivre('2026-10-01', '2026-10-03')).toEqual({ de: '2026-10-01T03:00:00.000Z', ate: '2026-10-04T03:00:00.000Z' }))
   it('campo vazio = sem limite', () => expect(intervaloLivre('', '')).toEqual({ de: null, ate: null }))
   it('data inválida', () => expect(intervaloLivre('2026-13-45', '')).toHaveProperty('erro'))
+  it('dia que não existe (30 de fevereiro)', () => expect(intervaloLivre('2026-02-30', '')).toHaveProperty('erro'))
   it('de depois de até', () => expect(intervaloLivre('2026-10-05', '2026-10-01')).toHaveProperty('erro'))
 })
