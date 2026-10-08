@@ -42,6 +42,13 @@ describe('ProducerLayout com a lateral nova', () => {
     expect(screen.getByRole('navigation', { name: 'Menu do produtor' })).toBeInTheDocument()
   })
 
+  it('põe a cor do painel no body enquanto está aberto e tira ao sair (janelas e menus do Radix abrem fora da raiz)', () => {
+    const { unmount } = montar('/producer/dashboard')
+    expect(document.body.classList.contains('cor-produtor')).toBe(true)
+    unmount()
+    expect(document.body.classList.contains('cor-produtor')).toBe(false)
+  })
+
   it('⌘B recolhe para o trilho e lembra; de novo expande; em campo de texto é ignorado', () => {
     montar('/producer/dashboard')
     const aside = document.getElementById('produtor-menu')!

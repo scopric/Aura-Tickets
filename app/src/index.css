@@ -1283,6 +1283,29 @@ body {
 }
 
 
+/* Cor do painel do produtor (Decisão 217, Ricardo 08/10): violeta da logo, só aqui. O resto do produto segue o azul do
+   contrato v3.4. `body.cor-produtor` (posto pelo ProducerLayout) leva a cor também a janelas e menus, que o Radix abre
+   fora da raiz. O foco geral (--ring) continua neutro pelo contrato; só o foco de campo e a marca mudam.
+   Preenchimento #8f33f5 (branco por cima 5,3:1); texto de marca com contraste próprio (--primary-text). Testado em contraste.test.ts. */
+.painel-produtor, body.cor-produtor {
+  --primary: 268.5 90.7% 58%;           /* #8f33f5 */
+  --primary-text: 268.9 75.1% 51.2%;    /* #7f25e0 */
+  --ev-brand-hover: #7f25e0;
+  --ev-brand-press: #7019c9;
+  --ev-brand-soft: #f3eafe;
+  --ev-focus-field: #7f25e0;
+}
+.dark .painel-produtor, .dark body.cor-produtor {
+  --primary: 268.5 90.7% 58%;           /* #8f33f5: o preenchimento não muda no escuro */
+  --primary-text: 267.6 89.9% 72.9%;    /* #b57cf8: #8f33f5 como texto dá só 3,66:1 */
+  --ev-brand-hover: #9440f6;
+  --ev-brand-press: #8f33f5;
+  --ev-brand-soft: #231638;
+  --ev-focus-field: #b57cf8;
+}
+body.cor-produtor .vidro :is([aria-current="page"], [data-state="active"]) { color: #7f25e0; }
+.dark body.cor-produtor .vidro :is([aria-current="page"], [data-state="active"]) { color: #b57cf8; }
+
 /* Painel do produtor (Decisão 112): só dentro de .painel-produtor, a raiz do ProducerLayout. As cores vêm
    dos tokens globais do tema (contrato v3.4, §2); aqui fica só o que neutraliza as telas antigas. */
 /* Fundo sólido, sem o gradiente do .glass-canvas; a classe fica na raiz porque o remapeamento
