@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Corrida da meia (docs/sql/20261030a_venda_servidor_meia.sql): tipo de R$ 50 com lotação 5 (cota de meia = ceil(0,4 x 5) = 2).
 # Antes da corrida, outra conta segura 1 meia e outra 2 inteiras: sobram 1 meia e 1 inteira.
-# Rodada 1: duas contas disputam a ÚLTIMA MEIA ao mesmo tempo. Esperado: exatamente 1 reserva; a outra recebe "Restam 0 meias".
+# Rodada 1: duas contas disputam a ÚLTIMA MEIA ao mesmo tempo. Esperado: exatamente 1 reserva; a outra recebe {ok:false} com "Restam 0 meias".
 # Rodada 2: duas contas disputam a ÚLTIMA INTEIRA. Esperado: exatamente 1 reserva; a outra recebe "Ingressos esgotados".
 # Só em banco LOCAL descartável (com docs/sql até 20261030a aplicado). Os dados são gravados com commit (o pgTAP não testa sessões
 # concorrentes numa transação só) e apagados no fim, inclusive se falhar.
@@ -45,7 +45,8 @@ reservar() { # $1 conta  $2 inteira|meia  $3 quantidade  $4 segundos  $5 arquivo
 begin;
 select set_config('request.jwt.claims', '{"role":"authenticated","sub":"${U}$1","aal":"aal2","email":"c$1@teste.local"}', true);
 set local role authenticated;
-select 'OK $1 ' || (public.reservar_ingressos('$E', '[{"ticket_type_id":"$T","quantidade":$3,"beneficio":"$2"$tipo}]'::jsonb) ->> 'order_id');
+select case when r ->> 'ok' = 'true' then 'OK $1 ' || (r ->> 'order_id') else 'RECUSADA $1 ' || (r ->> 'mensagem') end
+  from (select public.reservar_ingressos('$E', '[{"ticket_type_id":"$T","quantidade":$3,"beneficio":"$2"$tipo}]'::jsonb) as r) x;
 select pg_sleep($4);
 commit;
 SQL
