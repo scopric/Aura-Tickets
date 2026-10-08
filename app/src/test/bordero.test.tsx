@@ -25,6 +25,8 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 const baixou = vi.hoisted(() => vi.fn())
+const exp = vi.hoisted(() => ({ pdf: vi.fn(), xlsx: vi.fn() }))
+vi.mock('../lib/exportar', () => ({ baixarPdf: exp.pdf, baixarBorderoXlsx: exp.xlsx }))
 vi.mock('../lib/exportCsv', async orig => ({ ...(await orig<typeof import('../lib/exportCsv')>()), downloadCsv: baixou }))
 
 const pedido = (id: string, total: number, payment_method: string | null, created_at: string) => ({ id, total, payment_method, created_at })
@@ -98,7 +100,7 @@ describe('Borderô (tela)', () => {
     expect(tipo.getByText('2 válidos')).toBeInTheDocument()
     expect(tipo.getByText('1 check-in')).toBeInTheDocument()
     expect(tipo.queryByText(/R\$/)).toBeNull()
-    expect(screen.getByText(/taxas da Evokaa e de processamento, reembolsos, repasse, meia-entrada/)).toBeInTheDocument()
+    expect(screen.getByText(/parcelas, repasse, reembolso por pedido/)).toBeInTheDocument()
   })
 
   it('ingresso repetido pela paginação conta uma vez só', async () => {
@@ -121,7 +123,7 @@ describe('Borderô (tela)', () => {
     montar()
     expect(await screen.findByText('Sem vendas pagas ainda')).toBeInTheDocument()
     expect(screen.getByText('O borderô se preenche quando a venda for ligada.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled()
+    for (const n of ['CSV', 'PDF', 'Planilha (XLSX)']) expect(screen.getByRole('button', { name: n })).toBeDisabled()
   })
 
   it('erro de leitura é separado do vazio', async () => {
@@ -131,15 +133,25 @@ describe('Borderô (tela)', () => {
     expect(screen.queryByText('Sem vendas pagas ainda')).toBeNull()
   })
 
-  it('CSV sem dado pessoal: pedido, data, forma e total; PDF chama a impressão', async () => {
-    banco.linhas = { orders: [pedido('p1', 110.5, 'pix', '2026-10-05T01:30:00Z')] }
-    const imprimir = vi.spyOn(window, 'print').mockImplementation(() => {})
+  it('CSV traz a cascata e nenhum dado pessoal; PDF e XLSX chamam o exportador (XLSX só com dado pessoal se marcado)', async () => {
+    banco.linhas = { orders: [{ ...pedido('p1', 115.5, 'pix', '2026-10-05T01:30:00Z'), subtotal: 100, discount: 0, service_fee: 12, processing_fee: 3.5 }] }
     montar()
     await screen.findByText('Total pago pelo comprador (com taxa)')
-    fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'CSV' }))
     expect(baixou.mock.calls[0][0]).toMatch(/^evokaa-bordero-festa-um-\d{4}-\d{2}-\d{2}\.csv$/)
-    expect(baixou.mock.calls[0][1]).toBe('﻿pedido;data;forma;total\r\np1;04/10/2026;Pix;"110,50"')
-    fireEvent.click(screen.getByRole('button', { name: /Salvar em PDF/ }))
-    expect(imprimir).toHaveBeenCalledTimes(1)
+    expect(baixou.mock.calls[0][1]).toBe('\ufeffpedido;data;forma;ingressos;desconto;taxa_servico;taxa_pagamento;total\r\np1;04/10/2026;Pix;"100,00";"0,00";"12,00";"3,50";"115,50"')
+    fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
+    await vi.waitFor(() => expect(exp.pdf).toHaveBeenCalledTimes(1))
+    expect(exp.pdf.mock.calls[0][0]).toMatchObject({ evento: 'Festa Um', linhas: [expect.objectContaining({ pedido: 'P1', total: expect.stringContaining('115,50') })] })
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Planilha (XLSX)' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Planilha (XLSX)' }))
+    await vi.waitFor(() => expect(exp.xlsx).toHaveBeenCalledTimes(1))
+    expect(exp.xlsx.mock.calls[0].slice(0, 2)).toEqual(['e1', false])
+    fireEvent.click(screen.getByLabelText(/Incluir nome e e-mail/))
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Planilha (XLSX)' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Planilha (XLSX)' }))
+    await vi.waitFor(() => expect(exp.xlsx).toHaveBeenCalledTimes(2))
+    expect(exp.xlsx.mock.calls[1][1]).toBe(true)
+    expect(exp.xlsx.mock.calls[1][2]).toMatch(/-com-dados-pessoais\.xlsx$/)
   })
 })
