@@ -191,6 +191,7 @@ export function rotuloDoModo(e: EventoEstado): string {
 // ---- ingressos ---------------------------------------------------------------------------------------------------
 export type Ing = {
   id: string; nome: string; preco: string; qtd: string; bebida: boolean
+  meia: boolean // aceita meia-entrada (permite_meia); nunca em mesa e coletiva
   tipo: string // 'individual' | 'coletiva' no novo; o tipo gravado (inclusive vip e mesa) no existente, fixo
   ativo: boolean; vendidos: number; novo: boolean
   inicioVenda: string; fimVenda: string // datetime-local (AAAA-MM-DDTHH:MM, Brasília); vazio = sem data
@@ -206,7 +207,7 @@ export const vendaParaBanco = (tx: string) => (tx ? `${tx}:00-03:00` : null)
 
 export function ingDoBanco(t: DbTicketType, vendidos: number): Ing {
   return {
-    id: t.id, nome: t.name, preco: brTexto(Number(t.price) || 0), qtd: String(t.quantity_total ?? t.capacity ?? ''), bebida: !!t.inclui_bebida,
+    id: t.id, nome: t.name, preco: brTexto(Number(t.price) || 0), qtd: String(t.quantity_total ?? t.capacity ?? ''), bebida: !!t.inclui_bebida, meia: !!t.permite_meia,
     tipo: t.type, ativo: t.is_active, vendidos, novo: false,
     inicioVenda: venda(t.sale_start), fimVenda: venda(t.sale_end),
     descricao: t.description ?? '', minPed: String(t.min_per_order ?? 1), maxPed: t.max_per_order == null ? '' : String(t.max_per_order),

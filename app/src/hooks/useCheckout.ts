@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
-import { itensDoPedido, pedidoReaproveitavel, vendaBloqueada, type Pendente } from '../lib/pedido'
+import { vendaBloqueada } from '../lib/pedido'
 import { tetoPorPedido } from '../lib/lotacao'
 
 export interface DbOrder {
@@ -74,6 +74,9 @@ export interface DbTicket {
 const COLUNAS_PEDIDO = 'id, user_id, event_id, total, status, payment_method, gateway_payment_id, created_at, updated_at'
 const COLUNAS_INGRESSO = 'id, order_id, event_id, ticket_type_id, user_id, qr_code, status, buyer_name, checked_in_at, created_at, updated_at'
 
+// Resultado de reservar_ingressos (docs/sql/20261030a_venda_servidor_meia.sql): ok:false = recusa de regra, sem exceção
+type Reserva = { ok: boolean; motivo?: string; mensagem?: string; order_id?: string; subtotal?: number; desconto?: number; taxa?: number; total?: number; reservado_ate?: string; agora?: string }
+
 export function useCreateOrder() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -82,26 +85,18 @@ export function useCreateOrder() {
     mutationFn: async ({
       event_id,
       items,
-      payment_method,
+      cupom,
       customer_cpf,
     }: {
       event_id: string
-      items: { ticket_type_id: string; quantity: number; seat_info?: string }[]
-      payment_method: DbOrder['payment_method'] | null // null = pedido gratuito (sem forma de pagamento)
-      customer_cpf?: string // só dígitos; vai ao banco só se algum tipo do carrinho tem limite por CPF (o gatilho grava o hash e apaga o CPF)
+      items: { ticket_type_id: string; quantity: number; beneficio?: 'inteira' | 'meia'; meia_tipo?: string | null }[]
+      cupom?: string
+      customer_cpf?: string // só dígitos; vai ao banco só se algum tipo do carrinho tem limite por CPF (o servidor guarda só o hash)
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
 
-      // 0. Pedido pendente igual (mesmo evento, itens e forma de pagamento): reaproveita em vez de criar outro.
-      // O cliente não tem UPDATE em orders (RLS): quem cancela o pendente anterior ao nascer o novo é o gatilho orders_um_pendente
-      // (docs/sql/20261022_pedido_gratis_e_estoque.sql); o vencimento (20261021_pedidos_pendentes_expiram.sql) cancela os esquecidos.
-      const { data: pendentes, error: pendError } = await supabase
-        .from('orders')
-        .select(`${COLUNAS_PEDIDO}, customer_name, customer_email, order_items ( ticket_type_id, quantity )`)
-        .eq('user_id', user.id).eq('event_id', event_id).eq('status', 'pending')
-      if (pendError) throw pendError
-      // Preço de cada tipo vem do banco, pela mesma fonte da página do evento (evento_publico): a RLS de ticket_types
-      // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
+      // Checagens antes de reservar (só para avisar cedo; o servidor confere tudo de novo). Preço de cada tipo vem do banco, pela mesma
+      // fonte da página do evento (evento_publico): a RLS de ticket_types só libera evento 'aberto', e a compra também aceita 'link'.
       const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
       if (pubError) throw pubError
       const r = pub as { evento?: Parameters<typeof vendaBloqueada>[0]; ingressos?: { id: string; name?: string; price: number | string | null; max_per_order?: number | null; max_por_cpf?: number | null; sale_start?: string | null; sale_end?: string | null }[] } | null
@@ -112,68 +107,36 @@ export function useCreateOrder() {
         const motivo = t && vendaBloqueada(r.evento, t)
         if (motivo) throw new Error(`${t.name ?? 'Ingresso'}: ${motivo}`)
       }
-      // Máximo por pedido (soma das linhas do tipo): o banco recusa acima dele, mas só depois de o gatilho cancelar o pendente bom.
+      // Máximo por pedido (soma das linhas do tipo, inteira + meia)
       for (const t of ingressos) {
         const teto = tetoPorPedido(t)
         const qtd = items.filter(i => i.ticket_type_id === t.id).reduce((n, i) => n + i.quantity, 0)
         if (qtd > teto) throw new Error(`${t.name ?? 'Ingresso'}: máximo de ${teto} por pedido`)
       }
-      const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
-      const ped = itensDoPedido(items, precos)
-      // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.
-      // ponytail: duplo clique rápido ainda pode criar dois pedidos (sem trava nem índice único); resolvido na Fase 4 com o gateway.
-      // ponytail: Fase 4 — boleto vence em dias e Pix pode ser pago após 30 min; o cron (pedidos_pendentes_expirar) terá de excluir boleto
-      // ou usar o vencimento do gateway, e o webhook tratar pedido já 'cancelled'.
-      // Com limite por CPF, sempre pedido novo: o CPF do pendente virou hash e não dá para conferir se é o mesmo.
       const exigeCpf = items.some(i => ingressos.find(t => t.id === i.ticket_type_id)?.max_por_cpf != null)
-      const o = !exigeCpf && pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
-      if (o && Number(o.total) === ped.total) {
-        return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
-      }
 
-      // 1. Criar o registro do pedido na tabela 'orders'
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          event_id,
-          subtotal: ped.subtotal,
-          service_fee: ped.service_fee,
-          total: ped.total,
-          // ponytail: sem gateway publicado, todo pedido nasce pendente — só uma confirmação
-          // real de pagamento (Fase 4) deveria gravar 'paid'. O status do ticket (abaixo)
-          // já deriva daqui.
-          status: 'pending',
-          payment_method,
-          gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          customer_name: user.name || user.full_name || null,
-          customer_email: user.email,
-          ...(exigeCpf ? { customer_cpf: (customer_cpf ?? '').replace(/\D/g, '') || null } : {}),
-        })
-        .select(`${COLUNAS_PEDIDO}, customer_name, customer_email`)
-        .single()
-
-      if (orderError) throw orderError
-
-      // 2. Criar order_items para cada tipo de ingresso, com o preço do tipo
-      const { error: orderItemsError } = await supabase
-        .from('order_items')
-        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })).sort((a, b) => a.ticket_type_id.localeCompare(b.ticket_type_id))) // mesma ordem de trava em todo pedido (sem impasse)
-
-      if (orderItemsError) throw orderItemsError
-
-      // Ingressos (tickets) não são mais criados aqui: o cliente só grava o próprio pedido
-      // pendente e seus itens. Criar o ticket é ato de quem confirma o pagamento (service_role,
-      // no webhook do gateway — Fase 4); dar esse INSERT ao cliente permitia gravar um ticket
-      // 'active' sem pagar nada (RLS não tinha como distinguir "meu ticket" de "meu ticket já
-      // pago"). Enquanto não há gateway publicado, nenhum pedido vira ingresso — correto, já
-      // que nenhuma compra é real hoje.
+      // Uma porta só: o servidor calcula preço, meia, taxa, cupom e prazo, cria o pedido e os itens e cancela a reserva anterior da conta.
+      const { data, error } = await supabase.rpc('reservar_ingressos' as never, {
+        p_event_id: event_id,
+        p_itens: items.map(i => ({ ticket_type_id: i.ticket_type_id, quantidade: i.quantity, beneficio: i.beneficio ?? 'inteira', meia_tipo: i.meia_tipo ?? null })),
+        p_cupom: cupom?.trim() || null,
+        p_cpf: exigeCpf ? (customer_cpf ?? '').replace(/\D/g, '') || null : null,
+      } as never)
+      if (error) throw error
+      const res = data as unknown as Reserva
+      if (!res?.ok) throw Object.assign(new Error(res?.mensagem || 'Não foi possível reservar os ingressos.'), { motivo: res?.motivo })
 
       return {
-        ...order,
-        total_amount: Number(order.total) || 0,
-        payment_id: order.gateway_payment_id,
-      } as any
+        id: res.order_id!,
+        total: Number(res.total) || 0,
+        subtotal: Number(res.subtotal) || 0,
+        desconto: Number(res.desconto) || 0,
+        taxa: Number(res.taxa) || 0,
+        // prazo pelo relógio do servidor: a diferença vale no relógio deste aparelho
+        venceEm: Date.now() + (new Date(res.reservado_ate!).getTime() - new Date(res.agora!).getTime()),
+        customer_name: user.name || user.full_name || null,
+        customer_email: user.email,
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-orders', user?.id] })

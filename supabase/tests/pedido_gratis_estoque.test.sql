@@ -36,8 +36,11 @@ select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-00000000000a', 'aa
 -- o1: pedido de total 0 com item do tipo PAGO (preço do item adulterado para 0)
 insert into public.orders (id, user_id, event_id, total, status) values
   ('fb000000-0000-4000-8000-0000000000f1', 'fb000000-0000-4000-8000-00000000000a', 'fb000000-0000-4000-8000-0000000000e1', 0, 'pending');
+-- item adulterado (preço 0 em tipo pago): o navegador já não consegue (RESTRICTIVE de 20261030a); entra como dono para provar a defesa da função
+select pg_temp.como('postgres');
 insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fb000000-0000-4000-8000-0000000000f1', 'fb000000-0000-4000-8000-0000000000b1', 1, 0);
+select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-00000000000a', 'aal2');
 select throws_ok($$select public.confirmar_pedido_gratis('fb000000-0000-4000-8000-0000000000f1')$$, '22023', null, 'pago via RPC grátis falha');
 
 -- o2: 2º pendente do mesmo usuário e evento cancela o 1º
@@ -86,11 +89,11 @@ insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) 
   ('fb000000-0000-4000-8000-0000000000f5', 'fb000000-0000-4000-8000-0000000000b5', 5, 0);
 select throws_ok($$select public.confirmar_pedido_gratis('fb000000-0000-4000-8000-0000000000f5')$$, '22023', 'Limite de 10 ingressos por pessoa em "Grátis sem máximo": você já tem 11 (com este pedido)', 'por conta: 2º pedido que soma 11 > 10 é recusado');
 
--- tipo PAGO sem max_per_order: sem teto por pedido (12 passa; o teto de 10 é só do grátis)
+-- tipo PAGO sem max_per_order: teto de 10 por pedido desde 20261030a (antes era sem teto)
 insert into public.orders (id, user_id, event_id, total, status) values
   ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-00000000000a', 'fb000000-0000-4000-8000-0000000000e1', 600, 'pending');
 select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
-  ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-0000000000b6', 12, 50)$$, 'pago sem máximo aceita 12');
+  ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-0000000000b6', 10, 50)$$, 'pago sem máximo aceita 10 (teto novo)');
 select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-0000000000b5', 11, 0)$$, '22023', 'Limite de 10 ingressos por pedido deste tipo', 'grátis sem máximo continua com teto 10 por pedido');
 
