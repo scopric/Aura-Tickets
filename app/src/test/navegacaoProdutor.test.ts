@@ -7,10 +7,10 @@ const app = readFileSync(resolve(__dirname, '../App.tsx'), 'utf8')
 const rotasDoApp = new Set([...app.matchAll(/path="([^"]+)"/g)].map(m => m[1]))
 
 describe('mapa de navegação do produtor (V4a)', () => {
-  it('mapeia as 31 telas (30 na lista + o botão "+" de Criar evento), sem repetir', () => {
-    expect(NAV).toHaveLength(30)
-    expect(new Set(NAV.map(t => t.tela)).size).toBe(30)
-    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(31)
+  it('mapeia as 32 telas (31 na lista + o botão "+" de Criar evento), sem repetir', () => {
+    expect(NAV).toHaveLength(31)
+    expect(new Set(NAV.map(t => t.tela)).size).toBe(31)
+    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(32)
   })
 
   it('toda tela está numa seção do vocabulário e não existe "Ferramentas"', () => {
@@ -46,11 +46,12 @@ describe('mapa de navegação do produtor (V4a)', () => {
     }
   })
 
-  it('Divulgação: item novo em Vendas, antes de Afiliados, sem tirar Afiliados, Banners e Lista de interesse', () => {
+  it('Divulgação: item novo em Vendas, antes de Afiliados, sem tirar Afiliados, Banners e Lista de interesse (esta em Público: Vendas tem no máximo 6)', () => {
     const vendas = filtra('produtora', 'Vendas').map(t => t.tela)
     expect(vendas.indexOf('Divulgação')).toBeGreaterThanOrEqual(0)
     expect(vendas.indexOf('Divulgação')).toBeLessThan(vendas.indexOf('Afiliados'))
-    for (const nome of ['Afiliados', 'Banners', 'Lista de interesse']) expect(vendas).toContain(nome)
+    for (const nome of ['Afiliados', 'Banners']) expect(vendas).toContain(nome)
+    expect(filtra('produtora', 'Público').map(t => t.tela)).toContain('Lista de interesse')
     expect(filtra('evento', 'Vendas').map(t => t.noEvento)).toContain('Divulgação')
   })
 
@@ -84,7 +85,7 @@ describe('mapa de navegação do produtor (V4a)', () => {
 
   it('escopo da produtora: tudo, menos Início (item solto) e a Pasta (linha do evento)', () => {
     const telas = SECOES.flatMap(s => filtra('produtora', s))
-    expect(telas).toHaveLength(30 - 2)
+    expect(telas).toHaveLength(31 - 2)
   })
 })
 
