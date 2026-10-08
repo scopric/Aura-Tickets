@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(91);
+select plan(100);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -18,6 +18,10 @@ end $f$;
 grant execute on function pg_temp.como(text, uuid) to anon, authenticated;
 grant execute on all functions in schema extensions to anon, authenticated;
 create temp table res (k text primary key, j jsonb);
+-- mensagem da recusa de regra de negócio (devolvida como {ok:false, mensagem}, não como exceção) ou 'OK'
+create function pg_temp.msg(p_itens text, p_cupom text default null, p_cpf text default null) returns text language sql as $f$
+  select coalesce(j->>'mensagem', 'OK') from (select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', p_itens::jsonb, p_cupom, p_cpf) j) x $f$;
+grant execute on function pg_temp.msg(text, text, text) to authenticated;
 grant all on pg_temp.res to authenticated;
 
 -- u01..u08 compradores (u01 maior de idade, para a coletiva); u09 = produtora
@@ -112,15 +116,11 @@ select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000001');
 select lives_ok($$insert into pg_temp.res select 'u1', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
   '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":6}]')$$, '6 inteiras da Pista (10 - cota 4) cabem');
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000002');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":1}]')$$, '22023',
-  'Ingressos esgotados ou insuficientes (restam 0)', 'a 7ª inteira é bloqueada: as 4 vagas são da meia');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":1}]'), 'Ingressos esgotados ou insuficientes (restam 0)', 'a 7ª inteira é bloqueada: as 4 vagas são da meia');
 select lives_ok($$insert into pg_temp.res select 'u2', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
   '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":4,"beneficio":"meia","meia_tipo":"pcd"}]')$$, '4 meias (a cota) cabem');
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000003');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Restam 0 meias neste ingresso', 'a 5ª meia passa da cota');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b1","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Restam 0 meias neste ingresso', 'a 5ª meia passa da cota');
 -- reserva vencida libera o estoque sozinha
 select pg_temp.como('postgres');
 update public.orders set reservado_ate = now() - interval '1 minute' where id = (select (j->>'order_id')::uuid from pg_temp.res where k = 'u1');
@@ -133,18 +133,10 @@ select results_eq($$select disponiveis, meias_disponiveis from public.vitrine_in
 
 -- 5. Recusas de benefício: mesa, coletiva, permite_meia=false (produtor liga/desliga), lugar marcado, tipo inválido, grátis
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000001');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b3","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Este ingresso não tem meia-entrada', 'mesa não tem meia');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b4","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Este ingresso não tem meia-entrada', 'coletiva não tem meia');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b9","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Este ingresso não tem meia-entrada', 'grátis não tem meia');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000ba","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Meia-entrada em lugar marcado ainda não está disponível', 'lugar marcado: meia recusada (reservar_assentos ainda não grava benefício)');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b3","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'mesa não tem meia');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b4","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'coletiva não tem meia');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b9","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'grátis não tem meia');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000ba","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Meia-entrada em lugar marcado ainda não está disponível', 'lugar marcado: meia recusada (reservar_assentos ainda não grava benefício)');
 select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
   '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1,"beneficio":"meia","meia_tipo":"idoso_sp"}]')$$, '22023',
   'Tipo de meia-entrada inválido para este evento', 'benefício estadual só vale se cadastrado para a UF do evento');
@@ -156,15 +148,11 @@ select lives_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000009');
 select lives_ok($$update public.ticket_types set permite_meia = false where id = 'fd000000-0000-4000-8000-0000000000bc'$$, 'o produtor desliga a meia do tipo');
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000001');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bc","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')$$, '22023',
-  'Este ingresso não tem meia-entrada', 'permite_meia=false recusa a meia');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bc","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'permite_meia=false recusa a meia');
 
 -- 6. Cupom: não vale na meia; misto só nas inteiras; 100% gera total 0 e passa por confirmar_pedido_gratis; max_uses
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000004');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]', 'dez')$$, '22023',
-  'O cupom não vale para meia-entrada: tire o cupom ou inclua ingressos inteiros', 'pedido só de meias com cupom é recusado');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]', 'dez'), 'O cupom não vale para meia-entrada: tire o cupom ou inclua ingressos inteiros', 'pedido só de meias com cupom é recusado');
 insert into pg_temp.res select 'misto', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
   '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":2},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]', 'dez');
 select pg_temp.como('postgres');
@@ -263,11 +251,9 @@ select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-000
 select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1.5}]')$$,
   '22023', 'Item inválido (ingresso, quantidade inteira de 1 a 100, benefício inteira ou meia)', 'quantidade fracionada é recusada');
 -- A2: teto por pedido em tipo pago sem max_per_order, e teto de 20 vivos por conta e evento
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":11}]')$$,
-  '22023', 'Limite de 10 ingressos por pedido deste tipo', 'A2: tipo pago sem máximo tem teto de 10 por pedido');
-select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":10},
-  {"ticket_type_id":"fd000000-0000-4000-8000-0000000000bc","quantidade":10},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1}]')$$,
-  '22023', 'Limite de 20 ingressos reservados ao mesmo tempo neste evento', 'A2: mais de 20 ingressos vivos por conta e evento é recusado');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":11}]'), 'Limite de 10 ingressos por pedido deste tipo', 'A2: tipo pago sem máximo tem teto de 10 por pedido');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":10},
+  {"ticket_type_id":"fd000000-0000-4000-8000-0000000000bc","quantidade":10},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1}]'), 'Limite de 20 ingressos reservados ao mesmo tempo neste evento', 'A2: mais de 20 ingressos vivos por conta e evento é recusado');
 select lives_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":10},
   {"ticket_type_id":"fd000000-0000-4000-8000-0000000000bc","quantidade":10}]')$$, 'A2: exatamente 20 passa');
 select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[]')$$, '22023', 'Informe de 1 a 10 itens', 'sem itens é recusado');
@@ -288,11 +274,11 @@ select throws_ok($$insert into public.orders (user_id, event_id, total, status, 
   ('fd000000-0000-4000-8000-000000000007', 'fd000000-0000-4000-8000-0000000000e1', 1, 'pending', 10)$$, '42501', 'new row violates row-level security policy "gf_orders_sem_reserva_falsa" for table "orders"', 'desconto fabricado é barrado');
 select throws_ok($$select public.confirmar_pedido_gratis('fd000000-0000-4000-8000-0000000000f1')$$, '22023', 'Pedido não é gratuito', 'confirmar_pedido_gratis sem cupom continua recusando pedido pago');
 
--- 11. C1 (ataque do revisor): cupom DEZ + 1 grátis (total 0), depois item de 4 Pista a R$ 100 injetado no pedido
+-- 11. C1 (ataque do revisor): cupom 100% sobre tipo PAGO (total 0), depois item de 4 Pista a R$ 100 injetado no pedido
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000003');
 insert into pg_temp.res select 'ataque', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
-  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b9","quantidade":1}]', 'DEZ');
-select results_eq($$select j->>'ok', (j->>'total')::numeric from pg_temp.res where k = 'ataque'$$, $$values ('true'::text, 0.00::numeric)$$, 'ataque: pedido de cupom com total 0 nasce');
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1}]', 'GRATIS');
+select results_eq($$select j->>'ok', (j->>'total')::numeric from pg_temp.res where k = 'ataque'$$, $$values ('true'::text, 0.00::numeric)$$, 'ataque: pedido de cupom 100% com total 0 nasce');
 select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price)
   select (j->>'order_id')::uuid, 'fd000000-0000-4000-8000-0000000000b1', 4, 100 from pg_temp.res where k = 'ataque'$$, '42501',
   'new row violates row-level security policy "gf_order_items_so_inteira" for table "order_items"', 'C1(b): o navegador não injeta item em pedido com cupom/reserva');
@@ -304,8 +290,17 @@ select throws_ok($$select public.confirmar_pedido_gratis((select (j->>'order_id'
   'C1(a): confirmar_pedido_gratis recusa pedido de cupom com item sem taxa_unit / soma diferente do subtotal');
 select pg_temp.como('postgres');
 select is((select count(*)::int from public.tickets t where t.order_id = (select (j->>'order_id')::uuid from pg_temp.res where k = 'ataque')), 0, 'C1: nenhum ingresso emitido no ataque');
+-- cupom limitado não é queimado por pedido só de itens grátis
+insert into public.coupons (producer_id, code, discount_type, discount_value, max_uses) values ('fd000000-0000-4000-8000-000000000009', 'LIMITADO', 'fixed', 5, 1);
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000003');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b9","quantidade":1}]', 'LIMITADO'), 'Cupom inválido ou não se aplica a este pedido', 'cupom em pedido só de itens grátis é recusado');
+select pg_temp.como('postgres');
+select is((select count(*)::int from public.orders where coupon_id = (select id from public.coupons where code = 'LIMITADO')), 0, 'cupom limitado não foi queimado por pedido grátis (coupon_id não gravado)');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000007');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1}]', 'LIMITADO'), 'OK', 'e o cupom limitado ainda vale em pedido pago');
 
 -- 12. Gatilho: mesa e coletiva nunca têm meia; valores do retorno com 2 casas
+select pg_temp.como('postgres');
 update public.ticket_types set permite_meia = true where id = 'fd000000-0000-4000-8000-0000000000b3';
 insert into public.ticket_types (id, event_id, name, price, quantity_total, type, permite_meia) values
   ('fd000000-0000-4000-8000-0000000000be', 'fd000000-0000-4000-8000-0000000000e1', 'Mesa nova', 100, 10, 'mesa', true);
@@ -364,6 +359,40 @@ select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000004');
 select lives_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, 'admin (com MFA) destrava a conta');
 select pg_temp.como('postgres');
 select is((select cpf_compra_hmac from public.profiles where id = 'fd000000-0000-4000-8000-000000000002'), null, 'cpf_compra_hmac zerado pelo suporte');
+
+-- 13b. Hash preso FORA da subtransação (provas da segurança): conta nova não sonda CPF sem se prender
+select pg_temp.como('postgres');
+insert into public.orders (id, user_id, event_id, total, status, customer_cpf) values
+  ('fd000000-0000-4000-8000-0000000000f9', 'fd000000-0000-4000-8000-000000000001', 'fd000000-0000-4000-8000-0000000000e1', 50, 'paid', '71428793860');
+insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values ('fd000000-0000-4000-8000-0000000000f9', 'fd000000-0000-4000-8000-0000000000b8', 1, 50);
+insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
+select ('fd000000-0000-4000-8000-0000000000a' || n)::uuid, 'ua' || n || '@teste-meia.local', now(), '{"full_name":"Sonda"}'::jsonb from generate_series(1, 3) n;
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000a1');
+insert into pg_temp.res select 'p1', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, '71428793860'); -- CPF que já comprou (compra paga de outra conta)
+select pg_temp.como('postgres');
+select results_eq($$select j->>'ok', j->>'motivo', (select cpf_compra_hmac is not null from public.profiles where id = 'fd000000-0000-4000-8000-0000000000a1') from pg_temp.res where k = 'p1'$$,
+  $$values ('false'::text, 'indisponivel'::text, true)$$, 'A1: sonda que falha por limite de CPF JÁ prende o hash na 1ª chamada');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000a1');
+do $$ begin
+  for i in 1..6 loop
+    insert into pg_temp.res select 'q' || i, public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+      '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, case when i % 2 = 0 then '39053344705' else pg_temp.cpf_valido(300000000 + i) end);
+  end loop;
+end $$;
+select is((select count(distinct j)::int from pg_temp.res where k like 'q_'), 1, 'A1: sondas alternadas (CPF que comprou e que não comprou) de conta já presa = respostas idênticas (cpf_da_conta)');
+select is((select j->>'motivo' from pg_temp.res where k = 'q1'), 'cpf_da_conta', 'A1: motivo cpf_da_conta');
+-- isca: 2º item inválido (quantidade 11) não pode distinguir CPF que comprou de CPF que não comprou
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000a2');
+insert into pg_temp.res select 'isca_comprou', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":11}]', null, '71428793860');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000a3');
+insert into pg_temp.res select 'isca_nao', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":11}]', null, pg_temp.cpf_valido(400000001));
+select is((select j from pg_temp.res where k = 'isca_comprou'), (select j from pg_temp.res where k = 'isca_nao'), 'A1: isca com 2º item inválido: resposta idêntica para CPF que comprou e que não comprou');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000008');
+select results_eq($$select not (public.meu_perfil() ? 'cpf_compra_hmac'), public.meu_perfil() ? 'id', not (public.meu_perfil() ? 'cpf_enc')$$, $$values (true, true, true)$$, 'meu_perfil não devolve cpf_compra_hmac nem cpf_enc');
+select is(has_function_privilege('anon', 'public.pedido_do_navegador(uuid)', 'execute') or has_function_privilege('anon', 'public.meu_perfil()', 'execute'), false, 'anon sem EXECUTE em pedido_do_navegador e meu_perfil');
 
 -- 14. Anonimização da conta zera o CPF preso (pr7_anonimizar_pii de produção + 1 linha)
 select pg_temp.como('postgres');

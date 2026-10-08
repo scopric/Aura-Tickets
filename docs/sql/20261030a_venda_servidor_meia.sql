@@ -10,6 +10,12 @@
 -- transação da reserva (se a reserva falhar, nada fica preso); com hash, p_cpf precisa bater, senão {ok:false,
 -- motivo:'cpf_da_conta'} com mensagem fixa que não diz qual é o CPF. A conferência da conta vem ANTES de qualquer consulta a
 -- orders por CPF, então uma conta travada só consegue testar o CPF dela. O suporte destrava com admin_limpar_cpf_compra(uid).
+-- CONTRATO DE reservar_ingressos (o front PRECISA checar `ok`): depois de gravar o hash da conta a função não levanta mais
+-- exceção de regra de negócio; devolve {ok:false, motivo, mensagem} com motivo 'cupom_invalido' | 'cpf_da_conta' |
+-- 'indisponivel' (pedido com tipo de limite por CPF: UMA resposta para qualquer falha, inclusive quantidade e estoque, para não
+-- haver oráculo) | 'regra' (demais pedidos; mensagem = texto da regra). Sucesso: {ok:true, order_id, ...}. Exceção continua só para
+-- erro de entrada (JSON/itens inválidos, não logado, 2FA, evento indisponível, CPF ausente ou inválido, "Muitas tentativas").
+-- Cada conta sonda no máximo 1 CPF (o hash é gravado ANTES da subtransação e fica mesmo se a reserva falhar).
 -- Risco que resta: quem cria contas novas prende um CPF de terceiro em cada uma (1 sonda por conta); o limite por IP/Edge
 -- Function continua pendente (20261028). A coluna não é lida nem escrita por anon/authenticated. A anonimização da conta (pr7_anonimizar_pii, texto de produção em
 -- 20261007_pr7_cripto_passo2.sql, md5 21483c3e…) é recriada aqui com UMA linha a mais que zera profiles.cpf_compra_hmac (marca
@@ -37,7 +43,7 @@
 -- 5. vitrine_ingressos(evento): por tipo ativo, preço, taxa, meia, disponíveis; sem dado pessoal; mesmo filtro de acesso
 --    da página do evento (evento_acesso aberto/link, publicado e aprovado).
 -- 6. reservar_ingressos(evento, itens, cupom, cpf): a ÚNICA porta de compra nova. Tudo em centavos (bigint) calculado no
---    servidor; reserva de 10 min fixos; no máximo 5 reservas por conta e evento por hora; a reserva anterior da conta
+--    servidor; reserva de 10 min fixos; no máximo 10 reservas por conta e evento por hora; a reserva anterior da conta
 --    no evento é cancelada; e-mail do JWT; NÃO copia CPF nem telefone do perfil (CPF só se o tipo tem max_por_cpf).
 --    CUPOM: não vale na meia; pedido só de meias com cupom é recusado; no misto o desconto é só nas inteiras.
 --    RATEIO DO DESCONTO (determinístico, em centavos): D = desconto nominal (percentual: floor(base * % / 100); fixo: valor
@@ -75,7 +81,8 @@
 -- ORDEM: 0) 20261028_limite_por_cpf aplicado (o bloco 0 confere); 1) este arquivo; 2) front; 3) arquivo B.
 -- Como aplicar: colar inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA TextEdit). Uma transação, idempotente.
 -- Testes: supabase/tests/venda_servidor_meia.test.sql e supabase/tests/corrida_meia.sh (só em banco descartável). NÃO mover para supabase/migrations/.
--- ponytail: reserva de 5/hora e contagem de usos do cupom por contagem de pedidos (nada incrementa coupons.uses hoje).
+-- ponytail: admin_limpar_cpf_compra grava em admin_audit_log só se a S5 (20261016) estiver aplicada; sem ela não há trilha.
+-- ponytail: reserva de 10/hora e contagem de usos do cupom por contagem de pedidos (nada incrementa coupons.uses hoje).
 -- ponytail: pedido pendente pago depois de reservado_ate (Pix lento) não revalida estoque aqui: é assunto do gateway (Fase 4).
 -- =============================================================================
 begin;
@@ -99,6 +106,10 @@ begin
   end if;
   if md5(pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure)) not in ('21483c3e14d146da97a2726ec6230244', 'a76ffc7d7b2f3891b0429dfb60e0eedf') then
     raise exception 'pr7_anonimizar_pii mudou desde a leitura de produção (md5 %): refazer a partir da definição atual', md5(pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure));
+  end if;
+  if to_regprocedure('public.meu_perfil()') is null
+     or md5(pg_get_functiondef('public.meu_perfil()'::regprocedure)) not in ('fd251ac3ff81011aea3ece502c80eeec', '22aeaa9984bf5ce478026e9f5e070c89') then
+    raise exception 'meu_perfil ausente ou mudou desde a leitura de produção (md5 fd251ac3…): refazer a partir da definição atual';
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'orders_cpf_hash' and tgrelid = 'public.orders'::regclass) then
     raise exception 'falta o gatilho orders_cpf_hash (20261028_limite_por_cpf)';
@@ -138,6 +149,7 @@ create table if not exists public.tentativas_reserva (
   motivo text not null
 );
 create index if not exists tentativas_reserva_user_idx on public.tentativas_reserva (user_id, quando);
+create index if not exists tentativas_reserva_quando_idx on public.tentativas_reserva (quando);
 alter table public.tentativas_reserva enable row level security;
 revoke all on table public.tentativas_reserva from public, anon, authenticated;
 
@@ -190,6 +202,11 @@ begin
   update public.profiles set cpf_compra_hmac = null where id = p_uid;
   if not found then
     raise exception 'Conta não encontrada' using errcode = '22023';
+  end if;
+  -- trilha de admin da S5 (20261016), se já aplicada; sem ela só fica o `ponytail:` do cabeçalho
+  if to_regclass('public.admin_audit_log') is not null then
+    execute 'insert into public.admin_audit_log (autor, tipo, acao, tabela, objeto_id) values ($1, ''acao'', ''limpar_cpf_compra'', ''profiles'', $2)'
+      using auth.uid(), p_uid::text;
   end if;
 end;
 $$;
@@ -495,6 +512,23 @@ end $$;
 revoke all on function public.pr7_anonimizar_pii(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.pr7_anonimizar_pii(uuid) to service_role;
 
+-- 4c. meu_perfil (texto de produção, 20261007_pr7_cripto_passo2.sql:606) sem cpf_compra_hmac ----------------------------------
+create or replace function public.meu_perfil()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select to_jsonb(p) - array['cpf_enc', 'stripe_customer_id', 'cpf_compra_hmac'] -- cpf_compra_hmac (20261030)
+  from public.profiles p
+  where p.id = (select auth.uid())
+    and public.gf_mfa_ok(); -- a mesma regra RESTRICTIVE gf_mfa_aal2 da tabela
+$$;
+alter function public.meu_perfil() owner to postgres;
+revoke all on function public.meu_perfil() from public, anon;
+grant execute on function public.meu_perfil() to authenticated;
+
 -- 5. Vitrine ------------------------------------------------------------------------------------------------------------
 -- Mesma conta do guard, só leitura. Preço/taxa em reais; disponiveis e meias_disponiveis nulos = tipo sem lotação (sem teto).
 create or replace function public.vitrine_ingressos(p_event_id uuid)
@@ -584,6 +618,7 @@ declare
   v_cpf boolean;
   v_motivo text;
   v_msg text;
+  v_mensagem text;
   v_dig text;
   v_atual text;
   v_h text;
@@ -632,8 +667,23 @@ begin
     end if;
   end loop;
 
+  if (select count(distinct x.ticket_type_id) from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))
+     <> (select count(*) from public.ticket_types tt where tt.event_id = p_event_id and tt.is_active
+          and tt.id in (select x.ticket_type_id from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))) then
+    raise exception 'Ingresso não encontrado ou indisponível' using errcode = '22023';
+  end if;
+  select coalesce(sum(round(tt.price * 100)::bigint * x.quantidade) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'), 0),
+         count(*) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'),
+         coalesce(bool_or(tt.max_por_cpf is not null), false)
+    into v_base, v_n_inteira, v_cpf
+    from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
+    join public.ticket_types tt on tt.id = x.ticket_type_id;
+
+
   perform pg_advisory_xact_lock(hashtextextended('reserva:' || v_uid || ':' || p_event_id, 0));
-  delete from public.tentativas_reserva where quando < now() - interval '1 day';
+  if random() < 0.01 then -- limpeza barata: 1% das chamadas (índice em quando)
+    delete from public.tentativas_reserva where quando < now() - interval '1 day';
+  end if;
   if (select count(*) from public.tentativas_reserva t where t.user_id = v_uid and t.quando > now() - interval '1 hour') >= 10 then
     raise exception 'Muitas tentativas. Tente de novo mais tarde.' using errcode = '22023';
   end if;
@@ -643,42 +693,34 @@ begin
     raise exception 'Muitas reservas neste evento. Tente de novo em alguns minutos.' using errcode = '22023';
   end if;
 
-  -- Tudo que pode ser recusado por cupom ou por limite de CPF roda numa subtransação: se recusar, a reserva anterior da conta
+  -- CPF preso à conta (decisão do Ricardo), no corpo principal, FORA da subtransação: o hash fica gravado mesmo se o resto da
+  -- reserva falhar, e depois dele a função NUNCA levanta exceção de regra de negócio (devolve {ok:false}). Cada conta sonda
+  -- no máximo 1 CPF. Vem antes de qualquer consulta a orders por CPF.
+  if v_cpf then
+    v_dig := regexp_replace(coalesce(p_cpf, ''), '\D', '', 'g');
+    if v_dig = '' then
+      raise exception 'Informe o CPF do comprador para este ingresso' using errcode = '22023';
+    end if;
+    if not public.gf_cpf_valido(v_dig) then
+      raise exception 'CPF inválido' using errcode = '22023';
+    end if;
+    v_h := encode(public.pr7_hmac(v_dig), 'hex');
+    select p.cpf_compra_hmac into v_atual from public.profiles p where p.id = v_uid for update;
+    if v_atual is null then
+      update public.profiles set cpf_compra_hmac = v_h where id = v_uid; -- primeiro uso trava, mesmo que a reserva falhe
+    elsif v_atual <> v_h then
+      insert into public.tentativas_reserva (user_id, motivo) values (v_uid, 'cpf_da_conta');
+      return jsonb_build_object('ok', false, 'motivo', 'cpf_da_conta',
+        'mensagem', 'Use o CPF já vinculado à sua conta (se estiver errado, fale com o suporte)');
+    end if;
+  end if;
+
+  -- Tudo que pode ser recusado por regra de negócio roda numa subtransação: se recusar, a reserva anterior da conta
   -- é preservada (nada fica gravado) e a função devolve {ok:false}, sem exceção, para a tentativa poder ser contada.
   begin
     update public.orders set status = 'cancelled'
      where user_id = v_uid and event_id = p_event_id and status = 'pending' and reservado_ate is not null;
     get diagnostics v_cancel = row_count;
-
-    if (select count(distinct x.ticket_type_id) from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))
-       <> (select count(*) from public.ticket_types tt where tt.event_id = p_event_id and tt.is_active
-            and tt.id in (select x.ticket_type_id from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))) then
-      raise exception 'Ingresso não encontrado ou indisponível' using errcode = '22023';
-    end if;
-    select coalesce(sum(round(tt.price * 100)::bigint * x.quantidade) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'), 0),
-           count(*) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'),
-           coalesce(bool_or(tt.max_por_cpf is not null), false)
-      into v_base, v_n_inteira, v_cpf
-      from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
-      join public.ticket_types tt on tt.id = x.ticket_type_id;
-
-    -- CPF preso à conta: ANTES de qualquer consulta por CPF em orders (a conta travada só testa o CPF dela)
-    if v_cpf then
-      v_dig := regexp_replace(coalesce(p_cpf, ''), '\D', '', 'g');
-      if v_dig = '' then
-        raise exception 'Informe o CPF do comprador para este ingresso' using errcode = '22023';
-      end if;
-      if not public.gf_cpf_valido(v_dig) then
-        raise exception 'CPF inválido' using errcode = '22023';
-      end if;
-      v_h := encode(public.pr7_hmac(v_dig), 'hex');
-      select p.cpf_compra_hmac into v_atual from public.profiles p where p.id = v_uid for update;
-      if v_atual is null then
-        update public.profiles set cpf_compra_hmac = v_h where id = v_uid; -- primeiro uso trava (desfeito se a reserva falhar)
-      elsif v_atual <> v_h then
-        raise exception 'cpf' using errcode = 'EV002';
-      end if;
-    end if;
 
     -- cupom: qualquer recusa levanta o mesmo erro interno (EV001), sem dizer o motivo
     if btrim(coalesce(p_cupom, '')) <> '' then
@@ -715,6 +757,9 @@ begin
         v_desc_nominal := least(v_desc_nominal, round(v_cup.max_discount * 100)::bigint);
       end if;
       v_desc_nominal := least(v_desc_nominal, v_base);
+      if v_desc_nominal <= 0 then -- cupom sem efeito (pedido só de itens grátis ou desconto 0): não grava coupon_id nem queima o cupom
+        raise exception 'cupom' using errcode = 'EV001';
+      end if;
     end if;
 
     -- linhas (ordem de id do tipo: mesma ordem de trava em todo pedido, sem impasse)
@@ -756,22 +801,24 @@ begin
   exception
     when sqlstate 'EV001' then
       v_motivo := 'cupom_invalido';
-    when sqlstate 'EV002' then
-      v_motivo := 'cpf_da_conta';
+      v_mensagem := 'Cupom inválido ou não se aplica a este pedido';
     when sqlstate '22023' then
+      -- regra de negócio (esgotado, tetos, meia, limite por CPF, ...): vira retorno, para o hash da conta (acima) não ser desfeito
       get stacked diagnostics v_msg = message_text;
-      if v_msg like 'Limite de % ingressos por CPF neste ingresso' then
-        v_motivo := 'indisponivel'; -- mesma resposta para "já comprou" e para outras falhas: não vira oráculo de CPF
+      if v_cpf then
+        -- pedido com tipo de limite por CPF: UMA resposta só, para a falha por CPF e as outras não se distinguirem (sem oráculo)
+        v_motivo := 'indisponivel';
+        v_mensagem := 'Não foi possível reservar. Confira quantidade e disponibilidade e tente de novo.';
       else
-        raise;
+        v_motivo := 'regra';
+        v_mensagem := v_msg;
       end if;
   end;
   if v_motivo is not null then
-    insert into public.tentativas_reserva (user_id, motivo) values (v_uid, v_motivo);
-    return jsonb_build_object('ok', false, 'motivo', v_motivo,
-      'mensagem', case v_motivo when 'cupom_invalido' then 'Cupom inválido ou não se aplica a este pedido'
-                                when 'cpf_da_conta' then 'Use o CPF já vinculado à sua conta (se estiver errado, fale com o suporte)'
-                                else 'Não foi possível reservar este ingresso' end);
+    if v_motivo <> 'regra' then -- só as recusas que sondam cupom ou CPF contam tentativa; esgotado e tetos não
+      insert into public.tentativas_reserva (user_id, motivo) values (v_uid, v_motivo);
+    end if;
+    return jsonb_build_object('ok', false, 'motivo', v_motivo, 'mensagem', v_mensagem);
   end if;
 
   return jsonb_build_object(
@@ -838,6 +885,10 @@ begin
      or has_table_privilege('authenticated', 'public.orders', 'update') or has_table_privilege('authenticated', 'public.order_items', 'update')
      or not (select relrowsecurity from pg_class where oid = 'public.tentativas_reserva'::regclass) then
     raise exception 'privilégios de pedido_do_navegador, tentativas_reserva ou UPDATE de orders/order_items fora do esperado';
+  end if;
+  if position('cpf_compra_hmac (20261030)' in pg_get_functiondef('public.meu_perfil()'::regprocedure)) = 0
+     or has_function_privilege('anon', 'public.meu_perfil()', 'execute') or not has_function_privilege('authenticated', 'public.meu_perfil()', 'execute') then
+    raise exception 'meu_perfil sem a marca ou com EXECUTE fora do esperado (authenticated sim, anon não)';
   end if;
   if position('cpf_compra_hmac (20261030)' in pg_get_functiondef('public.pr7_anonimizar_pii(uuid)'::regprocedure)) = 0
      or not has_function_privilege('service_role', 'public.pr7_anonimizar_pii(uuid)', 'execute')
