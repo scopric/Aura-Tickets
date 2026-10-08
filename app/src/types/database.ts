@@ -1367,6 +1367,11 @@ export interface Database {
         Args: { p_event_id: string }
         Returns: { ticket_type_id: string; nome: string; preco: number; taxa: number; preco_meia: number | null; taxa_meia: number | null; permite_meia: boolean; disponiveis: number | null; meias_disponiveis: number; meias_total: number }[]
       }
+      // Categorias de meia do evento (docs/sql/20261102_meia_categorias.sql); escritas à mão até regenerar os tipos
+      meia_beneficios: {
+        Args: { p_event_id: string }
+        Returns: { codigo: string; nome: string; documento: string; cota: boolean }[]
+      }
       reservar_ingressos: {
         Args: { p_event_id: string; p_itens: Json; p_cupom: string | null; p_cpf: string | null }
         Returns: Json

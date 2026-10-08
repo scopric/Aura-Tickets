@@ -17,15 +17,35 @@ export function tipoDoLugar(amb: Ambiente, a: Assento): string | null {
   return amb.sections?.find(s => s.id === a.sectionId)?.ticketTypeId ?? null
 }
 
-// Itens do pedido (tipo e quantidade) dos lugares escolhidos, somando por tipo
-export function itensDosLugares(amb: Ambiente, escolhidos: string[], preco: (tipo: string) => { name: string; price: number } | undefined) {
-  const por = new Map<string, number>()
+type PrecoTipo = { name: string; price: number; preco_meia?: number | null; taxa_meia?: number | null }
+// Meia por lugar: só assento (mesa não tem meia) de tipo com meia na vitrine; devolve a categoria ou null
+const meiaDoLugar = (amb: Ambiente, a: Assento, meias: Record<string, string>, preco: (tipo: string) => PrecoTipo | undefined) => {
+  const tt = tipoDoLugar(amb, a)
+  return tt && a.type === 'seat' && preco(tt)?.preco_meia != null ? meias[chaveDoLugar(amb, a)] ?? null : null
+}
+
+// Itens do pedido (tipo e quantidade) dos lugares escolhidos, somando por tipo (e por categoria, na meia)
+export function itensDosLugares(amb: Ambiente, escolhidos: string[], preco: (tipo: string) => PrecoTipo | undefined, meias: Record<string, string> = {}) {
+  const por = new Map<string, { tt: string; meia: string | null; quantity: number }>()
   for (const a of amb.seats ?? []) {
     const tt = escolhidos.includes(chaveDoLugar(amb, a)) ? tipoDoLugar(amb, a) : null
-    if (tt) por.set(tt, (por.get(tt) ?? 0) + ingressosDoLugar(a))
+    if (!tt) continue
+    const meia = meiaDoLugar(amb, a, meias, preco)
+    const k = `${tt}|${meia ?? ''}`
+    por.set(k, { tt, meia, quantity: (por.get(k)?.quantity ?? 0) + ingressosDoLugar(a) })
   }
-  return [...por].flatMap(([tt, quantity]) => {
+  return [...por.values()].flatMap(({ tt, meia, quantity }) => {
     const t = preco(tt)
-    return t ? [{ ticket_type_id: tt, quantity, name: t.name, price: t.price }] : []
+    if (!t) return []
+    return [meia
+      ? { ticket_type_id: tt, quantity, name: `${t.name} (meia-entrada)`, price: t.preco_meia!, taxa_unit: t.taxa_meia ?? null, beneficio: 'meia' as const, meia_tipo: meia }
+      : { ticket_type_id: tt, quantity, name: t.name, price: t.price }]
   })
 }
+
+// p_meias de reservar_assentos: só os lugares de meia, sem valor nulo (o banco recusa nulo com 'Meia inválida')
+export const meiasDosLugares = (amb: Ambiente, escolhidos: string[], meias: Record<string, string>, preco: (tipo: string) => PrecoTipo | undefined) =>
+  (amb.seats ?? []).flatMap(a => {
+    const meia = escolhidos.includes(chaveDoLugar(amb, a)) ? meiaDoLugar(amb, a, meias, preco) : null
+    return meia ? [{ seat_key: chaveDoLugar(amb, a), meia_tipo: meia }] : []
+  })

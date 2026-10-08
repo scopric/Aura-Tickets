@@ -14,7 +14,8 @@ import { noLimite, tetoPorPedido } from '../../lib/lotacao'
 import { chaveItem, lerChave, totaisItens, vendaBloqueada } from '../../lib/pedido'
 import type { Database } from '../../types/database'
 import EventoCapa from '../../components/EventoCapa'
-import { chaveDoLugar, itensDosLugares, tipoDoLugar, type Estado } from '../../lib/lugares'
+import { chaveDoLugar, itensDosLugares, meiasDosLugares, tipoDoLugar, type Estado } from '../../lib/lugares'
+import { useMeiaBeneficios, BENEFICIOS_NACIONAIS } from '../../hooks/useMeiaBeneficios'
 
 // Match de Mesa: só maiores de 18 (o banco confere de novo no pedido, mesa_pedido_guard)
 function maiorDe18(iso: string) {
@@ -25,13 +26,6 @@ function maiorDe18(iso: string) {
 }
 import { brl, textoPreco, TAXA_PERCENTUAL, TAXA_MINIMA } from '../../lib/taxa'
 
-// Benefícios nacionais de meia-entrada (os mesmos que reservar_ingressos aceita)
-const BENEFICIOS = [
-  { valor: 'estudante', nome: 'Estudante' },
-  { valor: 'pcd', nome: 'Pessoa com deficiência' },
-  { valor: 'pcd_acompanhante', nome: 'Acompanhante de pessoa com deficiência' },
-  { valor: 'jovem_baixa_renda', nome: 'Jovem de baixa renda' },
-]
 type Vitrine = Database['public']['Functions']['vitrine_ingressos']['Returns'][number]
 // Carrinho antigo (página do evento ou sessionStorage): chave só com o id do tipo = inteira
 const normalizarCarrinho = (c: Record<string, number>) => Object.fromEntries(Object.entries(c).map(([k, q]) => [k.includes('|') ? k : chaveItem(k), q]))
@@ -57,7 +51,11 @@ export default function Checkout() {
   const [cart, setCart] = useState<Record<string, number>>(normalizarCarrinho(initialCart || {}))
   // Meia-entrada: preço e vagas vêm do servidor (vitrine_ingressos); só esta tela lê. Falha de leitura = sem meia na tela.
   const [vitrine, setVitrine] = useState<Record<string, Vitrine>>({})
-  const [meiaTipo, setMeiaTipo] = useState<Record<string, string>>({}) // benefício escolhido em cada tipo (padrão: estudante)
+  const [meiaTipo, setMeiaTipo] = useState<Record<string, string>>({}) // benefício escolhido em cada tipo (padrão: estudante, ou o primeiro da lista)
+  const { data: beneficios = BENEFICIOS_NACIONAIS, isSuccess: beneficiosOk } = useMeiaBeneficios(eventId)
+  const padraoMeia = (beneficios.find(b => b.codigo === 'estudante') ?? beneficios[0]).codigo
+  const valida = (c?: string | null): c is string => !!c && beneficios.some(b => b.codigo === c)
+  const [meiaLugar, setMeiaLugar] = useState<Record<string, string>>({}) // lugar marcado -> categoria da meia (sem chave = inteira)
   const [nascimento, setNascimento] = useState('')
   const [salvandoNascimento, setSalvandoNascimento] = useState(false)
 
@@ -228,15 +226,16 @@ export default function Checkout() {
 
   // Carrinho salvo pode ter meia que já não existe (tipo sem meia) ou duas chaves de meia do mesmo tipo: ao chegar a vitrine, tira as órfãs
   // e junta as repetidas na primeira, para a contagem do teto bater com o que a tela mostra.
+  // Categoria fora da lista do evento (carrinho restaurado, RPC que falhou, evento trocado) volta ao padrão.
   useEffect(() => {
-    if (!Object.keys(vitrine).length) return
+    if (!beneficiosOk || !Object.keys(vitrine).length) return
     const escolhido: Record<string, string> = {}
     const novo: Record<string, number> = {}
     for (const [k, q] of Object.entries(cart)) {
       const { ticket_type_id: id, beneficio, meia_tipo } = lerChave(k)
       if (beneficio !== 'meia') { novo[k] = q; continue }
       if (vitrine[id]?.preco_meia == null) continue
-      escolhido[id] ??= meia_tipo!
+      escolhido[id] ??= valida(meia_tipo) ? meia_tipo : padraoMeia
       const c = chaveItem(id, 'meia', escolhido[id])
       novo[c] = (novo[c] || 0) + q
     }
@@ -244,7 +243,15 @@ export default function Checkout() {
     if (!igual) setCart(novo)
     if (Object.keys(escolhido).length) setMeiaTipo(m => ({ ...m, ...escolhido }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vitrine])
+  }, [vitrine, beneficios, beneficiosOk])
+
+  // Evento trocado: as escolhas de meia do anterior não valem; categoria que saiu da lista também sai dos lugares.
+  useEffect(() => { setMeiaTipo({}); setMeiaLugar({}) }, [eventId])
+  useEffect(() => {
+    if (!beneficiosOk) return
+    setMeiaLugar(m => Object.values(m).every(valida) ? m : Object.fromEntries(Object.entries(m).filter(([, c]) => valida(c))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beneficios, beneficiosOk])
 
   // Lugares vendidos e reservados (só chave e estado; sem dado pessoal). Falha de leitura deixa tudo "livre": o banco recusa de novo ao reservar.
   async function carregarOcupados() {
@@ -258,6 +265,7 @@ export default function Checkout() {
 
   const updateQty = (chave: string, delta: number) => {
     const id = lerChave(chave).ticket_type_id
+    if (!beneficiosOk && lerChave(chave).beneficio === 'meia') return // lista de categorias ainda não chegou
     if (delta > 0 && escolhidos.length) {
       toast.info('Você escolheu lugares no mapa. Para comprar pela seleção rápida, tire os lugares escolhidos.')
       return
@@ -277,9 +285,10 @@ export default function Checkout() {
   }
 
   const qtdDoTipo = (id: string) => Object.entries(cart).reduce((n, [k, q]) => n + (lerChave(k).ticket_type_id === id ? q : 0), 0)
-  const tipoMeia = (id: string) => meiaTipo[id] ?? 'estudante'
+  const tipoMeia = (id: string) => valida(meiaTipo[id]) ? meiaTipo[id] : padraoMeia
   // Troca o benefício da meia e leva a quantidade já escolhida para a chave nova
   const trocarBeneficio = (id: string, novo: string) => {
+    if (!beneficiosOk) return
     const de = chaveItem(id, 'meia', tipoMeia(id))
     setMeiaTipo(m => ({ ...m, [id]: novo }))
     setCart(prev => {
@@ -304,15 +313,20 @@ export default function Checkout() {
   }).filter(Boolean) as any[]
   // Com lugares escolhidos no mapa, o pedido é só deles (a seleção rápida fica de fora: um pedido não mistura os dois)
   const ambiente = seatingMap?.environments?.[0]
+  const precoLugar = (id: string) => { const t = ticketTypes.find(x => x.id === id); const v = vitrine[id]; return t ? { name: t.name, price: t.price || 0, preco_meia: v?.permite_meia ? v.preco_meia : null, taxa_meia: v?.taxa_meia } : undefined }
+  // Assentos escolhidos que aceitam meia (mesa não tem; tipo precisa de permite_meia e preço de meia)
+  const lugaresMeia = ambiente ? (ambiente.seats ?? []).filter((a: any) => escolhidos.includes(chaveDoLugar(ambiente, a)) && a.type === 'seat' && vitrine[tipoDoLugar(ambiente, a) ?? '']?.permite_meia && vitrine[tipoDoLugar(ambiente, a)!].preco_meia != null) : []
   const itensLugar = ambiente && escolhidos.length
-    ? itensDosLugares(ambiente, escolhidos, id => { const t = ticketTypes.find(x => x.id === id); return t ? { name: t.name, price: t.price || 0 } : undefined })
+    ? itensDosLugares(ambiente, escolhidos, precoLugar, meiaLugar)
     : []
   const items = itensLugar.length
-    ? itensLugar.map(i => ({ ...ticketTypes.find(t => t.id === i.ticket_type_id)!, qty: i.quantity, total: i.price * i.quantity }))
+    ? itensLugar.map(i => ({ ...ticketTypes.find(t => t.id === i.ticket_type_id)!, ...i, id: i.ticket_type_id, qty: i.quantity, total: i.price * i.quantity }))
     : itemsRapidos
 
   const resumo = totaisItens(items.map(i => ({ price: i.price || 0, quantity: i.qty, taxa_unit: i.taxa_unit })))
   const grandTotal = resumo.total
+  // Meia no pedido (ou lugar com meia) antes de a lista de categorias chegar: não deixa continuar com categoria que a tela não mostra
+  const carregandoMeia = !beneficiosOk && (Object.keys(cart).some(k => lerChave(k).beneficio === 'meia') || Object.keys(meiaLugar).length > 0)
   const temColetiva = items.some(i => i.type === 'coletiva')
   const nascimentoPerfil = user?.birth_date || null
 
@@ -324,7 +338,7 @@ export default function Checkout() {
     if (!ambiente || !tipoDoLugar(ambiente, seat)) return // bloqueado, sem ingresso ligado ou não é lugar
     const chave = chaveDoLugar(ambiente, seat)
     if (ocupados[chave]) return
-    if (escolhidos.includes(chave)) return setEscolhidos(e => e.filter(k => k !== chave))
+    if (escolhidos.includes(chave)) { setMeiaLugar(({ [chave]: _, ...resto }) => resto); return setEscolhidos(e => e.filter(k => k !== chave)) }
     if (Object.keys(cart).length) {
       toast.info('Você já escolheu ingressos na seleção rápida. Tire-os para escolher lugares no mapa.')
       return
@@ -421,7 +435,8 @@ export default function Checkout() {
   const reservarLugares = async (itemsSummary: { ticket_type_id: string; quantity: number; name: string; price: number }[]) => {
     setReservando(true)
     try {
-      const { data, error } = await supabase.rpc('reservar_assentos' as never, { p_event: eventId, p_seats: escolhidos } as never)
+      const p_meias = ambiente ? meiasDosLugares(ambiente, escolhidos, meiaLugar, precoLugar) : []
+      const { data, error } = await supabase.rpc('reservar_assentos' as never, { p_event: eventId, p_seats: escolhidos, ...(p_meias.length ? { p_meias } : {}) } as never)
       if (error) throw error
       const r = data as unknown as { order_id: string; expira_em: string; agora: string }
       // prazo pelo relógio do servidor: a diferença entre expira_em e agora vale no relógio deste aparelho
@@ -514,6 +529,8 @@ export default function Checkout() {
                   const vt = vitrine[ticket.id]
                   const tipo = tipoMeia(ticket.id)
                   const qtyMeia = cart[chaveItem(ticket.id, 'meia', tipo)] || 0
+                  const semCota = beneficios.find(b => b.codigo === tipo)?.cota === false // idoso: não consome as meias da cota, o teto é disponiveis
+                  const tetoMeia = semCota ? vt?.disponiveis ?? Infinity : vt?.meias_disponiveis ?? 0 // Infinity = sem teto: não se mostra
                   const noTeto = qtdDoTipo(ticket.id) >= tetoPorPedido(ticket)
                   return (
                     <div key={ticket.id} className="border-t border-border first-of-type:border-t-0">
@@ -535,20 +552,21 @@ export default function Checkout() {
                         <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="text-base font-medium leading-6">Meia-entrada</div>
-                            <div className="text-[13px] leading-5 text-muted-foreground">{textoPreco(vt.preco_meia, 1, true)} cada · até {vt.meias_disponiveis} disponíveis</div>
+                            <div className="text-[13px] leading-5 text-muted-foreground">{textoPreco(vt.preco_meia, 1, true)} cada{Number.isFinite(tetoMeia) && ` · até ${tetoMeia} disponíveis`}</div>
                           </div>
                           <ContadorIngresso
                             nome={`${ticket.name} (meia-entrada)`}
                             qtd={qtyMeia}
                             onMenos={() => updateQty(chaveItem(ticket.id, 'meia', tipo), -1)}
                             onMais={() => updateQty(chaveItem(ticket.id, 'meia', tipo), 1)}
-                            maisDesligado={noTeto || qtyMeia >= vt.meias_disponiveis}
+                            maisDesligado={!beneficiosOk || noTeto || qtyMeia >= tetoMeia}
                           />
                         </div>
                         <label htmlFor={`meia-${ticket.id}`} className="block text-[13px] font-semibold leading-5">Quem tem direito à meia</label>
-                        <select id={`meia-${ticket.id}`} value={tipo} onChange={e => trocarBeneficio(ticket.id, e.target.value)} className="h-12 w-full rounded-ev-lg bg-card px-3 text-base">
-                          {BENEFICIOS.map(b => <option key={b.valor} value={b.valor}>{b.nome}</option>)}
+                        <select id={`meia-${ticket.id}`} disabled={!beneficiosOk} value={tipo} onChange={e => trocarBeneficio(ticket.id, e.target.value)} className="h-12 w-full rounded-ev-lg bg-card px-3 text-base">
+                          {beneficios.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
                         </select>
+                        {beneficios.find(b => b.codigo === tipo)?.documento && <p className="text-xs leading-4 text-muted-foreground">Documento: {beneficios.find(b => b.codigo === tipo)!.documento}.</p>}
                         <p className="text-xs leading-4 text-muted-foreground">Ao escolher a meia-entrada, você declara ter direito ao benefício e que apresentará o documento que comprova esse direito na portaria do evento. Cupom de desconto não vale na meia-entrada.</p>
                       </div>
                     )}
@@ -604,7 +622,28 @@ export default function Checkout() {
                 {escolhidos.length > 0 && (
                   <div role="status" className="flex items-center justify-between gap-3 rounded-ev-lg bg-secondary px-3 py-2 text-[13px] font-semibold leading-5">
                     <span>{escolhidos.length} {escolhidos.length === 1 ? 'lugar escolhido' : 'lugares escolhidos'}</span>
-                    <button type="button" onClick={() => setEscolhidos([])} className="text-primary underline underline-offset-4">Limpar</button>
+                    <button type="button" onClick={() => { setEscolhidos([]); setMeiaLugar({}) }} className="text-primary underline underline-offset-4">Limpar</button>
+                  </div>
+                )}
+
+                {lugaresMeia.length > 0 && (
+                  <div className="space-y-2">
+                    {lugaresMeia.map((a: any) => {
+                      const k = chaveDoLugar(ambiente, a)
+                      const vt = vitrine[tipoDoLugar(ambiente, a)!]
+                      // meias de cota já escolhidas em outros lugares do mesmo tipo; idoso (cota:false) fica livre
+                      const usadas = lugaresMeia.filter((o: any) => o !== a && tipoDoLugar(ambiente, o) === tipoDoLugar(ambiente, a) && beneficios.find(b => b.codigo === meiaLugar[chaveDoLugar(ambiente, o)])?.cota).length
+                      return (
+                        <label key={k} className="flex items-center justify-between gap-3 text-[13px] font-semibold leading-5">
+                          <span>Lugar {a.label}</span>
+                          <select aria-label={`Ingresso do lugar ${a.label}`} disabled={!beneficiosOk} value={meiaLugar[k] ?? ''} onChange={e => setMeiaLugar(m => { const { [k]: _, ...resto } = m; return e.target.value ? { ...resto, [k]: e.target.value } : resto })} className="h-10 rounded-ev-lg bg-card px-3 text-base">
+                            <option value="">Inteira</option>
+                            {beneficios.map(b => <option key={b.codigo} value={b.codigo} disabled={b.cota && meiaLugar[k] !== b.codigo && usadas >= vt.meias_disponiveis}>Meia: {b.nome}</option>)}
+                          </select>
+                        </label>
+                      )
+                    })}
+                    <p className="text-xs leading-4 text-muted-foreground">Ao escolher a meia-entrada, você declara ter direito ao benefício e que apresentará o documento que comprova esse direito na portaria do evento.</p>
                   </div>
                 )}
 
@@ -980,12 +1019,13 @@ export default function Checkout() {
                 </div>
               </div>
 
+              {carregandoMeia && <p role="status" className="mt-4 text-[13px] leading-5 text-muted-foreground">Carregando categorias de meia-entrada…</p>}
               <Button
                 type="button"
                 size="lg"
                 className="mt-5 w-full rounded-full"
                 onClick={handleContinuePayment}
-                disabled={items.length === 0 || reservando}
+                disabled={items.length === 0 || reservando || carregandoMeia}
                 loading={reservando}
               >
                 {isAuthenticated ? (

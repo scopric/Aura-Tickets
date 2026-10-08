@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chaveDoLugar, ingressosDoLugar, itensDosLugares, tipoDoLugar } from '../lib/lugares'
+import { meiasDosLugares, chaveDoLugar, ingressosDoLugar, itensDosLugares, tipoDoLugar } from '../lib/lugares'
 
 const amb = {
   id: 'terreo',
@@ -26,5 +26,18 @@ describe('lugares do mapa', () => {
   it('itens somam por tipo, com preço e nome do tipo', () => {
     const itens = itensDosLugares(amb, ['terreo:s1', 'terreo:m1', 'terreo:s2'], id => id === 'tt1' ? { name: 'Pista', price: 50 } : undefined)
     expect(itens).toEqual([{ ticket_type_id: 'tt1', quantity: 5, name: 'Pista', price: 50 }])
+  })
+
+  it('meia por lugar: assento de meia vira item próprio; mesa não tem meia; p_meias sem nulos', () => {
+    const preco = (id: string) => id === 'tt1' ? { name: 'Pista', price: 50, preco_meia: 25, taxa_meia: 2.5 } : undefined
+    const meias = { 'terreo:s1': 'pcd', 'terreo:m1': 'estudante' }
+    const esc = ['terreo:s1', 'terreo:m1']
+    const itens = itensDosLugares(amb, esc, preco, meias)
+    expect(itens).toEqual([
+      { ticket_type_id: 'tt1', quantity: 1, name: 'Pista (meia-entrada)', price: 25, taxa_unit: 2.5, beneficio: 'meia', meia_tipo: 'pcd' },
+      { ticket_type_id: 'tt1', quantity: 4, name: 'Pista', price: 50 },
+    ])
+    expect(meiasDosLugares(amb, esc, meias, preco)).toEqual([{ seat_key: 'terreo:s1', meia_tipo: 'pcd' }])
+    expect(meiasDosLugares(amb, esc, {}, preco)).toEqual([])
   })
 })

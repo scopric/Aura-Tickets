@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 
 // Tela 06 fatia 2: meia-entrada no pedido. O preço e as vagas da meia vêm de vitrine_ingressos (só o Checkout lê).
-const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[] }))
+const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[], beneficios: null as unknown, lancar: false, espera: null as Promise<void> | null }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true, user: { id: 'u1', birth_date: '1990-01-01' } }) }))
@@ -16,7 +17,11 @@ vi.mock('../hooks/useEvents', () => ({
 }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    rpc: async (nome: string) => ({ data: nome === 'vitrine_ingressos' ? h.vitrine : null, error: null }),
+    rpc: async (nome: string) => nome === 'meia_beneficios' && (h.lancar || h.espera)
+      ? (h.lancar ? Promise.reject(new Error('rede')) : h.espera!.then(() => ({ data: h.beneficios, error: null })))
+      : nome === 'meia_beneficios'
+      ? (h.beneficios ? { data: h.beneficios, error: null } : { data: null, error: { message: 'function public.meia_beneficios does not exist' } })
+      : { data: nome === 'vitrine_ingressos' ? h.vitrine : null, error: null },
     from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }),
   },
 }))
@@ -25,13 +30,13 @@ const VITRINE = [{ ticket_type_id: 'tt1', nome: 'Pista', preco: 50, taxa: 5, pre
 
 function Destino() { h.estado = useLocation().state; return <p>pagamento</p> }
 const montar = (cart: Record<string, number>) => render(
-  <MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart } }]}>
+  <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart } }]}>
     <Routes><Route path="/checkout" element={<Checkout />} /><Route path="/checkout/payment" element={<Destino />} /></Routes>
-  </MemoryRouter>
+  </MemoryRouter></QueryClientProvider>
 )
 
 describe('Checkout: meia-entrada', () => {
-  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE })
+  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE; h.beneficios = null; h.lancar = false; h.espera = null })
 
   it('1 inteira + 2 meias: o resumo leva beneficio, meia_tipo, preço e taxa da meia', async () => {
     montar({ 'tt1|inteira|': 1, 'tt1|meia|pcd': 2 })
@@ -93,5 +98,98 @@ describe('Checkout: meia-entrada', () => {
     montar({ 'tt1|meia|pcd': 10 })
     const mais = await screen.findByRole('button', { name: 'Adicionar um Pista' })
     await waitFor(() => { fireEvent.click(mais); expect(screen.getByText('1 × Pista')).toBeTruthy() }) // o teto de 10 não foi consumido pela meia invisível
+  })
+
+  const CATEGORIAS = [
+    { codigo: 'estudante', nome: 'Estudante', documento: 'Carteira de Identificação Estudantil (CIE) válida', cota: true },
+    { codigo: 'idoso', nome: 'Idoso (60 anos ou mais)', documento: 'Identidade com foto', cota: false },
+    { codigo: 'es_professor', nome: 'Professor ou educador', documento: 'Carteira funcional', cota: true },
+  ]
+
+  it('categorias vindas da RPC: estaduais e idoso aparecem e o documento da escolhida é mostrado', async () => {
+    h.beneficios = CATEGORIAS
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    await screen.findByRole('option', { name: 'Professor ou educador' })
+    expect(screen.getByRole('option', { name: 'Idoso (60 anos ou mais)' })).toBeTruthy()
+    expect(screen.getByText(/Carteira de Identificação Estudantil/)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Quem tem direito à meia'), { target: { value: 'es_professor' } })
+    expect(screen.getByText(/Carteira funcional/)).toBeTruthy()
+  })
+
+  it('idoso (cota:false) não consome o contador de meias: o teto é disponiveis, não meias_disponiveis', async () => {
+    h.beneficios = CATEGORIAS
+    montar({})
+    const mais = await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    fireEvent.change(await screen.findByLabelText('Quem tem direito à meia'), { target: { value: 'idoso' } })
+    fireEvent.click(mais); fireEvent.click(mais); fireEvent.click(mais)
+    expect(screen.getByText('3 Pista (meia-entrada)')).toBeTruthy() // meias_disponiveis = 2, mas idoso passa
+  })
+
+  it('RPC falha: só os 4 nacionais, sem idoso nem estaduais, e a compra segue', async () => {
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    await new Promise(r => setTimeout(r, 20))
+    const opcoes = screen.getAllByRole('option').map(o => o.textContent)
+    expect(opcoes).toEqual(['Estudante', 'Pessoa com deficiência', 'Acompanhante de pessoa com deficiência', 'Jovem de baixa renda'])
+  })
+
+  it('carrinho restaurado com categoria fora da lista (RPC falhou): volta ao padrão estudante', async () => {
+    montar({ 'tt1|meia|idoso': 1, 'tt1|meia|es_professor': 1 })
+    await screen.findByText('2 × Pista (meia-entrada)')
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+    fireEvent.click(screen.getByRole('button', { name: /Continuar para Pagamento/ }))
+    await waitFor(() => expect(h.estado).not.toBeNull())
+    expect((h.estado as { itemsSummary: unknown[] }).itemsSummary).toEqual([expect.objectContaining({ quantity: 2, beneficio: 'meia', meia_tipo: 'estudante' })])
+  })
+
+  it('idoso sem teto (disponiveis nulo): não mostra "Infinity"', async () => {
+    h.beneficios = CATEGORIAS
+    h.vitrine = [{ ...VITRINE[0], disponiveis: null }]
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    fireEvent.change(await screen.findByLabelText('Quem tem direito à meia'), { target: { value: 'idoso' } })
+    expect(document.body.textContent).not.toMatch(/Infinity/)
+    expect(document.body.textContent).not.toMatch(/até .* disponíveis/)
+  })
+
+  it('trocar o evento limpa a categoria escolhida', async () => {
+    h.beneficios = CATEGORIAS
+    function Troca() { const n = useNavigate(); return <button onClick={() => n('/checkout', { state: { eventId: 'e2', cart: {} } })}>trocar</button> }
+    render(
+      <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart: {} } }]}>
+        <Troca /><Routes><Route path="/checkout" element={<Checkout />} /></Routes>
+      </MemoryRouter></QueryClientProvider>
+    )
+    const sel = await screen.findByLabelText('Quem tem direito à meia')
+    fireEvent.change(sel, { target: { value: 'idoso' } })
+    expect((sel as HTMLSelectElement).value).toBe('idoso')
+    fireEvent.click(screen.getByText('trocar'))
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+  })
+
+  it('enquanto a RPC carrega: controles de meia desligados e Continuar bloqueado com meia no carrinho; depois segue', async () => {
+    let liberar!: () => void
+    h.espera = new Promise<void>(r => { liberar = r })
+    h.beneficios = CATEGORIAS
+    montar({ 'tt1|meia|idoso': 1 })
+    await screen.findByText('Carregando categorias de meia-entrada…')
+    expect((screen.getByRole('button', { name: /Continuar para Pagamento/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Adicionar um Pista (meia-entrada)' }).getAttribute('aria-disabled')).toBe('true')
+    liberar()
+    await waitFor(() => expect(screen.queryByText('Carregando categorias de meia-entrada…')).toBeNull())
+    expect((screen.getByRole('button', { name: /Continuar para Pagamento/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('idoso') // lista com idoso: o item é mantido
+  })
+
+  it('RPC que lança exceção cai nos 4 nacionais e normaliza o carrinho', async () => {
+    h.lancar = true
+    montar({ 'tt1|meia|idoso': 1 })
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+    expect(screen.getAllByRole('option')).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: /Continuar para Pagamento/ }))
+    await waitFor(() => expect(h.estado).not.toBeNull())
+    expect((h.estado as { itemsSummary: unknown[] }).itemsSummary).toEqual([expect.objectContaining({ quantity: 1, beneficio: 'meia', meia_tipo: 'estudante' })])
   })
 })

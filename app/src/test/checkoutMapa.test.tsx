@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 
 const h = vi.hoisted(() => ({
@@ -8,6 +9,7 @@ const h = vi.hoisted(() => ({
   eq: [] as unknown[][],
   ocupados: [] as { seat_key: string; estado: string }[],
   reservar: vi.fn(),
+  vitrine: [] as unknown[],
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }))
 
@@ -25,19 +27,19 @@ vi.mock('../lib/supabase', () => {
   return {
     supabase: {
       from: () => ({ select: () => consulta }),
-      rpc: async (nome: string, args: unknown) => nome === 'assentos_ocupados' ? { data: h.ocupados, error: null } : h.reservar(args),
+      rpc: async (nome: string, args: unknown) => nome === 'assentos_ocupados' ? { data: h.ocupados, error: null } : nome === 'vitrine_ingressos' ? { data: h.vitrine, error: null } : nome === 'meia_beneficios' ? { data: null, error: { message: 'não existe' } } : h.reservar(args),
     },
   }
 })
 
 const Pagamento = () => <p data-testid="pagamento">{JSON.stringify((useLocation().state as { orderId?: string; itemsSummary?: unknown })?.orderId)}</p>
 const montar = (cart: Record<string, number> = { tt1: 2 }, abrirMapa = false) => render(
-  <MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart, abrirMapa } }]}>
+  <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart, abrirMapa } }]}>
     <Routes>
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/checkout/payment" element={<Pagamento />} />
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter></QueryClientProvider>
 )
 
 describe('Checkout com mapa de assentos (lugar marcado)', () => {
@@ -46,6 +48,7 @@ describe('Checkout com mapa de assentos (lugar marcado)', () => {
     vi.clearAllMocks()
     h.eq = []
     h.ocupados = []
+    h.vitrine = []
     h.reservar.mockResolvedValue({ data: { order_id: 'ord-1', expira_em: '2026-10-08T12:10:00Z', agora: '2026-10-08T12:00:00Z' }, error: null })
     h.mapa = {
       environments: [{
@@ -107,5 +110,18 @@ describe('Checkout com mapa de assentos (lugar marcado)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'A1' }))
     expect(h.toast.info).toHaveBeenCalledWith(expect.stringMatching(/seleção rápida/))
     expect(screen.queryByText('1 lugar escolhido')).toBeNull()
+  })
+
+  it('meia por lugar: p_meias leva só o lugar de meia (sem nulos) e o pedido mostra a meia', async () => {
+    h.vitrine = [{ ticket_type_id: 'tt1', nome: 'Pista', preco: 99, taxa: 9.9, preco_meia: 49.5, taxa_meia: 4.95, permite_meia: true, disponiveis: 10, meias_disponiveis: 4, meias_total: 4 }]
+    montar({}, true)
+    fireEvent.click(await screen.findByRole('button', { name: 'A1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'A2' }))
+    fireEvent.change(await screen.findByLabelText('Ingresso do lugar A2'), { target: { value: 'estudante' } })
+    expect(screen.getByText('1 × Pista (meia-entrada)')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Continuar para Pagamento/ }))
+    await waitFor(() => expect(screen.getByTestId('pagamento').textContent).toBe('"ord-1"'))
+    const chamada = h.reservar.mock.calls.map(c => c[0]).find(a => a?.p_seats)
+    expect(chamada).toEqual({ p_event: 'e1', p_seats: ['terreo:s1', 'terreo:s2'], p_meias: [{ seat_key: 'terreo:s2', meia_tipo: 'estudante' }] })
   })
 })
