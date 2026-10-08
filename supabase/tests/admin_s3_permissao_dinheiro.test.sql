@@ -73,8 +73,9 @@ update public.profiles set role = 'admin', admin_permissions = array['manage_sup
 update public.profiles set role = 'admin', admin_permissions = array['super_admin']::text[] where id = 'd5000000-0000-4000-8000-000000000009';
 update public.profiles set role = 'admin', admin_permissions = array[]::text[] where id = 'd5000000-0000-4000-8000-000000000010';
 update public.profiles set role = 'admin', admin_permissions = array['manage_users','manage_finance','manage_settings','manage_coupons','manage_affiliates','view_analytics','manage_support','super_admin']::text[] where id = 'd5000000-0000-4000-8000-000000000011';
-insert into public.producer_profiles (id, company_name, pix_key, bank_account) values
-  ('d5000000-0000-4000-8000-000000000012', 'Paula Eventos', 'p1@pix', '{"banco":"1"}'), ('d5000000-0000-4000-8000-000000000013', 'Pedro Eventos', 'p2@pix', '{"banco":"2"}');
+-- pós-passo 2 do PR 7: Pix e conta só existem cifrados (pix_key_enc/bank_account_enc, bytea); bytea literal basta, o gatilho só compara valores
+insert into public.producer_profiles (id, company_name, pix_key_enc, bank_account_enc) values
+  ('d5000000-0000-4000-8000-000000000012', 'Paula Eventos', '\xa1', '\xb1'), ('d5000000-0000-4000-8000-000000000013', 'Pedro Eventos', '\xa2', '\xb2');
 insert into public.events (id, producer_id, title, slug, status, approval_status) values
   ('d5000000-0000-4000-8000-0000000000e1', 'd5000000-0000-4000-8000-000000000012', 'No ar', 's3-e1', 'published', 'approved');
 insert into public.ticket_types (id, event_id, name) values ('d5000000-0000-4000-8000-0000000000f1', 'd5000000-0000-4000-8000-0000000000e1', 'Pista');
@@ -612,11 +613,11 @@ select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000016', 'aa
 select is(pg_temp.upd($$update public.affiliate_links set label = 'novo nome' where id = 'd5000000-0000-4000-8000-0000000000a9'$$), 1::bigint, 'afiliado troca o nome de exibição');
 -- producer_profiles por coluna
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
-select lives_ok($$update public.producer_profiles set pix_key = 'p1@novo' where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono troca o Pix: passa');
+select lives_ok($$update public.producer_profiles set pix_key_enc = '\xa3' where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono troca o Pix: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
-select lives_ok($$update public.producer_profiles set bank_account = '{"banco":"9"}'::jsonb, cnpj = '11222333000181', company_name = 'Paula Produções' where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono troca conta, CNPJ e nome: passa');
+select lives_ok($$update public.producer_profiles set bank_account_enc = '\xb9', cnpj_enc = '\xc1', cnpj_hmac = '\xd1', company_name = 'Paula Produções' where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono troca conta, CNPJ e nome: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
-select lives_ok($$update public.producer_profiles set pix_key = pix_key, commission_rate = commission_rate, webhook_url = null where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono mandando o mesmo valor protegido: passa');
+select lives_ok($$update public.producer_profiles set pix_key_enc = pix_key_enc, commission_rate = commission_rate, webhook_url = null where id = 'd5000000-0000-4000-8000-000000000012'$$, 'dono mandando o mesmo valor protegido: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
 select throws_ok($$update public.producer_profiles set commission_rate = 1 where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'dono troca commission_rate: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
@@ -628,15 +629,15 @@ select throws_ok($$update public.producer_profiles set stripe_account_id = 'acct
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
 select throws_ok($$update public.producer_profiles set woovi_account_id = 'w_x' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'dono troca woovi_account_id: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select is(pg_temp.upd($$update public.producer_profiles set pix_key = 'ladrao@pix' where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca o Pix (RLS: lê e não grava)');
+select is(pg_temp.upd($$update public.producer_profiles set pix_key_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca o Pix (RLS: lê e não grava)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select is(pg_temp.upd($$update public.producer_profiles set bank_account = '{}'::jsonb where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca a conta (RLS)');
+select is(pg_temp.upd($$update public.producer_profiles set bank_account_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca a conta (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
 select is(pg_temp.upd($$update public.producer_profiles set is_verified = true where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca is_verified (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
 select is(pg_temp.upd($$update public.producer_profiles set commission_rate = 1 where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance não troca commission_rate (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select is(pg_temp.upd($$update public.producer_profiles set pix_key = pix_key where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance nem regrava o mesmo Pix (RLS)');
+select is(pg_temp.upd($$update public.producer_profiles set pix_key_enc = pix_key_enc where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'manage_finance nem regrava o mesmo Pix (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select lives_ok($$update public.producer_profiles set is_verified = true where id = 'd5000000-0000-4000-8000-000000000012'$$, 'manage_users troca is_verified: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
@@ -644,9 +645,9 @@ select throws_ok($$update public.producer_profiles set commission_rate = 5 where
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select throws_ok($$update public.producer_profiles set webhook_url = 'https://mal.example/x' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca webhook_url: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select throws_ok($$update public.producer_profiles set pix_key = 'ladrao@pix' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o Pix: 42501');
+select throws_ok($$update public.producer_profiles set pix_key_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o Pix: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select throws_ok($$update public.producer_profiles set cnpj = '00000000000191' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o CNPJ: 42501');
+select throws_ok($$update public.producer_profiles set cnpj_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o CNPJ: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select throws_ok($$update public.producer_profiles set company_name = 'Outro nome' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o nome da empresa: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
@@ -656,11 +657,11 @@ select lives_ok($$update public.producer_profiles set stripe_account_id = 'acct_
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select lives_ok($$update public.producer_profiles set is_verified = false where id = 'd5000000-0000-4000-8000-000000000012'$$, 'super_admin troca is_verified: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
-select throws_ok($$update public.producer_profiles set pix_key = 'ladrao@pix' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca o Pix: 42501 (Decisão 163, item 8)');
+select throws_ok($$update public.producer_profiles set pix_key_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca o Pix: 42501 (Decisão 163, item 8)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
-select throws_ok($$update public.producer_profiles set bank_account = '{}'::jsonb where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca a conta: 42501');
+select throws_ok($$update public.producer_profiles set bank_account_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca a conta: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
-select throws_ok($$update public.producer_profiles set cnpj = '00000000000191' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca o CNPJ: 42501');
+select throws_ok($$update public.producer_profiles set cnpj_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'super_admin troca o CNPJ: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
 select throws_ok($$update public.producer_profiles set id = 'd5000000-0000-4000-8000-000000000015' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'dono troca o id: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
@@ -676,7 +677,7 @@ select throws_ok($$update public.producer_profiles set created_at = now() - inte
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select throws_ok($$update public.producer_profiles set id = 'd5000000-0000-4000-8000-000000000001' where id = 'd5000000-0000-4000-8000-000000000013'$$, '42501', null, 'duas etapas, passo 1: mover a linha da vítima para o id do admin: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select is(pg_temp.upd($$update public.producer_profiles set pix_key = 'ladrao@pix' where id = 'd5000000-0000-4000-8000-000000000001'$$), 0::bigint, 'duas etapas, passo 2: sem linha no id do admin, nada é gravado');
+select is(pg_temp.upd($$update public.producer_profiles set pix_key_enc = '\xee' where id = 'd5000000-0000-4000-8000-000000000001'$$), 0::bigint, 'duas etapas, passo 2: sem linha no id do admin, nada é gravado');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000010', 'aal2');
 select is(pg_temp.upd($$update public.producer_profiles set is_verified = true where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'admin sem permissão não altera perfil (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000011', 'aal1');
@@ -686,15 +687,15 @@ select is(pg_temp.upd($$update public.producer_profiles set is_verified = true w
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000013', 'aal1');
 select is(pg_temp.upd($$update public.producer_profiles set is_verified = is_verified where id = 'd5000000-0000-4000-8000-000000000012'$$), 0::bigint, 'outro produtor não altera o perfil (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
-select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj, bank_account, pix_key, notification_settings)
-  values ('d5000000-0000-4000-8000-000000000012', 'Paula Eventos', null, '{"banco":"1"}', 'p1@upsert', '{}')
-  on conflict (id) do update set company_name = excluded.company_name, cnpj = excluded.cnpj,
-    bank_account = excluded.bank_account, pix_key = excluded.pix_key, notification_settings = excluded.notification_settings$$, 'upsert do produtor como em useProducerSettings (linha existente): passa');
+select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj_enc, bank_account_enc, pix_key_enc, notification_settings)
+  values ('d5000000-0000-4000-8000-000000000012', 'Paula Eventos', null, '\xb1', '\xa4', '{}')
+  on conflict (id) do update set company_name = excluded.company_name, cnpj_enc = excluded.cnpj_enc,
+    bank_account_enc = excluded.bank_account_enc, pix_key_enc = excluded.pix_key_enc, notification_settings = excluded.notification_settings$$, 'upsert do produtor como em useProducerSettings (linha existente): passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000012', 'aal1');
 select is(pg_temp.upd($$update public.producer_profiles set company_name = company_name$$), 1::bigint, 'dono segue atualizando a própria linha');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000015', 'aal1');
-select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj, bank_account, pix_key, notification_settings)
-  values ('d5000000-0000-4000-8000-000000000015', 'Minha Empresa', null, '{}', '', '{}')$$, 'produtor cria o perfil como o front cria (INSERT inicial): passa');
+select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj_enc, bank_account_enc, pix_key_enc, notification_settings)
+  values ('d5000000-0000-4000-8000-000000000015', 'Minha Empresa', null, '\xb0', '\xa0', '{}')$$, 'produtor cria o perfil como o front cria (INSERT inicial): passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000014', 'aal1');
 select throws_ok($$insert into public.producer_profiles (id, company_name, commission_rate) values ('d5000000-0000-4000-8000-000000000014', 'X', 5)$$, '42501', null, 'comprador cria perfil com comissão própria: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000014', 'aal1');
@@ -708,34 +709,34 @@ select throws_ok($$insert into public.producer_profiles (id, company_name) value
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000011', 'aal1');
 select throws_ok($$insert into public.producer_profiles (id, company_name) values ('d5000000-0000-4000-8000-000000000017', 'X')$$, '42501', null, 'admin em aal1 cria perfil de outra pessoa: 42501 (RLS)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select throws_ok($$insert into public.producer_profiles (id, company_name, pix_key) values ('d5000000-0000-4000-8000-000000000017', 'X', 'z@pix')$$, '42501', null, 'manage_users cria perfil alheio com Pix: 42501');
+select throws_ok($$insert into public.producer_profiles (id, company_name, pix_key_enc) values ('d5000000-0000-4000-8000-000000000017', 'X', '\xee')$$, '42501', null, 'manage_users cria perfil alheio com Pix: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select throws_ok($$insert into public.producer_profiles (id, company_name, bank_account) values ('d5000000-0000-4000-8000-000000000017', 'X', '{"b":1}')$$, '42501', null, 'manage_users cria perfil alheio com conta: 42501');
+select throws_ok($$insert into public.producer_profiles (id, company_name, bank_account_enc) values ('d5000000-0000-4000-8000-000000000017', 'X', '\xee')$$, '42501', null, 'manage_users cria perfil alheio com conta: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
-select throws_ok($$insert into public.producer_profiles (id, company_name, cnpj) values ('d5000000-0000-4000-8000-000000000017', 'X', '00000000000191')$$, '42501', null, 'manage_users cria perfil alheio com CNPJ: 42501');
+select throws_ok($$insert into public.producer_profiles (id, company_name, cnpj_enc) values ('d5000000-0000-4000-8000-000000000017', 'X', '\xee')$$, '42501', null, 'manage_users cria perfil alheio com CNPJ: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select throws_ok($$insert into public.producer_profiles (id, company_name, commission_rate) values ('d5000000-0000-4000-8000-000000000017', 'X', 12)$$, '42501', null, 'manage_users cria perfil alheio com comissão: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select lives_ok($$insert into public.producer_profiles (id, company_name, is_verified) values ('d5000000-0000-4000-8000-000000000017', 'Empresa do p4', true)$$, 'manage_users cria perfil alheio sem Pix, verificado: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
-select throws_ok($$insert into public.producer_profiles (id, company_name, pix_key) values ('d5000000-0000-4000-8000-000000000018', 'X', 'z@pix')$$, '42501', null, 'super_admin cria perfil alheio com Pix: 42501');
+select throws_ok($$insert into public.producer_profiles (id, company_name, pix_key_enc) values ('d5000000-0000-4000-8000-000000000018', 'X', '\xee')$$, '42501', null, 'super_admin cria perfil alheio com Pix: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select lives_ok($$insert into public.producer_profiles (id, company_name, commission_rate, webhook_url) values ('d5000000-0000-4000-8000-000000000018', 'Empresa do p5', 12, 'https://ok.example/h')$$, 'super_admin cria perfil alheio com comissão e webhook: passa');
 -- withdrawals: o site só muda status e processed_at
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
 select is(pg_temp.upd($$update public.withdrawals set status = 'completed', processed_at = now() where id = 'd5000000-0000-4000-8000-0000000000d1'$$), 1::bigint, 'manage_finance muda status e processed_at: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select throws_ok($$update public.withdrawals set pix_key = 'ladrao@pix' where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda pix_key do saque: 42501');
+select throws_ok($$update public.withdrawals set pix_key_enc = '\xee' where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda pix_key do saque: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
 select throws_ok($$update public.withdrawals set amount = 1 where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda amount do saque: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
 select throws_ok($$update public.withdrawals set producer_id = 'd5000000-0000-4000-8000-000000000013' where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda producer_id do saque: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select throws_ok($$update public.withdrawals set bank_account = '{"x":1}'::jsonb where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda bank_account do saque: 42501');
+select throws_ok($$update public.withdrawals set bank_account_enc = '\xee' where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'manage_finance muda bank_account do saque: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select throws_ok($$update public.withdrawals set amount = 1 where id = 'd5000000-0000-4000-8000-0000000000d1'$$, '42501', null, 'super_admin muda amount do saque: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
-select lives_ok($$update public.withdrawals set amount = amount, pix_key = pix_key where id = 'd5000000-0000-4000-8000-0000000000d1'$$, 'mandar o mesmo valor travado passa');
+select lives_ok($$update public.withdrawals set amount = amount, pix_key_enc = pix_key_enc where id = 'd5000000-0000-4000-8000-0000000000d1'$$, 'mandar o mesmo valor travado passa');
 select pg_temp.como('service_role');
 select lives_ok($$update public.withdrawals set amount = 55 where id = 'd5000000-0000-4000-8000-0000000000d1'$$, 'service_role segue alterando o saque');
 -- platform_affiliates: conta de recebimento só se preenche quando nula
@@ -799,7 +800,7 @@ select is(pg_temp.upd($$update public.platform_affiliates set referral_code = re
 select pg_temp.como('service_role');
 select lives_ok($$update public.platform_affiliates set referral_code = 'S3SERV' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, 'service_role troca referral_code');
 select pg_temp.como('postgres');
-select is((select commission_rate::text || '/' || stripe_account_id || '/' || pix_key from public.producer_profiles where id = 'd5000000-0000-4000-8000-000000000012'), '12.00/acct_ok/p1@upsert', 'valores finais do p1: só as gravações permitidas ficaram');
+select is((select commission_rate::text || '/' || stripe_account_id || '/' || encode(pix_key_enc, 'hex') from public.producer_profiles where id = 'd5000000-0000-4000-8000-000000000012'), '12.00/acct_ok/a4', 'valores finais do p1: só as gravações permitidas ficaram');
 
 select * from finish();
 rollback;

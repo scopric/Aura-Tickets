@@ -1,4 +1,5 @@
--- pgTAP de docs/sql/20261017_team_members_rls.sql. Banco local com o baseline + esse SQL; `supabase test db`.
+-- pgTAP de docs/sql/20261017_team_members_rls.sql e do insert retirado em 20261029_equipe_convidar.sql (o convite é só por
+-- team_convidar). Banco local com o baseline + docs/sql até 20261029; `supabase test db`.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
@@ -32,14 +33,20 @@ insert into public.team_members (id, producer_id, user_id, role) values
 
 select pg_temp.como('authenticated', 'c1000000-0000-4000-8000-000000000001');
 select is((select count(*)::int from public.team_members), 1, 'dono lê só os seus');
-select lives_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', 'editor') returning id$$, 'dono convida (colunas e returning iguais aos do front)');
+select throws_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', 'editor') returning id$$, '42501', null, 'dono não insere direto (convite só por team_convidar)');
+-- o convite de p1 a p2, pronto, como superusuário
+select pg_temp.como('postgres');
+insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', 'editor');
+select pg_temp.como('authenticated', 'c1000000-0000-4000-8000-000000000001');
 select throws_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 'editor')$$, '42501', null, 'não convida em nome de outro produtor');
 select throws_ok($$insert into public.team_members (producer_id, user_id, accepted_at) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000004', now())$$, '42501', null, 'dono não grava accepted_at no convite');
 select throws_ok($$insert into public.team_members (producer_id, user_id) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001')$$, '42501', null, 'não se convida');
 select throws_ok($$update public.team_members set accepted_at = now() where id = 'c1000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'dono não altera accepted_at');
 select throws_ok($$update public.team_members set user_id = 'c1000000-0000-4000-8000-000000000004' where id = 'c1000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'dono não troca user_id');
 select throws_ok($$update public.team_members set producer_id = 'c1000000-0000-4000-8000-000000000002' where id = 'c1000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'dono não troca producer_id');
-select throws_ok($$insert into public.team_members (producer_id, user_id) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002')$$, '23505', null, 'vínculo duplicado recusado');
+select pg_temp.como('postgres');
+select throws_ok($$insert into public.team_members (producer_id, user_id) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002')$$, '23505', null, 'vínculo duplicado recusado (único producer/user)');
+select pg_temp.como('authenticated', 'c1000000-0000-4000-8000-000000000001');
 select is(pg_temp.n($$update public.team_members set blocked_at = now() where id = 'c1000000-0000-4000-8000-0000000000a1'$$), 1, 'dono bloqueia');
 select is((select role from public.team_members where id = 'c1000000-0000-4000-8000-0000000000a1'), 'admin', 'bloquear não muda o cargo');
 select is(pg_temp.n($$update public.team_members set role = 'viewer' where id = 'c1000000-0000-4000-8000-0000000000a2'$$), 0, 'não altera membro de outro produtor');

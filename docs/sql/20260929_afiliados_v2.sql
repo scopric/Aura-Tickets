@@ -1,3 +1,6 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (platform_affiliates.cpf: coluna, CHECK platform_affiliates_dados_chk e índice platform_affiliates_cpf_idx) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
 -- ATENÇÃO (30/09/2026): este arquivo recria funções que docs/sql/20260930_2fa_no_banco.sql protege com o
 -- 2FA. Se for rodado de novo, rode também o 20260930_2fa_no_banco.sql logo depois.
 -- Afiliados Evokaa v2 (idempotente) — Decisões 64 e 65, pedidos do Ricardo em 29/09/2026:

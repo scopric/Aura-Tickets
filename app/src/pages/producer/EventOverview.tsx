@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import EventoCapa from '../../components/EventoCapa'
-import { EmptyState } from '@/components/producer/ui'
+import { EmptyState, Erro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -132,15 +132,6 @@ function Esqueleto({ faixa = false }: { faixa?: boolean }) {
         <Skeleton className="h-[420px] rounded-[10px] lg:col-span-8" />
         <Skeleton className="h-[260px] rounded-[10px] lg:col-span-4" />
       </div>
-    </div>
-  )
-}
-
-function Erro({ texto, refetch, carregando, className }: { texto: string; refetch: () => void; carregando: boolean; className?: string }) {
-  return (
-    <div role="alert" className={cn(painel, 'flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between', className)}>
-      <p className="text-sm text-foreground">{texto}</p>
-      <Button variant="outline" size="sm" onClick={() => refetch()} disabled={carregando}>{carregando ? 'Carregando…' : 'Tentar de novo'}</Button>
     </div>
   )
 }

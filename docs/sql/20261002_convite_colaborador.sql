@@ -1,3 +1,6 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (staff_profiles.cpf, rg, banco, agencia, conta, pix_tipo, pix_chave: colunas, CHECKs, gatilho do histórico de pagamento e convite_aceitar) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
 -- =============================================================================
 -- Convite de colaborador da Evokaa (Fase F) — banco — 2026-10-02
 -- Aplicar à mão no SQL Editor do Supabase, de uma vez. NÃO vai para supabase/migrations (Decisão 02).

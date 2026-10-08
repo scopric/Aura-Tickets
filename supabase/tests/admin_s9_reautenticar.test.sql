@@ -4,6 +4,7 @@
 -- pg_temp.como(papel, id, aal, idade, metodo) troca papel e claims do JWT como o PostgREST; em aal2 com `idade` (segundos) o amr leva
 -- um login por senha de 1 h atrás e o `metodo` ('totp' por padrão) digitado há `idade` segundos. pg_temp.recusa(sql) = true se
 -- falhar com 42501 e hint 'reautenticar'; pg_temp.passa(sql) = 'ok' ou o erro (sqlstate e mensagem).
+-- Pós-passo 2 do PR 7: PII só existe cifrada (colunas _enc, bytea). Nas fixtures o "cifrado" é convert_to(texto, 'UTF8'): o gatilho só compara valores.
 -- Contas: super (super_admin), adm_fin (manage_finance), adm_wa (admin com fator que NÃO é TOTP), adm_nv (TOTP não confirmado),
 -- col (admin com ficha em staff_profiles), p1 (produtor dono), p3 (produtor sem perfil), comum.
 begin;
@@ -75,19 +76,19 @@ update public.profiles set role = 'admin', admin_permissions = array['manage_fin
 update public.profiles set role = 'admin', admin_permissions = array['super_admin']::text[] where id = 'd9000000-0000-4000-8000-000000000003';
 update public.profiles set role = 'admin', admin_permissions = array['manage_finance']::text[] where id = 'd9000000-0000-4000-8000-000000000004';
 update public.profiles set role = 'admin', admin_permissions = array['manage_users']::text[] where id = 'd9000000-0000-4000-8000-000000000005';
-insert into public.producer_profiles (id, company_name, pix_key, bank_account, cnpj) values
-  ('d9000000-0000-4000-8000-000000000006', 'Paula Eventos', 'p1@pix', '{"banco":"341"}', '11222333000181');
+insert into public.producer_profiles (id, company_name, pix_key_enc, bank_account_enc, cnpj_enc) values
+  ('d9000000-0000-4000-8000-000000000006', 'Paula Eventos', convert_to('p1@pix', 'UTF8'), convert_to('{"banco":"341"}', 'UTF8'), convert_to('11222333000181', 'UTF8'));
 insert into public.withdrawals (id, producer_id, amount) values
   ('d9000000-0000-4000-8000-0000000000d1', 'd9000000-0000-4000-8000-000000000006', 50),
   ('d9000000-0000-4000-8000-0000000000d2', 'd9000000-0000-4000-8000-000000000006', 60),
   ('d9000000-0000-4000-8000-0000000000d3', 'd9000000-0000-4000-8000-000000000006', 70),
   ('d9000000-0000-4000-8000-0000000000d4', 'd9000000-0000-4000-8000-000000000006', 80);
 insert into public.platform_settings (key, value) values ('general', '{"a":1}'), ('fees', '{"taxa":10}'), ('fees_teste', '{"x":1}');
-insert into public.staff_profiles (user_id, email, cargo, nome_completo, cpf, rg, data_nascimento, cep, rua, numero, bairro, cidade, uf,
-  email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, pix_tipo, pix_chave) values
-  ('d9000000-0000-4000-8000-000000000005', 'col@teste-s9.local', 'Analista', 'Clara Teste', '52998224725', '123456789', '1990-01-01',
+insert into public.staff_profiles (user_id, email, cargo, nome_completo, cpf_enc, rg_enc, data_nascimento, cep, rua, numero, bairro, cidade, uf,
+  email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, pix_tipo_enc, pix_chave_enc) values
+  ('d9000000-0000-4000-8000-000000000005', 'col@teste-s9.local', 'Analista', 'Clara Teste', convert_to('52998224725', 'UTF8'), convert_to('123456789', 'UTF8'), '1990-01-01',
    '01001000', 'Rua A', '1', 'Centro', 'São Paulo', 'SP', 'col2@teste-s9.local', '+5511900000000', '+5511900000000',
-   'Pai Teste', 'Pai', '+5511900000001', 'email', 'col@teste-s9.local');
+   'Pai Teste', 'Pai', '+5511900000001', convert_to('email', 'UTF8'), convert_to('col@teste-s9.local', 'UTF8'));
 
 -- A. gf_reauth_recente: aal2 e um TOTP dentro da janela --------------------------------------------------------------------
 select ok(not has_function_privilege('anon', 'public.gf_reauth_recente(int)', 'execute')
@@ -212,22 +213,22 @@ select is(pg_temp.passa($$delete from public.platform_settings where key = 'fees
 
 -- F. staff_profiles: banco e Pix --------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aal2', 3600);
-select ok(pg_temp.recusa($$update public.staff_profiles set pix_chave = 'novo@teste-s9.local' where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
+select ok(pg_temp.recusa($$update public.staff_profiles set pix_chave_enc = convert_to('novo@teste-s9.local', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
   'ficha: Pix sem código recente é recusado com 42501 e hint reautenticar');
-select ok(pg_temp.recusa($$update public.staff_profiles set banco = 'Banco X', agencia = '1234', conta = '99999-1' where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
+select ok(pg_temp.recusa($$update public.staff_profiles set banco_enc = convert_to('Banco X', 'UTF8'), agencia_enc = convert_to('1234', 'UTF8'), conta_enc = convert_to('99999-1', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
   'ficha: banco, agência e conta sem código recente são recusados');
-select ok(pg_temp.recusa($$update public.staff_profiles set pix_tipo = 'telefone', pix_chave = '+5511911112222' where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
+select ok(pg_temp.recusa($$update public.staff_profiles set pix_tipo_enc = convert_to('telefone', 'UTF8'), pix_chave_enc = convert_to('+5511911112222', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
   'ficha: tipo e chave do Pix sem código recente são recusados');
-select is((select pix_chave from public.staff_profiles where user_id = 'd9000000-0000-4000-8000-000000000005'), 'col@teste-s9.local', 'ficha: nada gravou');
+select is((select pix_chave_enc from public.staff_profiles where user_id = 'd9000000-0000-4000-8000-000000000005'), convert_to('col@teste-s9.local', 'UTF8'), 'ficha: nada gravou');
 select is(pg_temp.passa($$update public.staff_profiles set telefone = '+5511922223333' where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: telefone não pede código');
-select is(pg_temp.passa($$update public.staff_profiles set pix_chave = pix_chave where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: Pix regravado igual não pede código');
+select is(pg_temp.passa($$update public.staff_profiles set pix_chave_enc = pix_chave_enc where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: Pix regravado igual não pede código');
 select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aal2', 10);
-select is(pg_temp.passa($$update public.staff_profiles set pix_chave = 'novo@teste-s9.local' where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: Pix com TOTP recente passa');
-select is(pg_temp.passa($$update public.staff_profiles set banco = 'Banco X', agencia = '1234', conta = '99999-1' where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: banco com TOTP recente passa');
+select is(pg_temp.passa($$update public.staff_profiles set pix_chave_enc = convert_to('novo@teste-s9.local', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: Pix com TOTP recente passa');
+select is(pg_temp.passa($$update public.staff_profiles set banco_enc = convert_to('Banco X', 'UTF8'), agencia_enc = convert_to('1234', 'UTF8'), conta_enc = convert_to('99999-1', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: banco com TOTP recente passa');
 select pg_temp.como('postgres');
 select is((select count(*) from public.staff_profiles_historico_pagamento where user_id = 'd9000000-0000-4000-8000-000000000005'), 2::bigint, 'ficha: o histórico de pagamento só registrou as duas mudanças permitidas');
 select pg_temp.como('service_role');
-select is(pg_temp.passa($$update public.staff_profiles set pix_chave = 'svc@teste-s9.local' where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: service_role passa sem amr');
+select is(pg_temp.passa($$update public.staff_profiles set pix_chave_enc = convert_to('svc@teste-s9.local', 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: service_role passa sem amr');
 
 -- G. Caminho SECURITY DEFINER e reconvite (convite_aceitar roda com o JWT de quem aceita) --------------------------------------
 select pg_temp.como('postgres');
@@ -236,15 +237,15 @@ insert into public.admin_invites (id, email, cargo, token_hash, status) values
   ('d9000000-0000-4000-8000-0000000000a2', 'col@teste-s9.local', 'Analista', repeat('b', 64), 'pendente');
 update public.staff_profiles set invite_id = 'd9000000-0000-4000-8000-0000000000a1' where user_id = 'd9000000-0000-4000-8000-000000000005';
 create function public.s9_teste_so_pix(p text) returns void language sql security definer set search_path = '' as
-  $f$ update public.staff_profiles set pix_chave = p where user_id = 'd9000000-0000-4000-8000-000000000005' $f$;
+  $f$ update public.staff_profiles set pix_chave_enc = convert_to(p, 'UTF8') where user_id = 'd9000000-0000-4000-8000-000000000005' $f$;
 -- imita o insert … on conflict do update de convite_aceitar (invite_id novo, Pix novo)
 create function public.s9_teste_reconvite(p text) returns void language sql security definer set search_path = '' as
-  $f$ insert into public.staff_profiles (user_id, invite_id, email, cargo, nome_completo, cpf, rg, data_nascimento, cep, rua, numero, bairro, cidade, uf,
-        email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, pix_tipo, pix_chave)
-      values ('d9000000-0000-4000-8000-000000000005', 'd9000000-0000-4000-8000-0000000000a2', 'col@teste-s9.local', 'Analista', 'Clara Teste', '52998224725',
-        '123456789', '1990-01-01', '01001000', 'Rua A', '1', 'Centro', 'São Paulo', 'SP', 'col2@teste-s9.local', '+5511900000000', '+5511900000000',
-        'Pai Teste', 'Pai', '+5511900000001', 'email', p)
-      on conflict (user_id) do update set invite_id = excluded.invite_id, pix_tipo = excluded.pix_tipo, pix_chave = excluded.pix_chave, updated_at = now() $f$;
+  $f$ insert into public.staff_profiles (user_id, invite_id, email, cargo, nome_completo, cpf_enc, rg_enc, data_nascimento, cep, rua, numero, bairro, cidade, uf,
+        email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, pix_tipo_enc, pix_chave_enc)
+      values ('d9000000-0000-4000-8000-000000000005', 'd9000000-0000-4000-8000-0000000000a2', 'col@teste-s9.local', 'Analista', 'Clara Teste', convert_to('52998224725', 'UTF8'),
+        convert_to('123456789', 'UTF8'), '1990-01-01', '01001000', 'Rua A', '1', 'Centro', 'São Paulo', 'SP', 'col2@teste-s9.local', '+5511900000000', '+5511900000000',
+        'Pai Teste', 'Pai', '+5511900000001', convert_to('email', 'UTF8'), convert_to(p, 'UTF8'))
+      on conflict (user_id) do update set invite_id = excluded.invite_id, pix_tipo_enc = excluded.pix_tipo_enc, pix_chave_enc = excluded.pix_chave_enc, updated_at = now() $f$;
 create function public.s9_teste_fees(p jsonb) returns void language sql security definer set search_path = '' as
   $f$ insert into public.platform_settings (key, value) values ('fees', p) on conflict (key) do update set value = excluded.value $f$;
 grant execute on function public.s9_teste_so_pix(text), public.s9_teste_reconvite(text), public.s9_teste_fees(jsonb) to authenticated;
@@ -254,7 +255,7 @@ select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aa
 select ok(pg_temp.recusa($$select public.s9_teste_so_pix('definer@teste-s9.local')$$), 'definer: função security definer mudando o Pix com o JWT authenticated sem código recente é recusada (42501, reautenticar)');
 select is(pg_temp.passa($$select public.s9_teste_reconvite('reconvite@teste-s9.local')$$), 'ok', 'reconvite: aceite que troca o invite_id e o Pix passa sem código recente');
 select pg_temp.como('postgres');
-select ok((select invite_id = 'd9000000-0000-4000-8000-0000000000a2' and pix_chave = 'reconvite@teste-s9.local' from public.staff_profiles
+select ok((select invite_id = 'd9000000-0000-4000-8000-0000000000a2' and pix_chave_enc = convert_to('reconvite@teste-s9.local', 'UTF8') from public.staff_profiles
   where user_id = 'd9000000-0000-4000-8000-000000000005'), 'reconvite: invite_id novo e Pix novo gravados');
 select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aal2', 3600);
 select ok(pg_temp.recusa($$select public.s9_teste_so_pix('depois@teste-s9.local')$$), 'depois do reconvite, trocar o Pix fora do aceite (mesmo invite_id) volta a pedir o código');

@@ -49,18 +49,24 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
     if (problema) { setErro(problema); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     setErro('')
     setSalvando(true)
-    // .select(): sem ele, a RLS que barra devolve sucesso vazio (Erros que não se repetem, 11). updated_at: aba antiga
-    // não sobrescreve o que outra aba salvou (o Pix inclusive); nesse caso também volta vazio
     // Pix e banco: o banco pede o código do aplicativo digitado há menos de 5 minutos (S9); o hook abre a janela e repete
-    const { data, error } = await reautenticar(() => supabase.from('staff_profiles' as never).update(novo as never)
-      .eq('user_id', linha.user_id).eq('updated_at', linha.updated_at).select().maybeSingle())
+    // pr7_salvar_meu_cadastro (docs/sql/20261007_pr7_cripto_rpcs.sql) devolve o updated_at novo, ou erro se a ficha não existe
+    const { data, error } = await reautenticar(() => supabase.rpc('pr7_salvar_meu_cadastro' as never, {
+      p_nome_completo: novo.nome_completo, p_cpf: novo.cpf, p_rg: novo.rg, p_data_nascimento: novo.data_nascimento,
+      p_cep: novo.cep, p_rua: novo.rua, p_numero: novo.numero, p_complemento: novo.complemento,
+      p_bairro: novo.bairro, p_cidade: novo.cidade, p_uf: novo.uf, p_email_secundario: novo.email_secundario,
+      p_telefone: novo.telefone, p_whatsapp: novo.whatsapp, p_emergencia_nome: novo.emergencia_nome,
+      p_emergencia_parentesco: novo.emergencia_parentesco, p_emergencia_telefone: novo.emergencia_telefone,
+      p_banco: novo.banco, p_agencia: novo.agencia, p_conta: novo.conta,
+      p_pix_tipo: novo.pix_tipo, p_pix_chave: novo.pix_chave, p_updated_at: linha.updated_at, // trava: aba antiga não sobrescreve
+    } as never))
     setSalvando(false)
     if (error || !data) {
       setErro(error ? mensagemDoBanco(error) : 'Não foi possível salvar. O cadastro pode ter mudado em outra aba, ou a sessão precisa do código da verificação em duas etapas: recarregue a página (ou saia e entre de novo) e tente outra vez.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
-    onSalvo(data as Linha)
+    onSalvo({ ...linha, ...novo, updated_at: data as unknown as string })
     toast.success(mudouPagamento ? 'Cadastro atualizado. A mudança de pagamento ficou registrada.' : 'Cadastro atualizado.')
   }
 
@@ -113,9 +119,10 @@ export default function MeuCadastro() {
     queryKey: chave,
     enabled: !!uid,
     queryFn: async () => {
-      const { data, error } = await supabase.from('staff_profiles' as never).select('*').eq('user_id', uid as string).maybeSingle()
+      const { data, error } = await supabase.rpc('pr7_meu_cadastro' as never) // CPF, RG e dados bancários decifrados só para o dono
       if (error) throw error
-      return data as Linha | null
+      const l = (data as unknown as Record<string, unknown>[] | null)?.[0]
+      return l ? ({ ...l, user_id: uid as string } as unknown as Linha) : null
     },
   })
 

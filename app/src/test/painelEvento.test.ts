@@ -1,11 +1,14 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { pendencias } from '../lib/tipoEvento'
 import {
-  diffCampos, dominioDoLink, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
+  MSG_PENDENCIA, SECAO_DA_PENDENCIA, alvosDoModo, campoDaPendencia, diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
   precoDe, quantidadeDe, semNomeVazio, erroDosIngressos, ERRO_NOME, rotuloDoModo, rotulosDoDiff, snapDoForm, eventoDaPrevia, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
 import { supabase } from '../lib/supabase'
-import type { DbEvent } from '../hooks/useEvents'
+import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 const evento = (o: Partial<DbEvent> = {}) => ({
   id: 'e1', producer_id: 'u1', title: 'Noite de Forró', subtitle: null, description: 'Baile de forró no Espaço Torres, em Curitiba.', category: 'festa_encontro',
@@ -15,7 +18,7 @@ const evento = (o: Partial<DbEvent> = {}) => ({
 }) as DbEvent
 
 const form = (o: Partial<Form> = {}): Form => ({ ...formDoEvento(evento(), ''), ...o })
-const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, ...o })
+const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '', ...o })
 
 describe('formulário ↔ banco', () => {
   it('lê o evento: hora sem segundos, fim em Brasília, endereço separado', () => {
@@ -69,8 +72,8 @@ describe('prévia no celular', () => {
 
 describe('prévia: ingresso salvo', () => {
   const salvo = (o: object) => evento({ ticket_types: [{ id: 'i1', description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', sold: 7, name: 'Antigo', ...o }] } as Partial<DbEvent>)
-  it('preserva descrição, benefícios e fim da venda do banco; o formulário vale para nome e preço; sold vem do banco', () => {
-    const t = eventoDaPrevia(form(), [ing({ nome: 'Novo', vendidos: 99 })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]
+  it('preserva benefícios e fim da venda do banco; o formulário vale para nome e preço; sold vem do banco', () => {
+    const t = eventoDaPrevia(form(), [ing({ nome: 'Novo', vendidos: 99, descricao: 'Open bar' })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]
     expect(t).toMatchObject({ description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', name: 'Novo', price: 80, sold: 7 })
   })
   it('perks que não é lista vira []; ingresso novo (fora do banco) tem sold 0', () => {
@@ -166,6 +169,19 @@ describe('ingressos', () => {
     expect(errosDeIngresso(ing())).toEqual({})
     expect(Object.keys(errosDeIngresso(ing({ nome: ' ', preco: 'x', qtd: '0' })))).toEqual(['nome', 'preco', 'qtd'])
     expect(errosDeIngresso(ing({ qtd: '5', vendidos: 8 })).qtd).toMatch(/8/)
+    expect(errosDeIngresso(ing({ minPed: '0' })).pedido).toMatch(/Mínimo/)
+    expect(errosDeIngresso(ing({ minPed: '5', maxPed: '3' })).pedido).toMatch(/menor que o mínimo/)
+    expect(errosDeIngresso(ing({ qtd: '5', maxPed: '6' })).pedido).toMatch(/passar da quantidade/)
+    expect(errosDeIngresso(ing({ maxPed: '0' })).pedido).toMatch(/Máximo/)
+    expect(errosDeIngresso(ing({ maxPed: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ minPed: '2', maxPed: '8' }))).toEqual({})
+    expect(errosDeIngresso(ing({ minPed: '2', maxPed: '11' })).pedido).toMatch(/é 10/)
+  })
+  it('sem máximo vale 10 (grátis e pago): mínimo acima disso fica impossível de comprar', () => {
+    expect(errosDeIngresso(ing({ preco: '0', minPed: '12', maxPed: '' })).pedido).toMatch(/Sem máximo.*10/)
+    expect(errosDeIngresso(ing({ preco: '80,00', minPed: '12', maxPed: '' })).pedido).toMatch(/Sem máximo.*10/)
+    expect(errosDeIngresso(ing({ preco: '80,00', minPed: '10', maxPed: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ preco: '0', minPed: '12', maxPed: '50' })).pedido).toMatch(/é 10/) // acima de 10 nunca
   })
   it('datas de venda: fim depois do início e não depois do fim do evento', () => {
     const fimEv = Date.parse('2026-12-13T04:00:00-03:00')
@@ -189,6 +205,8 @@ describe('nome vazio e erro ao gravar ingressos', () => {
   it('erro de gravação dos ingressos por tipo: dado recusado pelo banco, remoção com pedidos e rede', () => {
     for (const e of [{ code: '22003' }, { code: '23514' }, { status: 400 }, { status: 422 }, { code: 'PGRST102' }]) expect(erroDosIngressos(e)).toMatch(/O banco recusou um dos ingressos: confira nome, preço e quantidade/)
     expect(erroDosIngressos({ code: '23514', message: 'Já foram vendidos 5: a quantidade não pode ser menor' })).toBe('Já foram vendidos 5: a quantidade não pode ser menor')
+    const lugar = 'Este ingresso é vendido por lugar marcado: não use limite por CPF nele'
+    expect(erroDosIngressos({ code: '22023', message: lugar })).toBe(lugar)
     expect(erroDosIngressos({ code: '23503' })).toMatch(/Use Ocultar/)
     expect(erroDosIngressos(new Error('Failed to fetch'))).toMatch(/Confira a internet/)
     expect(erroDosIngressos(null)).toMatch(/Confira a internet/)
@@ -431,5 +449,91 @@ describe('Enviar para aprovação', () => {
     update.mockImplementation(() => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '42501' } }) }) }) }))
     const r = await enviarEvento(base())
     expect(r).toMatchObject({ ok: false, erro: 'Refaça o aceite: a classificação ou a bebida mudou.' })
+  })
+})
+
+describe('limites por pedido', () => {
+  const t = (o: object) => ({ id: 't1', name: 'Pista', price: 80, quantity_total: 200, type: 'individual', is_active: true, ...o }) as DbTicketType
+  it('ingDoBanco lê descrição, mínimo e máximo; máximo nulo vira vazio', () => {
+    expect(ingDoBanco(t({ description: 'Entrada geral', min_per_order: 2, max_per_order: 4 }), 0)).toMatchObject({ descricao: 'Entrada geral', minPed: '2', maxPed: '4' })
+    expect(ingDoBanco(t({ description: null, max_per_order: null }), 0)).toMatchObject({ descricao: '', minPed: '1', maxPed: '' })
+  })
+  it('para o banco: vazio vira null, número vira número', () => {
+    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null, max_por_cpf: null })
+    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4, max_por_cpf: null })
+  })
+})
+
+describe('limite por CPF', () => {
+  const t = (o: object) => ({ id: 't1', name: 'Pista', price: 80, quantity_total: 200, type: 'individual', is_active: true, ...o }) as DbTicketType
+  it('ingDoBanco lê max_por_cpf; nulo vira vazio', () => {
+    expect(ingDoBanco(t({ max_por_cpf: 2 }), 0).maxCpf).toBe('2')
+    expect(ingDoBanco(t({ max_por_cpf: null }), 0).maxCpf).toBe('')
+  })
+  it('erros: 0, negativo, não inteiro e acima da quantidade; vazio aceito', () => {
+    for (const v of ['0', '-1', '1,5', 'abc']) expect(errosDeIngresso(ing({ maxCpf: v })).cpf).toMatch(/Limite por CPF inválido/)
+    expect(errosDeIngresso(ing({ maxCpf: '201' })).cpf).toMatch(/passar da quantidade/)
+    expect(errosDeIngresso(ing({ maxCpf: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ maxCpf: '200' }))).toEqual({})
+  })
+  it('para o banco: vazio limpa (null), número vira número', () => {
+    expect(pedidoParaBanco(ing({ maxCpf: '' })).max_por_cpf).toBeNull()
+    expect(pedidoParaBanco(ing({ maxCpf: ' 2 ' })).max_por_cpf).toBe(2)
+  })
+})
+
+describe('mapa pendência → seção e campo (o que falta no campo)', () => {
+  const ler = (...a: string[]) => readFileSync(join(__dirname, '..', ...a), 'utf8')
+  const secoes = ['SecaoOQueE', 'SecaoQuandoOnde', 'SecaoIngressos', 'SecaoRegras', 'SecaoPublicar'].map(n => ler('components/producer/painel', `${n}.tsx`)).join('\n')
+  const painel = ler('pages/producer/PainelEvento.tsx')
+  const ids = pendencias({}).map(p => p.id)
+
+  it('toda pendência tem mensagem e seção que existe no painel', () => {
+    expect(ids).toHaveLength(8)
+    for (const id of ids) {
+      expect(MSG_PENDENCIA[id], id).toBeTruthy()
+      expect(painel, id).toContain(`id: '${SECAO_DA_PENDENCIA[id]}'`)
+    }
+  })
+
+  it('todo campo apontado existe no código das seções, em todos os modos e com ou sem ingresso', () => {
+    const formas = [{}, { local_modo: 'online' }, { local_modo: 'hibrido' }, { local_modo: 'hibrido', venue_name: 'X' }, { venue_name: 'X' }].map(o => form({ venue_name: '', venue_city: '', ...o }))
+    const listas = [[], [ing({ id: 'ABC', nome: '' })], [ing({ id: 'ABC', qtd: '' })], [ing({ id: 'ABC' })]]
+    for (const id of ids) for (const f of formas) for (const l of listas) {
+      const campo = campoDaPendencia(id, f, l)
+      const dinamico = campo.match(/^ing-ABC-(\w+)$/)
+      if (dinamico) expect(secoes, campo).toContain('${id}-' + dinamico[1])
+      else expect(secoes.includes(`id="${campo}"`) || secoes.includes(`'${campo}'`), campo).toBe(true)
+    }
+  })
+})
+
+describe('campo do ingresso pendente', () => {
+  it('com mudança não salva o alvo é o botão Salvar (nunca um campo já correto)', () => {
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A' })], true)).toBe('ing-salvar')
+    expect(campoDaPendencia('ingresso', form(), [], true)).toBe('ing-salvar')
+  })
+  it('sem mudança: o preço do primeiro ingresso ATIVO (senão o primeiro)', () => {
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false }), ing({ id: 'B' })])).toBe('ing-B-preco')
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false })])).toBe('ing-A-preco')
+  })
+})
+
+describe('alvosDoModo (passos do destaque por modo)', () => {
+  const x = (campo: string) => ({ campo })
+  const pend = [x('f-nome'), x('f-inicio')]
+  const bloq = [x('f-nome'), x('ing-salvar')]
+  const campos = (l: { campo: string }[]) => l.map(a => a.campo)
+
+  it('rascunho e recusado: pendências + bloqueios, um por campo', () => {
+    for (const m of ['rascunho', 'recusado'] as const) expect(campos(alvosDoModo(m, pend, bloq))).toEqual(['f-nome', 'f-inicio', 'ing-salvar'])
+  })
+  it('no ar e em análise: só os bloqueios', () => {
+    for (const m of ['publicado', 'analise'] as const) expect(campos(alvosDoModo(m, pend, bloq))).toEqual(['f-nome', 'ing-salvar'])
+    expect(alvosDoModo('publicado', pend, [])).toEqual([])
+  })
+  it('fechado: nenhum', () => expect(alvosDoModo('fechado', pend, bloq)).toEqual([]))
+  it('com vendas, data e hora (desabilitadas) apontam para a seção', () => {
+    expect(campos(alvosDoModo('publicado', [], [x('f-inicio'), x('f-fim'), x('f-link')], true))).toEqual(['s-quando', 'f-link'])
   })
 })

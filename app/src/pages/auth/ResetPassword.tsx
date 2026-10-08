@@ -178,7 +178,7 @@ export default function ResetPassword() {
                   placeholder="Nova senha"
                   aria-describedby="password-hint"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"
@@ -201,7 +201,7 @@ export default function ResetPassword() {
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder="Repita a nova senha"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"

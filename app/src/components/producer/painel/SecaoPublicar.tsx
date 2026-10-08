@@ -5,11 +5,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import type { ModoPainel } from '../../../lib/painelEvento'
 
-export type Falta = { rotulo: string; secao: string; nomeSecao: string }
+export type Falta = { rotulo: string; secao: string; nomeSecao: string; campo: string; msg: string }
 
 // Seção "Publicar": o que falta (com "Ir para…"), o aceite do produtor (o texto de textoAceite, montado do que está na
 // tela) e o botão de enviar. Evento no ar ou em análise só mostra o estado: o envio das alterações é na faixa do topo.
-export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, enviando, erroEnvio, noArDesde, hrefOrcamento }: {
+export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, onFaltas, enviando, erroEnvio, noArDesde, hrefOrcamento, erroAceite }: {
   modo: ModoPainel
   faltas: Falta[]
   onIr: (secao: string) => void
@@ -18,6 +18,8 @@ export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteM
   aceiteTrava: boolean // sem classificação não há o que aceitar
   onAceite: (v: boolean) => void
   onEnviar: () => void
+  onFaltas: () => void // com pendência: mostra o que falta nos campos e leva ao primeiro
+  erroAceite?: string
   enviando: boolean
   erroEnvio: string
   noArDesde?: string // data curta da aprovação (approved_at)
@@ -52,16 +54,17 @@ export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteM
           {linhas.map((l, i) => <p key={i} className="mt-1.5">{l}</p>)}
         </div>
         <div className="flex items-start gap-2">
-          <Checkbox id="f-aceite" checked={aceiteMarcado} disabled={aceiteTrava} onCheckedChange={v => onAceite(v === true)} aria-describedby="f-aceite-ajuda" className="mt-0.5" />
+          <Checkbox id="f-aceite" checked={aceiteMarcado} disabled={aceiteTrava} onCheckedChange={v => onAceite(v === true)} aria-invalid={!!erroAceite} aria-describedby={erroAceite ? 'f-aceite-erro f-aceite-ajuda' : 'f-aceite-ajuda'} className="mt-0.5" />
           <Label htmlFor="f-aceite" className="font-normal">Li e aceito o termo do produtor</Label>
         </div>
+        {erroAceite && <p id="f-aceite-erro" role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{erroAceite}</p>}
         <p id="f-aceite-ajuda" className="text-xs text-muted-foreground">
           {aceiteTrava ? 'Escolha a classificação em Regras e idade para liberar o aceite. ' : 'Se você mudar o nome, a classificação ou a bebida de um ingresso, o aceite desmarca e vale o texto novo. '}
           A data, a hora, o IP e o navegador ficam registrados pelo servidor.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" size="lg" aria-disabled={trava || undefined} aria-describedby="a-env" loading={enviando} onClick={() => (trava ? onIr(faltas[0].secao) : onEnviar())}>
+        <Button type="button" size="lg" aria-disabled={trava || undefined} aria-describedby="a-env" loading={enviando} onClick={() => (trava ? onFaltas() : onEnviar())}>
           <I.Enviar aria-hidden="true" />Enviar para aprovação
         </Button>
         <span id="a-env" className="text-xs text-muted-foreground">

@@ -65,8 +65,8 @@ select lives_ok($$insert into public.revenue_advances (id, producer_id, event_id
 select pg_temp.como('authenticated', 'd4000000-0000-4000-8000-000000000001');
 select is((select count(*) from public.revenue_advances), 1::bigint, 'P1 continua lendo o próprio pedido');
 
--- b. producer_profiles --------------------------------------------------------------------------------------------
-select lives_ok($$update public.producer_profiles set company_name = 'Paula Produções', pix_key = 'p1@pix'
+-- b. producer_profiles (pós-passo 2 do PR 7: Pix, conta e CNPJ só existem cifrados, em *_enc bytea; convert_to faz de "cifra" nas fixtures) --------------------------------------------------------------------------------------------
+select lives_ok($$update public.producer_profiles set company_name = 'Paula Produções', pix_key_enc = convert_to('p1@pix', 'UTF8')
   where id = 'd4000000-0000-4000-8000-000000000001'$$, 'P1 salva nome e Pix');
 select lives_ok($$update public.producer_profiles set webhook_url = null, stripe_account_id = null
   where id = 'd4000000-0000-4000-8000-000000000001'$$, 'P1 mandando o mesmo valor (nulo) passa');
@@ -78,15 +78,15 @@ select throws_ok($$update public.producer_profiles set woovi_account_id = 'woovi
   where id = 'd4000000-0000-4000-8000-000000000001'$$, '42501', null, 'P1 não grava woovi_account_id');
 select throws_ok($$update public.producer_profiles set commission_rate = 1
   where id = 'd4000000-0000-4000-8000-000000000001'$$, '42501', null, 'P1 continua sem alterar commission_rate');
-select lives_ok($$insert into public.producer_profiles (id, company_name, pix_key) values
-  ('d4000000-0000-4000-8000-000000000001', 'Paula', 'outra@pix')
-  on conflict (id) do update set pix_key = excluded.pix_key$$, 'upsert do Salvar (só colunas livres) passa');
+select lives_ok($$insert into public.producer_profiles (id, company_name, pix_key_enc) values
+  ('d4000000-0000-4000-8000-000000000001', 'Paula', convert_to('outra@pix', 'UTF8'))
+  on conflict (id) do update set pix_key_enc = excluded.pix_key_enc$$, 'upsert do Salvar (só colunas livres) passa');
 
 select pg_temp.como('authenticated', 'd4000000-0000-4000-8000-000000000002');
 select throws_ok($$insert into public.producer_profiles (id, company_name, woovi_account_id) values
   ('d4000000-0000-4000-8000-000000000002', 'Pedro', 'woovi_x')$$, '42501', null, 'P2 não cria o perfil já com woovi_account_id');
-select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj, bank_account, pix_key, notification_settings)
-  values ('d4000000-0000-4000-8000-000000000002', 'Pedro', null, '{}', '', '{}')$$, 'P2 cria o perfil como o front cria');
+select lives_ok($$insert into public.producer_profiles (id, company_name, cnpj_enc, bank_account_enc, pix_key_enc, notification_settings)
+  values ('d4000000-0000-4000-8000-000000000002', 'Pedro', null, convert_to('{}', 'UTF8'), convert_to('', 'UTF8'), '{}')$$, 'P2 cria o perfil como o front cria');
 
 select pg_temp.como('authenticated', 'd4000000-0000-4000-8000-000000000005', 'aal2');
 select lives_ok($$update public.producer_profiles set stripe_account_id = 'acct_ok'

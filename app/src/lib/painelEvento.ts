@@ -113,6 +113,7 @@ export function erroDosIngressos(err: unknown): string {
   const e = err as { code?: string; status?: number } | null
   const msg = (err as { message?: string } | null)?.message ?? ''
   if (e?.code === '23514' && msg.startsWith('Já foram vendidos')) return msg
+  if (e?.code === '22023' && msg.startsWith('Este ingresso é vendido por lugar marcado')) return msg
   if (e?.code === '23503') return 'Este ingresso já tem pedidos ligados e não pode ser removido. Use Ocultar.'
   if (e?.status === 400 || e?.status === 422 || /^(22|23)/.test(e?.code ?? '') || /^PGRST1/.test(e?.code ?? '')) return 'O banco recusou um dos ingressos: confira nome, preço e quantidade.'
   return 'Não foi possível salvar os ingressos. Confira a internet e tente de novo.'
@@ -193,6 +194,8 @@ export type Ing = {
   tipo: string // 'individual' | 'coletiva' no novo; o tipo gravado (inclusive vip e mesa) no existente, fixo
   ativo: boolean; vendidos: number; novo: boolean
   inicioVenda: string; fimVenda: string // datetime-local (AAAA-MM-DDTHH:MM, Brasília); vazio = sem data
+  descricao: string; minPed: string; maxPed: string // maxPed vazio = null no banco (vale 10, ver tetoPorPedido)
+  maxCpf: string // limite por CPF do comprador; vazio = sem limite (null no banco)
 }
 
 export const brTexto = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })
@@ -206,8 +209,16 @@ export function ingDoBanco(t: DbTicketType, vendidos: number): Ing {
     id: t.id, nome: t.name, preco: brTexto(Number(t.price) || 0), qtd: String(t.quantity_total ?? t.capacity ?? ''), bebida: !!t.inclui_bebida,
     tipo: t.type, ativo: t.is_active, vendidos, novo: false,
     inicioVenda: venda(t.sale_start), fimVenda: venda(t.sale_end),
+    descricao: t.description ?? '', minPed: String(t.min_per_order ?? 1), maxPed: t.max_per_order == null ? '' : String(t.max_per_order),
+    maxCpf: t.max_por_cpf == null ? '' : String(t.max_por_cpf),
   }
 }
+
+/** Limites por pedido e por CPF para o banco: mínimo número, máximo e limite por CPF número ou null (vazio limpa) */
+export const pedidoParaBanco = (i: Ing) => ({
+  min_per_order: Number(i.minPed), max_per_order: i.maxPed.trim() === '' ? null : Number(i.maxPed),
+  max_por_cpf: i.maxCpf.trim() === '' ? null : Number(i.maxCpf),
+})
 
 /** Reais, ou null se inválido. Com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal. Vazio, negativo e texto: inválido. */
 export function precoDe(tx: string): number | null {
@@ -219,7 +230,7 @@ export function precoDe(tx: string): number | null {
 export const QUANTIDADE_MAX = 1_000_000
 export const quantidadeDe = (tx: string): number | null => (/^\d+$/.test(tx.trim()) && Number(tx) > 0 && Number(tx) <= QUANTIDADE_MAX ? Number(tx) : null)
 
-export type ErrosIng = { nome?: string; preco?: string; qtd?: string; venda?: string }
+export type ErrosIng = { nome?: string; preco?: string; qtd?: string; venda?: string; pedido?: string; cpf?: string }
 
 /** fimEvento: instante (ms) do fim do evento, se houver */
 export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
@@ -229,6 +240,17 @@ export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
   const q = quantidadeDe(i.qtd)
   if (q === null) e.qtd = 'Quantidade inválida: use um número inteiro entre 1 e 1.000.000.'
   else if (q < i.vendidos) e.qtd = `Já foram vendidos ${i.vendidos}: a quantidade não pode ser menor.`
+  const min = /^\d+$/.test(i.minPed.trim()) ? Number(i.minPed) : null
+  const max = i.maxPed.trim() === '' ? undefined : /^\d+$/.test(i.maxPed.trim()) ? Number(i.maxPed) : null
+  if (min === null || min < 1 || (q !== null && min > q)) e.pedido = 'Mínimo por pedido inválido: use um número inteiro de 1 até a quantidade.'
+  else if (max === null || max === 0) e.pedido = 'Máximo por pedido inválido: use um número inteiro de 1 a 10 ou deixe vazio (vale 10).'
+  else if (max !== undefined && max > 10) e.pedido = 'O máximo por pedido é 10.'
+  else if (max !== undefined && max < min) e.pedido = 'O máximo por pedido não pode ser menor que o mínimo.'
+  else if (max === undefined && min > 10) e.pedido = 'Sem máximo, o limite por pedido é 10: use um mínimo de até 10.'
+  else if (max !== undefined && q !== null && max > q) e.pedido = 'O máximo por pedido não pode passar da quantidade de ingressos.'
+  const cpf = i.maxCpf.trim()
+  if (cpf !== '' && (!/^\d+$/.test(cpf) || Number(cpf) < 1)) e.cpf = 'Limite por CPF inválido: use um número inteiro a partir de 1 ou deixe vazio para não limitar.'
+  else if (cpf !== '' && q !== null && Number(cpf) > q) e.cpf = 'O limite por CPF não pode passar da quantidade de ingressos.'
   const ini = i.inicioVenda ? Date.parse(vendaParaBanco(i.inicioVenda)!) : null
   const fim = i.fimVenda ? Date.parse(vendaParaBanco(i.fimVenda)!) : null
   if (ini !== null && fim !== null && fim <= ini) e.venda = 'O fim da venda precisa ser depois do início.'
@@ -250,7 +272,7 @@ export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { e
       const db = evento.ticket_types?.find(t => t.id === i.id) // o que não é editado no formulário (descrição, benefícios, datas de venda) vem do salvo
       return {
         ...db, id: i.id, event_id: evento.id, perks: Array.isArray(db?.perks) ? db.perks : [], name: i.nome.trim() || 'Ingresso sem nome', price: precoDe(i.preco) ?? 0,
-        capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: db?.sold ?? 0, type: i.tipo as DbTicketType['type'], is_active: true, inclui_bebida: i.bebida,
+        description: i.descricao.trim() || null, ...pedidoParaBanco(i), capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: db?.sold ?? 0, type: i.tipo as DbTicketType['type'], is_active: true, inclui_bebida: i.bebida,
       }
     }),
   } as DbEvent
@@ -260,6 +282,42 @@ export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { e
 // Seção do painel de cada um dos 8 itens da barra
 export const SECAO_DA_PENDENCIA: Record<Pendencia['id'], string> = {
   nome: 'oque', formato: 'oque', descricao: 'oque', data: 'quando', local: 'quando', ingresso: 'ing', classificacao: 'regras', aceite: 'pub',
+}
+
+// O que dizer em cada pendência (no campo e no balão) e qual campo focar. Ids: os das seções do painel.
+export const MSG_PENDENCIA: Record<Pendencia['id'], string> = {
+  nome: 'Escreva o nome do evento.', formato: 'Escolha o formato.', descricao: 'Escreva a descrição, com pelo menos 20 caracteres.',
+  data: 'Escolha a data e a hora de início.', local: 'Preencha o local.', ingresso: 'Salve um ingresso com nome, quantidade e preço.',
+  classificacao: 'Escolha a classificação indicativa.', aceite: 'Marque o aceite do produtor.',
+}
+
+/** Passos do destaque por modo, um por campo: rascunho e recusado = pendências + bloqueios; no ar e em análise = só os bloqueios (o aceite e as pendências antigas não impedem); fechado = nenhum. Com vendas (travado) data e hora estão desabilitadas: o alvo vira o cabeçalho da seção. */
+export function alvosDoModo<T extends { campo: string }>(modo: ModoPainel, pendencias: T[], bloqueios: T[], travado = false): T[] {
+  const base = modo === 'rascunho' || modo === 'recusado' ? [...pendencias, ...bloqueios] : modo === 'publicado' || modo === 'analise' ? bloqueios : []
+  const campo = (c: string) => (travado && (c === 'f-inicio' || c === 'f-fim') ? 's-quando' : c)
+  return base.map(x => ({ ...x, campo: campo(x.campo) })).filter((x, i, l) => l.findIndex(y => y.campo === x.campo) === i)
+}
+
+/** Id do campo que resolve a pendência. Ingresso: com mudança não salva, o botão "Salvar" (é o que falta); senão o primeiro sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
+export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[], ingSujo = false): string {
+  switch (id) {
+    case 'nome': return 'f-nome'
+    case 'formato': return 'f-formato'
+    case 'descricao': return 'f-desc'
+    case 'data': return 'f-inicio'
+    case 'local':
+      if (f.local_modo === 'online') return 'f-link'
+      return !f.venue_name.trim() ? 'f-lnome' : !f.venue_city.trim() ? 'f-cep' : 'f-link'
+    case 'ingresso': {
+      if (ingSujo) return 'ing-salvar'
+      const g = ings.find(i => i.ativo && (!i.nome.trim() || !quantidadeDe(i.qtd)))
+      if (g) return `ing-${g.id}-${!g.nome.trim() ? 'nome' : 'qtd'}`
+      const alvo = ings.find(i => i.ativo) ?? ings[0]
+      return alvo ? `ing-${alvo.id}-preco` : 'ing-novo'
+    }
+    case 'classificacao': return 'f-class'
+    case 'aceite': return 'f-aceite'
+  }
 }
 
 /** Os 8 itens com o que está na tela. Ingressos: só os SALVOS e ativos contam (o envio olha o banco). */

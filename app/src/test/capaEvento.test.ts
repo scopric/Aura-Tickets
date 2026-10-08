@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
-vi.mock('../lib/supabase', () => ({ supabase: {} }))
+const upload = vi.fn()
+vi.mock('../lib/supabase', () => ({
+  supabase: { storage: { from: (b: string) => ({ upload: (...a: unknown[]) => upload(b, ...a), getPublicUrl: (c: string) => ({ data: { publicUrl: `https://x/${b}/${c}` } }) }) } },
+}))
 vi.mock('../lib/queryClient', () => ({ queryClient: {} }))
 vi.mock('../lib/corEvento', () => ({ corViva: () => '#123456' }))
-import { prepararCapa } from '../lib/capaEvento'
+import { prepararCapa, enviarFotoItem } from '../lib/capaEvento'
 
 // Decisão 173: a arte vai inteira, na proporção dela; só reduz acima de 2000 px no lado maior; nunca amplia.
 // Image simulada entrega as medidas; createImageBitmap simulado devolve o tamanho pedido; toBlob devolve o tamanho de cada tentativa.
@@ -81,5 +84,17 @@ describe('prepararCapa sem webp (Safari antigo devolve PNG)', () => {
     const capa = await prepararCapa(new File(['x'], 'arte.jpg', { type: 'image/jpeg' }), 'e1')
     expect(capa.blob.type).toBe('image/jpeg')
     expect(pedidos).toEqual([['image/webp', 0.85], ['image/jpeg', 0.85]])
+  })
+})
+
+describe('enviarFotoItem', () => {
+  it('grava em cardapio-itens como <produtor>/<uuid>.<ext>, sem nome de arquivo', async () => {
+    upload.mockResolvedValue({ error: null })
+    const url = await enviarFotoItem(new Blob(['x'], { type: 'image/webp' }), 'u-1')
+    const [bucket, caminho, , opcoes] = upload.mock.calls[0]
+    expect(bucket).toBe('cardapio-itens')
+    expect(caminho).toMatch(/^u-1\/[0-9a-f-]{36}\.webp$/)
+    expect(opcoes).toMatchObject({ upsert: false, contentType: 'image/webp' })
+    expect(url).toBe(`https://x/cardapio-itens/${caminho}`)
   })
 })

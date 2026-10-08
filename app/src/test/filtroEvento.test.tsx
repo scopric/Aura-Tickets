@@ -195,8 +195,8 @@ describe('Filtro por ?eventId=', () => {
   it('Novo item do cardápio grava sem evento quando o id da URL não é do produtor', async () => {
     montar(<ProducerMenu />, '/producer/menu?eventId=de-outro')
     fireEvent.click(screen.getByRole('button', { name: /Novo item/i }))
-    fireEvent.change(screen.getByPlaceholderText('Ex: Gin Tonica'), { target: { value: 'Gin' } })
-    fireEvent.click(screen.getByRole('button', { name: /Cadastrar Item/ }))
+    fireEvent.change(screen.getByPlaceholderText('Ex: Gin Tônica'), { target: { value: 'Gin' } })
+    fireEvent.click(screen.getByRole('button', { name: /Cadastrar item/ }))
     await waitFor(() => expect(banco.item).toHaveBeenCalledTimes(1))
     // useCreateMenuItem grava `event_id || null`: vazio vira null
     expect(banco.item.mock.calls[0][0].event_id || null).toBeNull()

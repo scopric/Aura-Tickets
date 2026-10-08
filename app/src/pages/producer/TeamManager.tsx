@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import { Link } from 'react-router-dom'
 import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -25,6 +26,15 @@ interface TeamMember {
   avatar: string | null
 }
 
+// Respostas de team_convidar ({ ok: false, motivo }); 'generico' não diz se a conta existe
+const MOTIVO_CONVITE: Record<string, string> = {
+  generico: 'Não foi possível convidar este e-mail. Confira se a pessoa já tem conta na Evokaa com ele.',
+  duplicado: 'Esta pessoa já está na sua equipe.',
+  bloqueado: 'Esta pessoa está bloqueada na sua equipe. Use Ativar na lista.',
+  limite: 'Muitas tentativas. Tente de novo em uma hora.',
+  limite_equipe: 'Limite de 5 membros atingido',
+}
+
 export default function TeamManager() {
   const { user } = useAuth()
   const ref = useRef<HTMLDivElement>(null)
@@ -35,6 +45,7 @@ export default function TeamManager() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor')
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
+  const [aviso2fa, setAviso2fa] = useState<string | null>(null)
 
   // Mapear dados do banco de dados para a interface local
   const mapDbMemberToTeamMember = (dbMember: any): TeamMember => {
@@ -63,22 +74,12 @@ export default function TeamManager() {
     if (!user?.id) return
     setIsLoading(true)
     try {
-      // 1. Consultar a tabela team_members
-      const { data, error } = await supabase
-        .from('team_members')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq('producer_id', user.id)
+      // A RLS de profiles não deixa o produtor ler nome e e-mail do membro: team_lista (20261029_equipe_convidar.sql)
+      const { data, error } = await supabase.rpc('team_lista' as never)
 
       if (error) throw error
 
-      setMembers(data.map(mapDbMemberToTeamMember))
+      setMembers(((data ?? []) as any[]).map(m => mapDbMemberToTeamMember({ ...m, profiles: { full_name: m.full_name, email: m.email } })))
     } catch (err: any) {
       console.error('Erro ao carregar equipe:', err)
       toast.error('Erro ao carregar equipe de administradores')
@@ -102,6 +103,17 @@ export default function TeamManager() {
 
   const canAddMore = members.filter(m => m.status !== 'blocked').length < 5
 
+  // E-mail do convite: a Edge Function pede ao banco quem receber (nada do destinatário sai daqui). Falha não desfaz o convite.
+  const enviarEmailConvite = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', { body: { emailType: 'team_invite' } })
+      // enviados 0: o par já gastou o e-mail (remover e convidar de novo) ou nada ficou pendente; o produtor avisa a pessoa
+      if (error || data?.ok === false || data?.enviados === 0) throw error ?? new Error('nenhum e-mail enviado')
+    } catch {
+      toast.warning(`Convite criado, mas o e-mail não saiu. Avise a pessoa para aceitar em ${window.location.origin}/equipe.`)
+    }
+  }
+
   // Enviar convite de membro no Supabase
   const handleInvite = async () => {
     if (!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
@@ -118,39 +130,27 @@ export default function TeamManager() {
     }
     if (!user?.id) return
 
+    setAviso2fa(null)
     try {
-      // 1. Verificar se existe usuário cadastrado com esse e-mail na tabela profiles
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', inviteEmail)
-        .maybeSingle()
-
-      // Sem conta com esse e-mail, para: não gravar o próprio produtor como membro da equipe
-      if (!profileData) {
-        toast.error('Nenhuma conta Evokaa com esse e-mail. A pessoa precisa se cadastrar antes.')
+      // O banco acha a conta e grava o convite (a RLS de profiles não deixa o produtor procurar e-mail): 20261029_equipe_convidar.sql
+      const { data, error } = await supabase.rpc('team_convidar' as never, { p_email: inviteEmail.trim(), p_role: inviteRole } as never)
+      if (error) throw error
+      const r = data as { ok: boolean; motivo?: string } | null
+      if (!r?.ok) {
+        toast.error(MOTIVO_CONVITE[r?.motivo ?? ''] ?? MOTIVO_CONVITE.generico)
         return
       }
-      const targetUserId = profileData.id
 
-      const { data, error } = await supabase
-        .from('team_members')
-        .insert({
-          producer_id: user.id,
-          user_id: targetUserId,
-          role: inviteRole,
-        })
-        .select('id')
-
-      exigirLinhas(error, data)
-
-      toast.success('Membro adicionado')
+      toast.success('Convite registrado')
+      void enviarEmailConvite()
       setInviteEmail('')
       setShowInvite(false)
       loadMembers()
     } catch (err: any) {
       console.error('Erro ao convidar membro:', err)
-      toast.error('Erro ao registrar convite no banco')
+      // 42501 (não é conta de produtor ou falta o código do 2FA) e 22023 (cargo) trazem o texto do banco
+      if (err?.code === '42501' && /duas etapas/.test(err.message ?? '')) setAviso2fa(err.message) // o link para ativar fica no formulário
+      toast.error(err?.code === '42501' || err?.code === '22023' ? err.message : 'Erro ao registrar convite no banco')
     }
   }
 
@@ -262,6 +262,8 @@ export default function TeamManager() {
       {showInvite && (
         <div className="team-card mt-6 rounded-[10px] border border-border bg-card p-4">
           <h2 className="mb-4 text-[15px] font-semibold leading-5 text-foreground">Convidar Membro</h2>
+          <p className="mb-4 text-xs text-muted-foreground">A pessoa recebe o convite por e-mail e aceita em {window.location.origin}/equipe, entrando com a conta deste e-mail e com a verificação em duas etapas ativa. Visualizador não faz check-in.</p>
+          {aviso2fa && <p role="alert" className="mb-4 text-xs text-destructive">{aviso2fa} <Link to="/producer/settings" className="underline">Abrir meu perfil</Link></p>}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="grid gap-1.5 md:col-span-2">
               <Label htmlFor="equipe-email">E-mail</Label>

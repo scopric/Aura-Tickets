@@ -198,6 +198,8 @@ export const ASSUNTO_INGRESSO = 'Não recebi ou não acho meu ingresso' // rótu
 // Pede ao Evo (EvoHub escuta `evo:suporte`) que abra a janela de suporte já no formulário desse assunto
 export const abrirAjudaIngresso = () => window.dispatchEvent(new CustomEvent('evo:suporte', { detail: { assunto: ASSUNTO_INGRESSO } }))
 
+export const ASSUNTO_DENUNCIA = 'Denunciar evento' // rótulo do assunto do chat (docs/sql/20261008_assento_reserva.sql)
+
 // Suporte sobre um pedido: abre o formulário já com o número do pedido na mensagem
 export const ASSUNTO_PAGAMENTO = 'Pagamento: cobrança, Pix ou cartão' // docs/sql/20261001_chat.sql
 export const abrirAjudaPedido = (pedidoId: string, pago: boolean) => window.dispatchEvent(new CustomEvent('evo:suporte', {

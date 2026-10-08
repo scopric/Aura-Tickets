@@ -40,6 +40,9 @@ export interface ProducerSettingsData {
   } | null
 }
 
+// retorno de pr7_produtor_financeiro (docs/sql/20261007_pr7_cripto_rpcs.sql)
+interface Financeiro { cnpj: string | null; pix_key: string | null; bank_account: Record<string, string> | null }
+
 export function useProducerSettings() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -57,34 +60,42 @@ export function useProducerSettings() {
       if (!perfil) throw new Error('Perfil não encontrado')
       const profile = perfil as unknown as ProducerSettingsData['profile']
 
-      // 2. Carregar producer_profile
-      const { data: producerProfile, error: producerError } = await supabase
-        .from('producer_profiles')
-        .select('id, company_name, cnpj, bank_account, pix_key, notification_settings')
-        .eq('id', user.id)
-        .single()
+      // 2. Carregar producer_profile: company_name/notification_settings por select; cnpj, banco e Pix só pela RPC
+      // (pr7_produtor_financeiro, docs/sql/20261007_pr7_cripto_rpcs.sql): as colunas em claro não são mais lidas.
+      const lerBase = () =>
+        supabase
+          .from('producer_profiles')
+          .select('id, company_name, notification_settings')
+          .eq('id', user.id)
+          .single()
+      let { data: base, error: producerError } = await lerBase()
 
       // Pode não existir ainda (PGRST116) — criamos vazio. Outro erro sobe: com pp nulo as abas abririam com
       // padrões e "Salvar" gravaria vazio por cima dos dados bancários reais.
       if (producerError && producerError.code !== 'PGRST116') throw producerError
-      let pp = producerProfile
       if (producerError) {
-        const { data: newPp, error: createError } = await supabase
-          .from('producer_profiles')
-          .insert({
-            id: user.id,
-            company_name: profile.full_name || 'Minha Empresa',
-            cnpj: null,
-            bank_account: {},
-            pix_key: '',
-            notification_settings: {},
-            // webhook_url fica NULL: não há webhook para produtores (Decisão 37, 27/09/2026; api_key apagada no seg-6)
-          })
-          .select()
-          .single()
+        // a RPC cria a linha (company_name vem do perfil); webhook_url fica NULL: não há webhook para produtores (Decisão 37)
+        const { error: createError } = await supabase.rpc('pr7_salvar_produtor_financeiro' as never, {
+          p_cnpj: null,
+          p_pix_key: '',
+          p_bank_account: {},
+        } as never)
         if (createError) throw createError
-        pp = newPp
+        ;({ data: base, error: producerError } = await lerBase())
+        if (producerError) throw producerError
       }
+
+      const { data: fin, error: finError } = await supabase.rpc('pr7_produtor_financeiro' as never)
+      if (finError) throw finError
+      const f = (fin as unknown as Financeiro[] | null)?.[0]
+      const pp = base
+        ? {
+            ...(base as unknown as { id: string; company_name: string; notification_settings: object }),
+            cnpj: f?.cnpj ?? null,
+            pix_key: f?.pix_key ?? null,
+            bank_account: (f?.bank_account ?? {}) as NonNullable<ProducerSettingsData['producer_profile']>['bank_account'],
+          }
+        : null
 
       return {
         profile: profile || {
@@ -100,7 +111,7 @@ export function useProducerSettings() {
           tiktok: '',
           linkedin: '',
         },
-        producer_profile: pp || null,
+        producer_profile: pp as ProducerSettingsData['producer_profile'],
       }
     },
     enabled: !!user?.id,
@@ -124,13 +135,28 @@ export function useProducerSettings() {
   const saveProducerProfileMutation = useMutation({
     mutationFn: async (payload: Partial<ProducerSettingsData['producer_profile']>) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
-      const { data, error } = await supabase
-        .from('producer_profiles')
-        .update(payload) // a linha já existe (criada na leitura); upsert faria INSERT sem company_name e falharia (23502)
-        .eq('id', user.id)
-        .select('id')
-      if (error) throw error
-      if (!data?.length) throw new Error('Nenhuma linha atualizada') // RLS ou linha ausente: não reportar sucesso sem gravar
+      const { cnpj, bank_account, pix_key, ...resto } = payload ?? {}
+      // cnpj, banco e Pix gravam juntos pela RPC: completa o que não veio com o valor atual
+      if (cnpj !== undefined || bank_account !== undefined || pix_key !== undefined) {
+        const { data: fin, error: finError } = await supabase.rpc('pr7_produtor_financeiro' as never)
+        if (finError) throw finError
+        const atual = (fin as unknown as Financeiro[] | null)?.[0]
+        const { error } = await supabase.rpc('pr7_salvar_produtor_financeiro' as never, {
+          p_cnpj: cnpj !== undefined ? cnpj : (atual?.cnpj ?? null),
+          p_pix_key: pix_key !== undefined ? (pix_key ?? '') : (atual?.pix_key ?? ''),
+          p_bank_account: bank_account !== undefined ? (bank_account ?? {}) : (atual?.bank_account ?? {}),
+        } as never)
+        if (error) throw error
+      }
+      if (Object.keys(resto).length) {
+        const { data, error } = await supabase
+          .from('producer_profiles')
+          .update(resto) // a linha já existe (criada na leitura); upsert faria INSERT sem company_name e falharia (23502)
+          .eq('id', user.id)
+          .select('id')
+        if (error) throw error
+        if (!data?.length) throw new Error('Nenhuma linha atualizada') // RLS ou linha ausente: não reportar sucesso sem gravar
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-settings', user?.id] })

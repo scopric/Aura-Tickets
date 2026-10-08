@@ -71,6 +71,8 @@ const ProducerEventBanners = lazy(() => import('./pages/producer/EventBanners'))
 const ProducerEventGallery = lazy(() => import('./pages/producer/EventGallery'))
 const ProducerAffiliates = lazy(() => import('./pages/producer/Affiliates'))
 const ProducerCheckIn = lazy(() => import('./pages/producer/CheckIn'))
+const EquipeCheckIn = lazy(() => import('./pages/producer/CheckIn').then(m => ({ default: m.EquipeCheckIn })))
+const Equipe = lazy(() => import('./pages/app/Equipe'))
 const ProducerCommunications = lazy(() => import('./pages/producer/Communications'))
 const ProducerTasks = lazy(() => import('./pages/producer/Tasks'))
 const ProducerCoupons = lazy(() => import('./pages/producer/Coupons'))
@@ -376,6 +378,9 @@ function Layout() {
             <Route path="/newsletter/sair" element={<NewsletterUnsubscribe />} />
             <Route path="/p/:code/:link?" element={<AffiliateLanding />} />
             <Route path="/afiliado" element={<ProtectedRoute allowedRoles={['user', 'customer', 'producer', 'editor', 'admin']}><AffiliateArea /></ProtectedRoute>} />
+            {/* Equipe da portaria: aceitar o convite do produtor e fazer o check-in (o banco decide quem lê o quê) */}
+            <Route path="/equipe" element={<ProtectedRoute allowedRoles={['user', 'customer', 'producer', 'editor', 'admin']}><Equipe /></ProtectedRoute>} />
+            <Route path="/equipe/checkin" element={<ProtectedRoute allowedRoles={['user', 'customer', 'producer', 'editor', 'admin']}><EquipeCheckIn /></ProtectedRoute>} />
             <Route path="/auth/login" element={<AuthLogin />} />
             <Route path="/auth/register" element={<AuthRegister />} />
             <Route path="/auth/forgot" element={<AuthForgot />} />
