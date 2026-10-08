@@ -1,6 +1,7 @@
 import { PDFDocument, PDFFont, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import qrcode from "npm:qrcode-generator@1.4.4";
 import { formatarHora } from "./hora.ts";
+import { caber, dimensoes } from "./logoProdutor.ts";
 
 export interface IngressoPdf {
   evento: string;
@@ -57,8 +58,15 @@ function quebrar(font: PDFFont, texto: string, tamanho: number, largura: number)
 }
 
 // Uma página A4 por ingresso. QR desenhado como vetor, no servidor: o código não sai para terceiros.
-export async function gerarPdf(ingressos: IngressoPdf[]): Promise<Uint8Array> {
+// `logo` (opcional): logo do produtor, num selo branco no canto do topo azul (logo escura também lê bem). Imagem ilegível = sem logo.
+export async function gerarPdf(ingressos: IngressoPdf[], logo?: { bytes: Uint8Array; ext: "png" | "jpeg" } | null): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
+  let imagem: Awaited<ReturnType<typeof pdf.embedPng>> | null = null;
+  try {
+    if (logo) imagem = logo.ext === "png" ? await pdf.embedPng(logo.bytes) : await pdf.embedJpg(logo.bytes);
+  } catch {
+    imagem = null;
+  }
   const normal = await pdf.embedStandardFont(StandardFonts.Helvetica);
   const negrito = await pdf.embedStandardFont(StandardFonts.HelveticaBold);
 
@@ -68,7 +76,13 @@ export async function gerarPdf(ingressos: IngressoPdf[]): Promise<Uint8Array> {
     const largura = 595 - margem * 2;
 
     page.drawRectangle({ x: 0, y: 842 - 200, width: 595, height: 200, color: AZUL });
-    page.drawText(truncar(negrito, seguro(negrito, t.tipo.toUpperCase()), 11, largura), { x: margem, y: 842 - 56, size: 11, font: negrito, color: rgb(1, 1, 1) });
+    if (imagem) {
+      const selo = { w: 128, h: 46 }; // 595 - margem - 128 = 419
+      page.drawRectangle({ x: 595 - margem - selo.w, y: 842 - 24 - selo.h, width: selo.w, height: selo.h, color: rgb(1, 1, 1) });
+      const d = caber(dimensoes(logo!.bytes, logo!.ext), selo.w - 14, selo.h - 12);
+      page.drawImage(imagem, { x: 595 - margem - selo.w + (selo.w - d.width) / 2, y: 842 - 24 - selo.h + (selo.h - d.height) / 2, width: d.width, height: d.height });
+    }
+    page.drawText(truncar(negrito, seguro(negrito, t.tipo.toUpperCase()), 11, imagem ? largura - 150 : largura), { x: margem, y: 842 - 56, size: 11, font: negrito, color: rgb(1, 1, 1) });
     let y = 842 - 92;
     for (const linha of quebrar(negrito, seguro(negrito, t.evento), 28, largura).slice(0, 3)) {
       page.drawText(linha, { x: margem, y, size: 28, font: negrito, color: rgb(1, 1, 1) });

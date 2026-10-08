@@ -3,6 +3,9 @@
 // a do bucket logos-produtor DENTRO da pasta do próprio produtor (sem isso, uma URL gravada por outro caminho viraria SSRF).
 const HOST = 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/'
 export const LOGO_MAX_BYTES = 1024 * 1024
+// Lado máximo (px) aceito no servidor. A tela reduz a 512 px, então logo legítima nunca passa disto; PNG pequeno que declara
+// milhares de pixels ("bomba de descompressão": 8000x8000 em 250 KB gasta ~500 MB e 3,6 s no pdf-lib) fica de fora.
+export const LOGO_MAX_LADO = 2000
 
 export function urlLogoValida(url: unknown, produtorId: string): url is string {
   if (typeof url !== 'string' || !/^[0-9a-f-]{36}$/i.test(produtorId)) return false
@@ -25,7 +28,9 @@ export async function buscarLogo(url: unknown, produtorId: string): Promise<{ by
     const bytes = new Uint8Array(await r.arrayBuffer())
     if (bytes.length === 0 || bytes.length > LOGO_MAX_BYTES) return null
     const ext = tipoImagem(bytes)
-    return ext ? { bytes, ext } : null
+    if (!ext) return null
+    const d = dimensoes(bytes, ext)
+    return d && d.w > 0 && d.h > 0 && d.w <= LOGO_MAX_LADO && d.h <= LOGO_MAX_LADO ? { bytes, ext } : null // sem medidas legíveis = recusa
   } catch { return null }
 }
 
@@ -47,4 +52,14 @@ export function caber(d: { w: number; h: number } | null, maxW: number, maxH: nu
   if (!d || d.w <= 0 || d.h <= 0) return { width: maxH, height: maxH }
   const esc = Math.min(1, maxW / d.w, maxH / d.h)
   return { width: Math.max(1, Math.round(d.w * esc)), height: Math.max(1, Math.round(d.h * esc)) }
+}
+
+/** Logo salva do produtor (producer_profiles.logo_url), pronta para o PDF. `db` é um cliente do Supabase com direito de ler o perfil (chave de serviço). Qualquer falha = null. */
+// deno-lint-ignore no-explicit-any
+export async function logoDoProdutor(db: any, produtorId: unknown): Promise<{ bytes: Uint8Array; ext: 'png' | 'jpeg' } | null> {
+  if (typeof produtorId !== 'string') return null
+  try {
+    const { data, error } = await db.from('producer_profiles').select('logo_url').eq('id', produtorId).maybeSingle()
+    return error ? null : await buscarLogo(data?.logo_url, produtorId)
+  } catch { return null }
 }
