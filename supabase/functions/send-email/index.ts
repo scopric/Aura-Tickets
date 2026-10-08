@@ -9,6 +9,7 @@ import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
 import { estiloDoEvento } from "../_shared/ingressoEstilo.ts";
 import { logoDoProdutor } from "../_shared/logoProdutor.ts";
+import { emailIngresso } from "../_shared/emailIngresso.ts";
 import { formatarHora } from "../_shared/hora.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -159,22 +160,6 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
 
 // E-mail de entrega: o ingresso vai no PDF em anexo (QR gerado no servidor); o corpo não repete
 // dado pessoal (CPF) nem o código, porque o e-mail pode ser encaminhado.
-function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticketCount: number, venueName: string, eventDate: string, eventTime: string) {
-  const body = `
-    <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: ${colors.textDark}; margin: 16px 0;">
-      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Evento</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${eventTitle}</td></tr>
-      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Data e horário</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${[eventDate, eventTime && `às ${eventTime}`].filter(Boolean).join(" ") || "A definir"}</td></tr>
-      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Local</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${venueName}</td></tr>
-      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Ingressos</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${ticketCount}</td></tr>
-    </table>
-    <ul style="padding-left: 20px; margin: 0; font-size: 13px; color: ${colors.textMuted}; line-height: 1.6;">
-      <li>Abra o PDF em anexo e apresente o QR na entrada, pelo celular ou impresso.</li>
-      <li>O ingresso é nominal e pessoal. Não compartilhe o PDF com quem não vai ao evento.</li>
-      <li>Você também encontra o ingresso em "Meus ingressos", com a opção de baixar o PDF de novo. Entre com a conta usada na compra.</li>
-    </ul>`;
-  return emailShell("Seus ingressos estão em anexo", `Olá, ${recipientName}. ${ticketCount > 1 ? "Seus ingressos" : "Seu ingresso"} para <strong>${eventTitle}</strong> ${ticketCount > 1 ? "estão" : "está"} em anexo (um PDF com uma página por ingresso).`, body, "Ver meus ingressos", `${APP_URL}/app/tickets`);
-}
-
 // Tipos que só existem para mandar e-mail: sem RESEND_API_KEY, 503 antes de qualquer efeito (inclusive
 // antes de marcar a flag do boas-vindas). `contact` grava a mensagem mesmo assim; `newsletter_subscribe` e
 // `unsubscribe` não mandam e-mail.
@@ -759,9 +744,7 @@ serve(async (req) => {
       const eventTitleRaw = order.events?.title || "Evento Evokaa";
       const recipientName = escapeHtml(order.customer_name || "Participante");
       const eventTitle = escapeHtml(eventTitleRaw);
-      const eventDate = order.events?.date ? new Date(order.events.date + "T00:00:00").toLocaleDateString("pt-BR") : "";
       const eventTime = formatarHora(order.events?.time);
-      const venueName = escapeHtml(order.events?.venue_name || "Local a definir");
 
       if (!recipientEmail) throw new Error("E-mail do cliente não configurado.");
 
@@ -776,9 +759,13 @@ serve(async (req) => {
         mailSubject = `Seus ingressos — ${eventTitleRaw}`;
         const paginas = ingressosParaPdf(order, tickets).slice(0, 50); // só ingresso ativo; teto de 50 páginas
         if (paginas.length === 0) { await soltarProdutor(); return json({ error: "Este pedido não tem ingresso ativo." }, 404); }
-        mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);
+        const logo = await logoDoProdutor(supabaseAdmin, order.events?.producer_id); // PDF e e-mail usam a mesma logo, já conferida
+        mailHtml = emailIngresso({
+          nome: order.customer_name || "Participante", evento: eventTitleRaw, data: order.events?.date ?? null, hora: eventTime,
+          local: order.events?.venue_name || "Local a definir", tipos: paginas.map((pg) => pg.tipo), logo, ctaHref: `${APP_URL}/app/tickets`,
+        });
         // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
-        const bytes = await gerarPdf(paginas, await logoDoProdutor(supabaseAdmin, order.events?.producer_id), estiloDoEvento(order.events));
+        const bytes = await gerarPdf(paginas, logo, estiloDoEvento(order.events));
         let bin = "";
         for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         mailAttachments = [{ filename: "ingresso-evokaa.pdf", content: btoa(bin) }];
