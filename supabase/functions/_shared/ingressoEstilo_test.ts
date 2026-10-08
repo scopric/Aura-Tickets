@@ -33,7 +33,7 @@ Deno.test("textoSobre: claro sobre cor escura, escuro sobre cor clara", () => {
 
 Deno.test("rgbDeHex", () => assertEquals(rgbDeHex("#ff0000"), [1, 0, 0]));
 
-const ingresso: IngressoPdf = { evento: "Noite de Forró com Banda Sertão Vivo e convidados especiais", data: "12 de dezembro de 2026", hora: "22h", local: "Espaço Torres", tipo: "Pista", portador: "Ana Souza", codigo: "EVK-TESTE-1" };
+const ingresso: IngressoPdf = { evento: "Noite de Forró com Banda Sertão Vivo e convidados especiais", data: "12 de dezembro de 2026", hora: "22h", local: "Espaço Torres", tipo: "Pista", portador: "Ana Souza", link: "https://app.evokaa.com.br/app/tickets?evento=e1&qr=1" };
 // PNG 1x1 válido
 const png = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
 

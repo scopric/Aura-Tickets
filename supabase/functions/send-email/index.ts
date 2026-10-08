@@ -717,7 +717,7 @@ serve(async (req) => {
 
       const { data: tickets, error: ticketsError } = await supabaseAdmin
         .from("tickets")
-        .select("qr_code, buyer_name, status, ticket_types(name)")
+        .select("buyer_name, status, ticket_types(name)")
         .eq("order_id", orderId);
 
       if (ticketsError || !tickets || tickets.length === 0) {
@@ -762,7 +762,7 @@ serve(async (req) => {
         const logo = await logoDoProdutor(supabaseAdmin, order.events?.producer_id); // PDF e e-mail usam a mesma logo, já conferida
         mailHtml = emailIngresso({
           nome: order.customer_name || "Participante", evento: eventTitleRaw, data: order.events?.date ?? null, hora: eventTime,
-          local: order.events?.venue_name || "Local a definir", tipos: paginas.map((pg) => pg.tipo), logo, ctaHref: `${APP_URL}/app/tickets`,
+          local: order.events?.venue_name || "Local a definir", tipos: paginas.map((pg) => pg.tipo), logo, ctaHref: paginas[0].link,
         });
         // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
         const bytes = await gerarPdf(paginas, logo, estiloDoEvento(order.events));

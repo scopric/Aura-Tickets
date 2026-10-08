@@ -33,7 +33,7 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: order, error: erroPedido } = await admin
       .from("orders")
-      .select("user_id, status, customer_name, events(title, date, time, venue_name, producer_id, ticket_style)")
+      .select("user_id, status, customer_name, events(id, title, date, time, venue_name, producer_id, ticket_style)")
       .eq("id", orderId)
       .maybeSingle();
     if (erroPedido) console.error("[ticket-pdf] consulta do pedido falhou:", erroPedido.message); // ex.: coluna ausente em ambiente sem o SQL
@@ -45,7 +45,7 @@ serve(async (req) => {
 
     const { data: tickets } = await admin
       .from("tickets")
-      .select("qr_code, buyer_name, status, ticket_types(name)")
+      .select("buyer_name, status, ticket_types(name)")
       .eq("order_id", orderId)
       .eq("status", "active")
       .limit(50); // teto de páginas do PDF (e do anexo do e-mail)
