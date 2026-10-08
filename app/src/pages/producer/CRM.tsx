@@ -58,6 +58,24 @@ const ORIGENS = ['Instagram', 'LinkedIn', 'Google Ads', 'Facebook', 'Indicação
 
 const leadVazio = { name: '', email: '', phone: '', source: 'Instagram', value: '', interest: '', notes: '' }
 
+// Decide pelo tamanho, não pelo prefixo (DDD 55 existe): 10 ou 11 dígitos = sem DDI, sempre ganha 55
+export function numeroWhatsApp(phone: string | null) {
+  const t = (phone ?? '').trim()
+  const d = t.replace(/\D/g, '')
+  if (t.startsWith('+')) return d
+  const n = d.replace(/^0+/, '')
+  return n.length === 10 || n.length === 11 ? `55${n}` : n
+}
+
+// Formato brasileiro ("1.500,50") ou ponto decimal ("15.5"); vazio = 0; inválido = null (não grava)
+export function valorEmReais(texto: string) {
+  const bruto = texto.trim()
+  // com vírgula: vírgula = decimal, pontos = milhar; sem vírgula: ponto só é milhar se for "1.500", "1.500.000"
+  const t = bruto.includes(',') ? bruto.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(bruto) ? bruto.replace(/\./g, '') : bruto
+  if (!t) return 0
+  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null
+}
+
 export default function ProducerCRM() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -67,6 +85,8 @@ export default function ProducerCRM() {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const origemNovoLead = useRef<HTMLElement | null>(null)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [erroValor, setErroValor] = useState('')
   const [novo, setNovo] = useState(leadVazio)
   const [isSubmittingLead, setIsSubmittingLead] = useState(false)
   const [criandoEtapas, setCriandoEtapas] = useState(false)
@@ -176,30 +196,33 @@ export default function ProducerCRM() {
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novo.name.trim() || !user?.id) { toast.error('Preencha o nome do lead'); return }
+    const valor = valorEmReais(novo.value)
+    if (valor === null) { setErroValor('Valor inválido. Use números, como 1.500,50.'); return }
+    setErroValor('')
     setIsSubmittingLead(true)
     try {
+      const campos = {
+        full_name: novo.name.trim(),
+        email: novo.email.trim() || null,
+        phone: novo.phone.trim() || null,
+        source: novo.source,
+        potential_value: valor,
+        event_interest: novo.interest.trim() || null,
+        notes: novo.notes.trim() || null,
+      }
       // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
-      const { data: r, error } = await supabase.from('crm_leads')
-        .insert({
-          producer_id: user.id,
-          full_name: novo.name.trim(),
-          email: novo.email.trim() || null,
-          phone: novo.phone.trim() || null,
-          source: novo.source,
-          potential_value: Number(novo.value) || 0,
-          event_interest: novo.interest.trim() || null,
-          notes: novo.notes.trim() || null,
-          stage_id: etapas[0]?.id ?? null, // primeira etapa do produtor (uuid real)
-        } as never)
-        .select('id')
+      const { data: r, error } = editandoId
+        ? await supabase.from('crm_leads').update({ ...campos, updated_at: new Date().toISOString() } as never).eq('id', editandoId).eq('producer_id', user.id).select('id')
+        : await supabase.from('crm_leads').insert({ ...campos, producer_id: user.id, stage_id: etapas[0]?.id ?? null } as never).select('id') // primeira etapa do produtor (uuid real)
       if (error?.code === '23505') { toast.error('Já existe um lead com este e-mail.'); return }
       if (error || !r?.length) throw error ?? new Error('Lead não gravado')
-      toast.success('Lead adicionado.')
+      toast.success(editandoId ? 'Lead atualizado.' : 'Lead adicionado.')
       setIsAddModalOpen(false)
+      setEditandoId(null)
       setNovo(leadVazio)
       recarregar()
     } catch {
-      toast.error('Não foi possível adicionar o lead.')
+      toast.error(editandoId ? 'Não foi possível salvar o lead.' : 'Não foi possível adicionar o lead.')
     } finally {
       setIsSubmittingLead(false)
     }
@@ -234,7 +257,7 @@ export default function ProducerCRM() {
     <PageHeader
       title="CRM"
       description="Funil de leads e histórico de contatos"
-      actions={<Button onClick={() => { origemNovoLead.current = document.activeElement as HTMLElement | null; setIsAddModalOpen(true) }}><I.Criar aria-hidden="true" />Novo lead</Button>}
+      actions={<Button onClick={() => { origemNovoLead.current = document.activeElement as HTMLElement | null; setEditandoId(null); setErroValor(''); setNovo(leadVazio); setIsAddModalOpen(true) }}><I.Criar aria-hidden="true" />Novo lead</Button>}
     />
   )
 
@@ -344,8 +367,8 @@ export default function ProducerCRM() {
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto" onCloseAutoFocus={e => { e.preventDefault(); const o = origemNovoLead.current; setTimeout(() => o?.focus()) }}>
           <DialogHeader>
-            <DialogTitle>Novo lead</DialogTitle>
-            <DialogDescription>{etapas[0] ? `Entra na etapa "${etapas[0].name}".` : 'Entra sem etapa até você criar as etapas do funil.'}</DialogDescription>
+            <DialogTitle>{editandoId ? 'Editar lead' : 'Novo lead'}</DialogTitle>
+            <DialogDescription>{editandoId ? 'Altere os dados do lead. A etapa muda no painel do lead.' : etapas[0] ? `Entra na etapa "${etapas[0].name}".` : 'Entra sem etapa até você criar as etapas do funil.'}</DialogDescription>
           </DialogHeader>
           <form id="form-lead" onSubmit={handleAddLead} className="grid gap-3">
             <div className="grid gap-1.5">
@@ -371,7 +394,8 @@ export default function ProducerCRM() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="lead-valor">Valor estimado (R$)</Label>
-                <Input id="lead-valor" type="number" inputMode="decimal" min="0" step="0.01" value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+                <Input id="lead-valor" inputMode="decimal" aria-invalid={!!erroValor} aria-describedby={erroValor ? 'lead-valor-erro' : undefined} value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+                {erroValor && <p id="lead-valor-erro" role="alert" className="text-xs text-destructive">{erroValor}</p>}
               </div>
             </div>
             <div className="grid gap-1.5">
@@ -379,13 +403,13 @@ export default function ProducerCRM() {
               <Input id="lead-interesse" value={novo.interest} onChange={e => setNovo({ ...novo, interest: e.target.value })} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="lead-notas">Notas iniciais</Label>
+              <Label htmlFor="lead-notas">{editandoId ? 'Notas' : 'Notas iniciais'}</Label>
               <Textarea id="lead-notas" rows={3} value={novo.notes} onChange={e => setNovo({ ...novo, notes: e.target.value })} />
             </div>
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" form="form-lead" disabled={isSubmittingLead}>{isSubmittingLead ? 'Adicionando…' : 'Adicionar lead'}</Button>
+            <Button type="submit" form="form-lead" disabled={isSubmittingLead}>{isSubmittingLead ? (editandoId ? 'Salvando…' : 'Adicionando…') : (editandoId ? 'Salvar alterações' : 'Adicionar lead')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -425,10 +449,17 @@ export default function ProducerCRM() {
                 )}
 
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                    origemNovoLead.current = document.activeElement as HTMLElement | null
+                    setEditandoId(selected.id)
+                    setErroValor('')
+                    setNovo({ name: selected.full_name, email: selected.email ?? '', phone: selected.phone ?? '', source: selected.source ?? 'Instagram', value: selected.potential_value ? String(selected.potential_value).replace('.', ',') : '', interest: selected.event_interest ?? '', notes: selected.notes ?? '' })
+                    setIsAddModalOpen(true)
+                  }}>Editar</Button>
                   <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
                     <I.Copiar aria-hidden="true" />Copiar e-mail
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/55${(selected.phone ?? '').replace(/\D/g, '')}`, '_blank', 'noopener')}>
+                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/${numeroWhatsApp(selected.phone)}`, '_blank', 'noopener')}>
                     <I.Conversa aria-hidden="true" />WhatsApp
                   </Button>
                 </div>
