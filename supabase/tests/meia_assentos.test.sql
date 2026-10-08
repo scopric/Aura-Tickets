@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(31);
+select plan(35);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -44,6 +44,7 @@ insert into public.seating_maps (event_id, is_active, environments) values ('fe0
     'seats', (select jsonb_agg(jsonb_build_object('id', 'p' || n, 'type', 'seat', 'sectionId', 'sa', 'status', 'free')) from generate_series(1, 10) n)
       || jsonb_build_array(
       jsonb_build_object('id', 't1', 'type', 'table', 'sectionId', 'sa', 'status', 'free', 'seatsCount', 2),
+      jsonb_build_object('id', 't2', 'type', 'table', 'sectionId', 'sa', 'status', 'free', 'seatsCount', 1),
       jsonb_build_object('id', 'm1', 'type', 'table', 'sectionId', 'sm', 'status', 'free', 'seatsCount', 4),
       jsonb_build_object('id', 'm2', 'type', 'seat', 'sectionId', 'sm', 'status', 'free'),
       jsonb_build_object('id', 'g1', 'type', 'seat', 'sectionId', 'sg', 'status', 'free'),
@@ -127,15 +128,20 @@ select lives_ok($$select public.reservar_assentos('fe000000-0000-4000-8000-00000
   'a inteira ainda vende: no lugar marcado a cota limita a meia mas não guarda vagas');
 -- lotação 10: já há 2 (u01) + 2 (u02) + 1 (u03) + 2 (u04) + 1 (u05) = 8; a cota não tira lugar da inteira
 
--- 7. Tipo sem lotação (VIP): meia sem teto
+-- 7. Tipo sem lotação (VIP, lotação 0): sem base para a cota de 40%, meia recusada (M1); inteira vende
 select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000006');
-insert into pg_temp.res select 'vip', public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:v1', 'a:v2', 'a:v3'],
-  '[{"seat_key":"a:v1","meia_tipo":"estudante"},{"seat_key":"a:v2","meia_tipo":"estudante"},{"seat_key":"a:v3","meia_tipo":"estudante"}]');
+select throws_ok($$select public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:v1', 'a:v2'],
+  '[{"seat_key":"a:v1","meia_tipo":"estudante"}]')$$, '22023', 'Meia-entrada não disponível para algum dos lugares escolhidos', 'VIP com lotação 0: meia recusada (cota sem base)');
+insert into pg_temp.res select 'vip', public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:v1']);
 select pg_temp.como('postgres');
-select results_eq($$select oi.beneficio, oi.quantity, oi.unit_price, oi.subtotal from public.order_items oi
+select results_eq($$select oi.beneficio, oi.quantity, oi.unit_price from public.order_items oi
   where oi.order_id = (select (j->>'order_id')::uuid from pg_temp.res where k = 'vip')$$,
-  $$values ('meia'::text, 3, 30.00::numeric, 90.00::numeric)$$, 'VIP lotação 0: 3 meias de R$ 30 num item só');
-
+  $$values ('inteira'::text, 1, 60.00::numeric)$$, 'VIP lotação 0: a inteira continua vendendo');
+select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000008');
+select throws_ok($$select public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:p9', null], '[{"seat_key":"a:p10","meia_tipo":"estudante"}]')$$,
+  '22023', 'Meia inválida: informe o lugar (entre os escolhidos) e o tipo de meia-entrada', 'NULL em p_seats não driblava a conferência: meia em lugar não escolhido é recusada');
+select throws_ok($$select public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:t2'], '[{"seat_key":"a:t2","meia_tipo":"estudante"}]')$$,
+  '22023', 'Meia-entrada não disponível para algum dos lugares escolhidos', 'mesa de 1 lugar em tipo individual: meia recusada');
 -- 8. Mesa inteira continua vendendo (4 cadeiras do tipo mesa) e a recusa é a de sempre para quem já tem o lugar
 select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000007');
 insert into pg_temp.res select 'mesa', public.reservar_assentos('fe000000-0000-4000-8000-0000000000e1', array['a:m1']);
@@ -157,6 +163,12 @@ select throws_ok($$insert into public.order_items (order_id, ticket_type_id, qua
 select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio, meia_tipo, taxa_unit)
   values ('fe000000-0000-4000-8000-0000000000f1', 'fe000000-0000-4000-8000-0000000000b1', 1, 50, 50, 'meia', 'estudante', 5)$$,
   '22023', 'Meia-entrada em lugar marcado só vale em lugar individual escolhido', 'guard: meia em tipo do mapa sem lugar individual preso ao pedido é recusada');
+
+-- 10. Navegador (authenticated) não grava item de meia direto: política gf_order_items_so_inteira
+select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000008');
+select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio, meia_tipo)
+  values ('fe000000-0000-4000-8000-0000000000f1', 'fe000000-0000-4000-8000-0000000000b1', 1, 50, 50, 'meia', 'estudante')$$,
+  '42501', null, 'INSERT direto de item meia como authenticated é negado pela política RESTRICTIVE');
 
 select * from finish();
 rollback;

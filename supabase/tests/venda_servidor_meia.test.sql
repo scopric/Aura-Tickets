@@ -136,7 +136,7 @@ select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000001');
 select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b3","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'mesa não tem meia');
 select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b4","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'coletiva não tem meia');
 select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b9","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Este ingresso não tem meia-entrada', 'grátis não tem meia');
-select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000ba","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Meia-entrada em lugar marcado ainda não está disponível', 'lugar marcado: meia recusada (reservar_assentos ainda não grava benefício)');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000ba","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]'), 'Meia-entrada em lugar marcado só vale em lugar individual escolhido', 'lugar marcado: meia recusada fora de reservar_assentos (sem lugar individual preso ao pedido)');
 select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
   '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b5","quantidade":1,"beneficio":"meia","meia_tipo":"idoso_sp"}]')$$, '22023',
   'Tipo de meia-entrada inválido para este evento', 'benefício estadual só vale se cadastrado para a UF do evento');

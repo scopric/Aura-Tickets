@@ -16,6 +16,8 @@
 --    Itens separados em order_items (inteira x cada meia_tipo, por tipo), com beneficio, meia_tipo, unit_price e taxa_unit.
 --    Subtotal e taxa do pedido: evk_preco_meia e evk_taxa_centavos (antes: 10% com mínimo de 300 centavos escrito na função; para a
 --    inteira o resultado é o mesmo). Cupom NÃO entra aqui. A cota de 40% por tipo é a do guard (abaixo).
+--    Lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então meia recusada com a mesma mensagem uniforme.
+--    NULL dentro de p_seats não driblava a conferência das meias (coalesce). Itens inseridos com ordem de trava garantida (posição 'n' + order by).
 --    O retorno ganha 'meias' (quantidade); o resto igual. pedido_assentos agora é gravado ANTES dos itens (o guard precisa dele);
 --    se qualquer passo falhar, a transação inteira é desfeita como antes. pedido_assentos NÃO guarda qual lugar é meia (só os itens,
 --    por contagem): se a portaria precisar da meia por lugar, é coluna nova em outra fatia.
@@ -238,7 +240,7 @@ begin
                  where jsonb_typeof(e.v) <> 'object'
                     or jsonb_typeof(e.v -> 'seat_key') is distinct from 'string'
                     or jsonb_typeof(e.v -> 'meia_tipo') is distinct from 'string'
-                    or not ((e.v ->> 'seat_key') = any (p_seats))) then
+                    or not coalesce((e.v ->> 'seat_key') = any (p_seats), false)) then -- coalesce: NULL em p_seats não pode driblar a conferência
     raise exception 'Meia inválida: informe o lugar (entre os escolhidos) e o tipo de meia-entrada' using errcode = '22023';
   end if;
   if (select count(*) - count(distinct e.v ->> 'seat_key') from jsonb_array_elements(p_meias) e(v)) > 0 then
@@ -301,7 +303,8 @@ begin
               where not exists (select 1 from jsonb_to_recordset(v_sel) r(seat_key text, tt uuid, lugares int, stype text)
                                   join public.ticket_types tt on tt.id = r.tt
                                  where r.seat_key = e.v ->> 'seat_key' and r.stype = 'seat'
-                                   and tt.permite_meia and tt.price > 0 and tt.type not in ('mesa', 'coletiva'))) then
+                                   and tt.permite_meia and tt.price > 0 and tt.type not in ('mesa', 'coletiva')
+                                   and (coalesce(tt.quantity_total, 0) > 0 or coalesce(tt.capacity, 0) > 0))) then -- lotação 0 = cota de 40% sem base: sem meia
     raise exception 'Meia-entrada não disponível para algum dos lugares escolhidos' using errcode = '22023';
   end if;
   -- marca o tipo de meia em cada lugar (nulo = inteira)
@@ -325,7 +328,8 @@ begin
     v_taxa := v_taxa + public.evk_taxa_centavos(v_cent, l.meia_tipo is not null) * l.q; -- = app/src/lib/taxa.ts
     if l.meia_tipo is not null then v_meias := v_meias + l.q; end if;
     v_itens := v_itens || jsonb_build_object('tt', l.tt, 'meia_tipo', l.meia_tipo, 'q', l.q, 'cent', v_cent,
-                                             'taxa', public.evk_taxa_centavos(v_cent, l.meia_tipo is not null));
+                                             'taxa', public.evk_taxa_centavos(v_cent, l.meia_tipo is not null),
+                                             'n', jsonb_array_length(v_itens) + 1);
   end loop;
   insert into public.orders (user_id, event_id, subtotal, service_fee, total, status, customer_name, customer_email)
   values (v_user, p_event, v_sub / 100.0, v_taxa / 100.0, (v_sub + v_taxa) / 100.0, 'pending', v_nome, v_email)
@@ -350,7 +354,8 @@ begin
   insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, taxa_unit, subtotal, beneficio, meia_tipo)
   select v_order, y.tt, y.q, round(y.cent / 100.0, 2), round(y.taxa / 100.0, 2), round(y.cent * y.q / 100.0, 2),
          case when y.meia_tipo is null then 'inteira' else 'meia' end, y.meia_tipo
-    from jsonb_to_recordset(v_itens) y(tt uuid, meia_tipo text, q int, cent bigint, taxa bigint); -- a ordem do array é a ordem de trava
+    from jsonb_to_recordset(v_itens) y(tt uuid, meia_tipo text, q int, cent bigint, taxa bigint, n int)
+   order by y.n; -- ordem de trava garantida: a do array (por id do tipo)
   return jsonb_build_object('order_id', v_order, 'expira_em', v_expira, 'agora', now(), 'meias', v_meias); -- 'agora' para a contagem do navegador não depender do relógio dele
 end;
 $$;
