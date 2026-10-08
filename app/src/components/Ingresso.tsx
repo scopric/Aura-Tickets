@@ -4,13 +4,13 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import { Agenda, Atualizar, Baixar, ChevronDireita, Email, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'
 import EventoCapa from './EventoCapa'
-import TicketQRCode from './TicketQRCode'
+import QrDinamico from './QrDinamico'
 import { Button } from './ui/button'
 import { NaoVejoMeuIngresso } from './SemIngressos'
 import { useTheme } from '../contexts/ThemeContext'
 import { siteUrl } from '../lib/appHost'
 import { temFoto, varsDoEvento } from '../lib/corEvento'
-import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta, salvarQrPng } from '../lib/ingresso'
+import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta } from '../lib/ingresso'
 import { useFalta } from '../hooks/useFalta'
 import { useTelaAcesa } from '../hooks/useTelaAcesa'
 import { useEntregaIngresso } from '../hooks/useEntregaIngresso'
@@ -40,18 +40,12 @@ function useFocoDeVolta() {
   return [devolver, () => { semVolta.current = true }] as const
 }
 
-// ---- QR ampliado: tela branca inteira, tela acesa (Wake Lock). O QR é o mesmo de sempre (TicketQRCode). ----------
+// ---- QR ampliado: tela branca inteira, tela acesa (Wake Lock). O QR é o dinâmico (QrDinamico). ----------
 function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFechar: () => void }) {
   const { temaResolvido } = useTheme()
   const acesa = useTelaAcesa(true)
   const [devolverFoco] = useFocoDeVolta()
   const quando = [dataCurta(evento.date), horaCurta(evento.time)].filter(Boolean).join(' · ')
-  const area = useRef<HTMLDivElement>(null)
-  const salvar = () => {
-    const svg = area.current?.querySelector('svg')
-    if (!svg || !t.code) return
-    salvarQrPng(svg, t.code).then(undefined, () => toast.error('Não consegui salvar a imagem. Tire uma captura de tela do QR.'))
-  }
   return (
     <Dialog.Root open onOpenChange={aberto => { if (!aberto) aoFechar() }}>
       <Dialog.Portal>
@@ -59,17 +53,13 @@ function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFe
         <Dialog.Content onCloseAutoFocus={devolverFoco} className="fixed inset-0 z-[110] flex flex-col items-center overflow-y-auto bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-14 text-center text-[#0b0d12] outline-none">
           <p className="text-sm font-medium text-[#5b6472]">{quando}</p>
           <Dialog.Title className="mt-1 font-display text-[22px] font-extrabold leading-6 wide">{evento.title}</Dialog.Title>
-          <div ref={area} className="mt-7 w-full max-w-[320px]"><TicketQRCode code={t.code} size={320} className="h-auto w-full" /></div>
-          <p className="mt-3 font-mono text-[17px] leading-6 tracking-[0.08em]">{t.code}</p>
+          <div className="mt-7 w-full max-w-[320px]"><QrDinamico key={t.id} ingresso={t} tamanho={320} /></div>
           <p className="mt-4 text-base font-semibold">{[t.buyer_name, t.ticket_types?.name].filter(Boolean).join(' · ')}</p>
           <Dialog.Description className="mt-1 text-[15px] text-[#5b6472]">Mostre na entrada</Dialog.Description>
           {/* a web não controla o brilho: o aviso só aparece no modo escuro, onde ele faz diferença */}
           {acesa && <p className="mt-3 text-[13px] text-[#5b6472]">A tela fica acesa enquanto o código estiver aberto.</p>}
           {temaResolvido === 'dark' && <p className="mt-1 text-[13px] text-[#5b6472]">Aumente o brilho para a leitura na porta.</p>}
           <div className="mt-auto flex w-full flex-col gap-3 pt-6">
-          <Button size="lg" variant="outline" onClick={salvar} className="border-[rgb(11_13_18/0.20)] bg-white text-[#0b0d12] hover:bg-[#eceef1] hover:text-[#0b0d12]">
-            <Baixar aria-hidden="true" /> Salvar QR como imagem
-          </Button>
           <Dialog.Close asChild>
             <Button size="lg" className="bg-[#f4f5f7] text-[#0b0d12] shadow-[0_0_0_1px_rgb(11_13_18/0.10)] hover:bg-[#eceef1]">
               <Fechar aria-hidden="true" /> Fechar
@@ -193,17 +183,11 @@ function Cartao({ t, evento, verso, motivo, aoVirar, aoAmpliar }: { t: DbTicket;
             <h2 className="mt-3 break-words font-display text-2xl font-extrabold uppercase leading-[1.08] tracking-[-0.01em] wide">{evento.title}</h2>
             {campos}
             {evento.venue_name && <div className="mt-3"><div className={rotulo}>Local</div><div className="truncate text-[15px] font-semibold leading-5">{evento.venue_name}</div></div>}
-            {!motivo && (
-              <button
-                type="button"
-                onClick={aoAmpliar}
-                aria-label={`Ampliar o QR Code do ingresso ${t.code}`}
-                className="mt-4 block w-full rounded-xl border-0 bg-white p-3 text-center text-[#0b0d12] transition-transform duration-micro active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]"
-              >
-                <TicketQRCode code={t.code} size={240} className="mx-auto block h-auto w-full max-w-[240px]" />
-                <span className="mt-1.5 block font-mono text-[15px] leading-5 tracking-[0.08em]">{t.code}</span>
-                <span className="block text-xs font-medium leading-4 text-[#5b6472]">Toque para ampliar</span>
-              </button>
+            {!motivo && verso && ( // só busca o QR quando ele está à vista: abrir "Meus ingressos" não migra ingresso nenhum
+              <QrDinamico
+                key={t.id} ingresso={t} tamanho={240} aoAmpliar={aoAmpliar}
+                classe="mt-4 block w-full rounded-xl border-0 bg-white p-3 text-center text-[#0b0d12] transition-transform duration-micro active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]"
+              />
             )}
             <div className="mt-3.5 flex items-end gap-3">
               <div className="min-w-0 flex-1"><div className={rotulo}>Comprador</div><div className="truncate text-[15px] font-semibold leading-5">{t.buyer_name ?? '-'}</div></div>

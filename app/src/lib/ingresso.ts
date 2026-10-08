@@ -170,29 +170,6 @@ function baixarBlob(blob: Blob, nome: string, ext: string) {
 export const baixarIcs = (ics: string, nome: string) => baixarBlob(new Blob([ics], { type: 'text/calendar;charset=utf-8' }), nome, 'ics')
 
 // ---- Salvar o QR como imagem ---------------------------------------------------------------------------------------
-// Desenha o <svg> do QR que já está na tela num PNG de 640 px com fundo branco. Com compartilhamento de arquivo (iPhone e
-// Android) abre a folha "Salvar imagem"; sem ele, baixa o arquivo. Cancelar a folha não é erro.
-export async function salvarQrPng(svg: SVGSVGElement, nome: string) {
-  const px = 640
-  const img = new Image()
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`
-  await img.decode()
-  const c = document.createElement('canvas')
-  c.width = c.height = px
-  const g = c.getContext('2d')
-  if (!g) throw new Error('canvas')
-  g.fillStyle = '#fff'
-  g.fillRect(0, 0, px, px)
-  g.drawImage(img, 0, 0, px, px)
-  const blob = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'))
-  if (!blob) throw new Error('png')
-  const arquivo = new File([blob], `${nome}.png`, { type: 'image/png' })
-  if (navigator.canShare?.({ files: [arquivo] })) {
-    try { await navigator.share({ files: [arquivo] }); return } catch (e) { if ((e as Error).name === 'AbortError') return }
-  }
-  baixarBlob(blob, nome, 'png')
-}
-
 // ---- "Não vejo meu ingresso" ---------------------------------------------------------------------------------------
 export const ASSUNTO_INGRESSO = 'Não recebi ou não acho meu ingresso' // rótulo do assunto do chat (docs/sql/20261001_chat.sql)
 // Pede ao Evo (EvoHub escuta `evo:suporte`) que abra a janela de suporte já no formulário desse assunto

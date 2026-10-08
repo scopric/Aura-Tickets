@@ -1,3 +1,4 @@
+import { apagarListas } from './codigoIngresso'
 // Cópia dos ingressos da conta, para "Meus ingressos" abrir sem internet (Decisão 162, D4; service worker em public/sw.js).
 // Uma chave por conta; apagada no logout (hooks/useAuth.ts) e nunca lida por outra conta.
 const PREFIXO = 'evk.ingressos.'
@@ -31,6 +32,7 @@ export function sessaoGuardadaNoAparelho() {
 
 export function apagarIngressosGuardados() {
   try { Object.keys(localStorage).filter(k => k.startsWith(PREFIXO)).forEach(k => localStorage.removeItem(k)) } catch { /* sem storage */ }
+  apagarListas() // as listas do QR dinâmico também saem do aparelho
 }
 
 export function registrarServiceWorker() {

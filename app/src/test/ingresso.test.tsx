@@ -1,12 +1,19 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import IngressosDoEvento from '../components/Ingresso'
 import Tickets from '../pages/app/Tickets'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa, motivoEvento, motivoSemQr, salvarQrPng } from '../lib/ingresso'
+import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa, motivoEvento, motivoSemQr } from '../lib/ingresso'
 import type { DbTicket } from '../hooks/useCheckout'
+import { apagarListas } from '../lib/codigoIngresso'
+
+// QR dinâmico: a função ingresso-codigo entrega a lista; aqui responde na hora com uma lista válida (o QR vira data-value para conferir)
+const invoke = vi.fn()
+vi.mock('../lib/supabase', () => ({ supabase: { functions: { invoke: (...a: unknown[]) => invoke(...a) } } }))
+vi.mock('qrcode.react', () => ({ QRCodeSVG: ({ value, title }: { value: string; title?: string }) => <svg data-value={value}><title>{title}</title></svg> }))
+const listaOk = () => ({ data: { servidorAgora: Date.now(), passo: 30, primeiraJanela: Math.floor(Date.now() / 30000) - 1, prefixo: `E1.${'0'.repeat(32)}.`, codigos: Array.from({ length: 1440 }, () => 'ABCDEFGH') }, error: null })
 
 const evento = {
   id: 'e1', title: 'Noite de Forró', cover_image: null, date: '2026-12-12', time: '22:00:00',
@@ -21,6 +28,7 @@ const tela = (n: number, extra: { abrirNoQr?: boolean; evento?: typeof evento } 
   <MemoryRouter><ThemeProvider><IngressosDoEvento ingressos={Array.from({ length: n }, (_, i) => ticket(i + 1))} evento={extra.evento ?? evento} abrirNoQr={extra.abrirNoQr} /></ThemeProvider></MemoryRouter>
 )
 
+beforeEach(() => { apagarListas(); invoke.mockReset(); invoke.mockImplementation(() => Promise.resolve(listaOk())) })
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); delete (navigator as { wakeLock?: unknown }).wakeLock })
 
 describe('.ics', () => {
@@ -81,33 +89,10 @@ describe('alarme e QR como imagem', () => {
     expect(motivoEvento(undefined)).toBeNull()
     expect(motivoSemQr(ticket(1, { events: { ...evento, status: 'draft' } }))).toBe('Evento fora do ar')
   })
-  it('salvarQrPng: abre a folha de compartilhar com o PNG; cancelar não é erro; sem compartilhar, baixa o arquivo', async () => {
-    vi.stubGlobal('Image', class { src = ''; decode() { return Promise.resolve() } })
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillRect() {}, drawImage() {}, fillStyle: '' } as never)
-    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(cb => cb(new Blob(['x'], { type: 'image/png' })))
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    const share = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { canShare: () => true, share })
-    await salvarQrPng(svg, 'EVK-0001')
-    const arquivo = share.mock.calls[0][0].files[0] as File
-    expect([arquivo.name, arquivo.type]).toEqual(['EVK-0001.png', 'image/png'])
-    share.mockRejectedValueOnce(Object.assign(new Error('cancelou'), { name: 'AbortError' }))
-    await expect(salvarQrPng(svg, 'EVK-0001')).resolves.toBeUndefined()
-    const baixar = vi.fn()
-    URL.createObjectURL = () => 'blob:x'
-    URL.revokeObjectURL = () => {}
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(baixar)
-    Object.assign(navigator, { canShare: undefined })
-    await salvarQrPng(svg, 'EVK-0001')
-    expect(baixar).toHaveBeenCalledOnce()
-    vi.unstubAllGlobals()
-    delete (navigator as { share?: unknown }).share
-    delete (navigator as { canShare?: unknown }).canShare
-  })
-  it('o QR ampliado tem "Salvar QR como imagem"', () => {
+  it('o QR ampliado não oferece "Salvar QR como imagem": um PNG salvo não vale mais', async () => {
     render(tela(1, { abrirNoQr: true }))
-    fireEvent.click(screen.getByRole('button', { name: /Ampliar o QR/ }))
-    expect(screen.getByRole('button', { name: /Salvar QR como imagem/ })).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: /Ampliar o QR/ }))
+    expect(screen.queryByRole('button', { name: /Salvar QR como imagem/ })).toBeNull()
   })
 })
 
@@ -198,7 +183,7 @@ describe('IngressosDoEvento', () => {
     expect((screen.getByRole('button', { name: 'Ingresso anterior' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Próximo ingresso' }))
     expect(screen.getByText('2 de 3')).toBeTruthy()
-    expect(document.body.textContent).toContain('EVK-0002')
+    expect(document.body.textContent).not.toContain('EVK-0002') // o código fixo nunca aparece na tela
     fireEvent.click(screen.getByRole('button', { name: 'Próximo ingresso' }))
     expect((screen.getByRole('button', { name: 'Próximo ingresso' }) as HTMLButtonElement).disabled).toBe(true)
     unmount()
@@ -206,7 +191,7 @@ describe('IngressosDoEvento', () => {
     expect(screen.queryByText(/ de 1/)).toBeNull()
   })
 
-  it('"Mostrar QR" vira o ingresso (frente com a arte, verso com o QR) e volta; trocar de ingresso volta à frente', () => {
+  it('"Mostrar QR" vira o ingresso (frente com a arte, verso com o QR) e volta; trocar de ingresso volta à frente', async () => {
     const { container } = render(tela(2))
     const face = () => container.querySelector('.ingresso-virador')!.getAttribute('data-face')
     expect(face()).toBe('frente')
@@ -214,7 +199,7 @@ describe('IngressosDoEvento', () => {
     expect(container.querySelector('.evcapa')).not.toBeNull() // a frente é a arte do evento
     fireEvent.click(screen.getByRole('button', { name: /Mostrar QR/ }))
     expect(face()).toBe('verso')
-    expect(screen.getByRole('button', { name: /Ampliar o QR/ })).toBeTruthy()
+    expect((await screen.findByRole('button', { name: /Ampliar o QR/ }))).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Mostrar QR/ })).toBeNull() // frente escondida
     fireEvent.click(screen.getByRole('button', { name: /Voltar para a arte/ }))
     expect(face()).toBe('frente')
@@ -274,9 +259,47 @@ describe('IngressosDoEvento', () => {
     expect(ouvinte).toHaveBeenCalledTimes(1)
   })
 
-  it('o QR é o código do ingresso, como sempre', () => {
+  it('o QR é o dinâmico (E1.<id>.<código>): o código fixo do ingresso nunca vai para a tela', async () => {
     const { container } = render(tela(1, { abrirNoQr: true }))
-    expect(container.querySelector('svg title')?.textContent).toBe('QR Code do ingresso EVK-0001')
+    await screen.findByRole('button', { name: /Ampliar o QR/ })
+    expect(container.querySelector('svg[data-value]')?.getAttribute('data-value')).toBe(`E1.${'0'.repeat(32)}.ABCDEFGH`)
+    expect(container.querySelector('svg[data-value] title')?.textContent).toBe('QR de entrada: muda a cada 30 segundos')
+    expect(document.body.textContent).not.toContain('EVK-0001')
+    expect(invoke).toHaveBeenCalledWith('ingresso-codigo', { body: { ticketId: 't1' } })
+  })
+  it('o QR só é buscado quando está à vista: a frente do cartão não chama a função', async () => {
+    render(tela(2))
+    await new Promise(r => setTimeout(r, 20))
+    expect(invoke).not.toHaveBeenCalled()
+  })
+  it('sem internet e sem lista guardada: avisa e oferece tentar de novo; ao voltar a internet, mostra o QR', async () => {
+    invoke.mockImplementation(() => Promise.resolve({ data: null, error: { message: 'fetch failed' } }))
+    render(tela(1, { abrirNoQr: true }))
+    expect(await screen.findByText('Sem internet para carregar o QR.')).toBeTruthy()
+    invoke.mockImplementation(() => Promise.resolve(listaOk()))
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }))
+    expect(await screen.findByRole('button', { name: /Ampliar o QR/ })).toBeTruthy()
+  })
+  it('resposta com formato inválido não é "sem internet": diz que não conseguiu carregar', async () => {
+    invoke.mockImplementation(() => Promise.resolve({ data: { servidorAgora: 1, passo: 30 }, error: null }))
+    render(tela(1, { abrirNoQr: true }))
+    expect(await screen.findByText('Não consegui carregar o QR.')).toBeTruthy()
+    expect(screen.queryByText(/Sem internet/)).toBeNull()
+  })
+  it('sessão vencida (401) não apaga a lista guardada: o QR segue aparecendo', async () => {
+    render(tela(1, { abrirNoQr: true }))
+    await screen.findByRole('button', { name: /Ampliar o QR/ })
+    cleanup()
+    invoke.mockImplementation(() => Promise.resolve({ data: null, error: { message: 'x', context: { status: 401 } } }))
+    render(tela(1, { abrirNoQr: true }))
+    expect(await screen.findByRole('button', { name: /Ampliar o QR/ })).toBeTruthy()
+    expect(screen.queryByText('Este ingresso não está disponível para entrada.')).toBeNull()
+  })
+  it('ingresso que o servidor recusa (403): diz que não está disponível, sem QR', async () => {
+    invoke.mockImplementation(() => Promise.resolve({ data: null, error: { message: 'x', context: { status: 403 } } }))
+    render(tela(1, { abrirNoQr: true }))
+    expect(await screen.findByText('Este ingresso não está disponível para entrada.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Ampliar o QR/ })).toBeNull()
   })
 
   it('Agenda gera o .ics do evento', async () => {
@@ -304,10 +327,10 @@ describe('IngressosDoEvento', () => {
     expect(screen.queryByText(/Transferir/)).toBeNull()
   })
 
-  it('QR ampliado sem Wake Lock no aparelho abre normalmente, sem erro e sem prometer tela acesa', () => {
+  it('QR ampliado sem Wake Lock no aparelho abre normalmente, sem erro e sem prometer tela acesa', async () => {
     render(tela(1, { abrirNoQr: true }))
     expect('wakeLock' in navigator).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: /Ampliar o QR/ }))
+    fireEvent.click((await screen.findByRole('button', { name: /Ampliar o QR/ })))
     expect(screen.getByRole('dialog')).toBeTruthy()
     expect(screen.getByText('Mostre na entrada')).toBeTruthy()
     expect(screen.queryByText(/tela fica acesa/)).toBeNull()
@@ -318,7 +341,7 @@ describe('IngressosDoEvento', () => {
     const request = vi.fn(() => Promise.resolve({ release, addEventListener: vi.fn() }))
     Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true })
     render(tela(1, { abrirNoQr: true }))
-    fireEvent.click(screen.getByRole('button', { name: /Ampliar o QR/ }))
+    fireEvent.click((await screen.findByRole('button', { name: /Ampliar o QR/ })))
     await waitFor(() => expect(request).toHaveBeenCalledWith('screen'))
     expect(await screen.findByText(/tela fica acesa/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Fechar/ }))
@@ -328,7 +351,7 @@ describe('IngressosDoEvento', () => {
 
   it('fechar o QR ampliado devolve o foco ao botão que o abriu', async () => {
     render(tela(1, { abrirNoQr: true }))
-    const ampliar = screen.getByRole('button', { name: /Ampliar o QR/ })
+    const ampliar = (await screen.findByRole('button', { name: /Ampliar o QR/ }))
     ampliar.focus()
     fireEvent.click(ampliar)
     fireEvent.click(await screen.findByRole('button', { name: /Fechar/ }))
@@ -339,7 +362,7 @@ describe('IngressosDoEvento', () => {
     const request = vi.fn(() => Promise.reject(new Error('NotAllowedError')))
     Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true })
     render(tela(1, { abrirNoQr: true }))
-    fireEvent.click(screen.getByRole('button', { name: /Ampliar o QR/ }))
+    fireEvent.click((await screen.findByRole('button', { name: /Ampliar o QR/ })))
     await waitFor(() => expect(request).toHaveBeenCalled())
     expect(screen.getByRole('dialog')).toBeTruthy()
   })

@@ -10,7 +10,6 @@ import YourTable from '../../components/YourTable'
 import EventoCapa from '../../components/EventoCapa'
 import { useOrderTickets, useOrderVisivel } from '../../hooks/useCheckout'
 import { usePublicEvent } from '../../hooks/useEvents'
-import TicketQRCode from '../../components/TicketQRCode'
 import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
 import { jaInstalado } from '../../lib/instalar'
 import { horaCurta } from '../../lib/ingresso'
@@ -166,7 +165,7 @@ export default function CheckoutSuccess() {
           {/* Left: Ticket + Actions */}
           <div className="space-y-4 lg:col-span-2">
             {/* Ticket Cards */}
-            {tickets.map((t, i) => (
+            {tickets.map(t => (
               <div key={t.id} className={cartao}>
                 <div className="mb-3 flex items-center gap-3">
                   <div className="grid size-10 shrink-0 place-items-center rounded-ev-lg bg-secondary text-muted-foreground">
@@ -178,18 +177,13 @@ export default function CheckoutSuccess() {
                   </div>
                 </div>
 
-                {/* QR só para ingresso já ativo — o de pedido pendente não passa no check-in */}
+                {/* O código de entrada não aparece aqui: o QR muda a cada 30 s e só é mostrado em Meus ingressos (Decisão 211). */}
                 <div className="flex items-center gap-4 rounded-ev-lg bg-secondary p-3">
-                  {t.status === 'active' ? (
-                    <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="shrink-0 rounded-lg" />
-                  ) : (
-                    <div className="grid size-20 shrink-0 place-items-center rounded-lg bg-card px-1 text-center text-[11px] leading-[14px] text-muted-foreground">
-                      Aguardando pagamento
-                    </div>
-                  )}
+                  <div className="grid size-20 shrink-0 place-items-center rounded-lg bg-card px-1 text-center text-[11px] leading-[14px] text-muted-foreground">
+                    {t.status === 'active' ? 'QR em Meus ingressos' : 'Aguardando pagamento'}
+                  </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] leading-4 text-muted-foreground">Código do Ingresso</div>
-                    <div className="truncate font-display text-xs font-semibold tabular-nums">{t.qr_code || t.code}</div>
+                    <div className="text-[11px] leading-4 text-muted-foreground">{t.status === 'active' ? 'O QR de entrada muda a cada 30 segundos e aparece em Meus ingressos.' : 'O QR aparece quando o pagamento for confirmado.'}</div>
                     <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''}{horaCurta(t.events?.time) && ` · ${horaCurta(t.events?.time)}`}</div>
                   </div>
                 </div>
