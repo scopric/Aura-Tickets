@@ -20,7 +20,7 @@ export function tipoImagem(b: Uint8Array): 'png' | 'jpeg' | null {
 }
 
 /** Baixa a logo do produtor. Qualquer falha (sem logo, URL fora do padrão, rede, tamanho, formato) devolve null: a planilha sai sem ela. */
-export async function buscarLogo(url: unknown, produtorId: string): Promise<{ bytes: Uint8Array; ext: 'png' | 'jpeg' } | null> {
+export async function buscarLogo(url: unknown, produtorId: string): Promise<{ bytes: Uint8Array; ext: 'png' | 'jpeg'; url: string; w: number; h: number } | null> {
   if (!urlLogoValida(url, produtorId)) return null
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: 'error' })
@@ -30,7 +30,7 @@ export async function buscarLogo(url: unknown, produtorId: string): Promise<{ by
     const ext = tipoImagem(bytes)
     if (!ext) return null
     const d = dimensoes(bytes, ext)
-    return d && d.w > 0 && d.h > 0 && d.w <= LOGO_MAX_LADO && d.h <= LOGO_MAX_LADO ? { bytes, ext } : null // sem medidas legíveis = recusa
+    return d && d.w > 0 && d.h > 0 && d.w <= LOGO_MAX_LADO && d.h <= LOGO_MAX_LADO ? { bytes, ext, url, w: d.w, h: d.h } : null // sem medidas legíveis = recusa
   } catch { return null }
 }
 
@@ -56,7 +56,7 @@ export function caber(d: { w: number; h: number } | null, maxW: number, maxH: nu
 
 /** Logo salva do produtor (producer_profiles.logo_url), pronta para o PDF. `db` é um cliente do Supabase com direito de ler o perfil (chave de serviço). Qualquer falha = null. */
 // deno-lint-ignore no-explicit-any
-export async function logoDoProdutor(db: any, produtorId: unknown): Promise<{ bytes: Uint8Array; ext: 'png' | 'jpeg' } | null> {
+export async function logoDoProdutor(db: any, produtorId: unknown): Promise<{ bytes: Uint8Array; ext: 'png' | 'jpeg'; url: string; w: number; h: number } | null> {
   if (typeof produtorId !== 'string') return null
   try {
     const { data, error } = await db.from('producer_profiles').select('logo_url').eq('id', produtorId).maybeSingle()

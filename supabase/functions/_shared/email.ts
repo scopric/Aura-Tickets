@@ -24,6 +24,17 @@ export const colors = {
   accent: "#D97706" // aviso (urgente)
 };
 
+// Logo do produtor no topo do corpo do e-mail do ingresso. `url` só vem de buscarLogo (URL do bucket logos-produtor, ≤ 1 MB,
+// ≤ 2000 px por lado): o cliente de e-mail de quem compra também decodifica a imagem, então nunca entra URL que não passou ali.
+// Sem URL: nada (o e-mail sai como antes). Tamanho preso por CSS e por atributo (Outlook ignora CSS de imagem).
+export function blocoLogoProdutor(url?: string | null, medidas?: { w: number; h: number } | null): string {
+  if (!url) return "";
+  // width e height calculados das medidas reais (cabe em 200 x 48): o Outlook de computador ignora max-width e height:auto
+  const k = medidas && medidas.w > 0 && medidas.h > 0 ? Math.min(1, 200 / medidas.w, 48 / medidas.h) : 0;
+  const tam = k ? ` width="${Math.max(1, Math.round(medidas!.w * k))}" height="${Math.max(1, Math.round(medidas!.h * k))}"` : ' height="48"';
+  return `<div style="text-align: center; margin: 0 0 20px 0;"><img src="${escapeHtml(url)}" alt="Logo do organizador"${tam} style="max-height: 48px; max-width: 200px; height: auto; border: 0;"></div>`;
+}
+
 export function emailShell(title: string, intro: string, body: string, ctaLabel: string, ctaHref: string) {
   return `
     <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">

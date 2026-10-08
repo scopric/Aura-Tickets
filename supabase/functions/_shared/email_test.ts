@@ -1,7 +1,8 @@
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { emailShell } from "./email.ts";
+import { blocoLogoProdutor, emailShell } from "./email.ts";
 import { montarConviteEquipe } from "./conviteEquipe.ts";
 import { gerarPdf, ingressosParaPdf } from "./ingressoPdf.ts";
+import { emailIngresso, partesDaData, resumoDosTipos } from "./emailIngresso.ts";
 
 const textoVisivel = (html: string) => html.replace(/<[^>]+>/g, " ");
 
@@ -52,4 +53,57 @@ Deno.test("PDF do ingresso: horário sem segundos e o código só dentro do QR",
   assertFalse(texto.includes(hex("20:00:00")) || texto.includes(hex("20:00")));
   assert(texto.includes(hex("Pista".toUpperCase())), "o texto do PDF é legível pelo teste");
   assertFalse(texto.includes(hex("TESTE-ABC123")));
+});
+
+Deno.test("logo do produtor no e-mail: só entra com URL, escapada, e sem URL o e-mail sai como antes", () => {
+  assertEquals(blocoLogoProdutor(null), "");
+  assertEquals(blocoLogoProdutor(undefined), "");
+  assertEquals(blocoLogoProdutor(""), "");
+  const html = blocoLogoProdutor("https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/u/abcdefgh.png");
+  assert(html.includes('<img src="https://rwaezeqyuhxrssntcxdv.supabase.co/'));
+  assert(html.includes('alt="Logo do organizador"'));
+  assert(html.includes("max-height: 48px"));
+  // medidas reais: 300x80 cabe em 180x48; atributos width/height para o Outlook
+  const m = blocoLogoProdutor("https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/u/abcdefgh.png", { w: 300, h: 80 });
+  assert(m.includes('width="180" height="48"'));
+  assert(blocoLogoProdutor("https://x/a.png", { w: 100, h: 20 }).includes('width="100" height="20"')); // nunca amplia
+  // defesa em profundidade: mesmo uma URL fora do padrão não escapa do atributo
+  assert(!blocoLogoProdutor('x" onerror="alert(1)').includes('" onerror="'));
+});
+
+Deno.test("e-mail do ingresso: logo da Evokaa, cores da marca, sem exclamação, sem azul/roxo antigos", () => {
+  const html = emailIngresso({ nome: "Ana", evento: "Noite de Forró", data: "2026-10-16", hora: "22:00", local: "Casa Torres", tipos: ["Pista", "Pista", "Camarote"], ctaHref: "https://app.evokaa.com.br/app/tickets" });
+  assert(html.includes("https://app.evokaa.com.br/images/logo-evokaa-sm.png"));
+  assert(html.includes('alt="Evokaa"'));
+  assert(html.includes("#0c2340") && html.includes("#1d68c4"));
+  assertFalse(/#8f33f5|#4a60e3/i.test(html)); // o violeta fica só na logo
+  assertFalse(/#581C87|#7E22CE|#0C0A09|box-shadow|gradient/i.test(html));
+  assertFalse(textoVisivel(html).includes("!"));
+  assert(html.includes("2 × Pista · 1 × Camarote"));
+  assert(html.includes("Seus ingressos estão prontos") && html.includes("Ingressos (3)"));
+  assert(html.includes("O PDF vai em anexo neste e-mail, uma página por ingresso") && !html.includes("Os PDFs")); // o anexo é UM arquivo
+  assert(html.includes("Sexta-feira, às 22:00") && html.includes(">16<"));
+  assertFalse(html.includes("Organizado por")); // sem logo do produtor, o bloco some
+});
+
+Deno.test("e-mail do ingresso: um ingresso fica no singular, com logo do produtor e sem data", () => {
+  const html = emailIngresso({ nome: "Ana", evento: "Show", data: null, hora: "", local: "Local a definir", tipos: ["Pista"], ctaHref: "https://x/y",
+    logo: { url: "https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/u/abcdefgh.png", w: 300, h: 80 } });
+  assert(html.includes("Seu ingresso está pronto") && html.includes("Organizado por") && html.includes("logos-produtor"));
+  assert(html.includes("a definir"));
+  assertFalse(textoVisivel(html).includes("!"));
+});
+
+Deno.test("e-mail do ingresso: tudo que vem de fora é escapado", () => {
+  const html = emailIngresso({ nome: '<img src=x onerror=alert(1)>', evento: '"><script>x</script>', data: "2026-10-16", hora: "", local: "<b>Local</b>", tipos: ["<i>Pista</i>"], ctaHref: 'https://x/"onmouseover="y' });
+  assertFalse(/<script|<img src=x|<b>Local|<i>Pista|"onmouseover/.test(html));
+});
+
+Deno.test("e-mail do ingresso: partes da data e resumo dos tipos", () => {
+  assertEquals(partesDaData("2026-10-16"), { ano: 2026, mes: "out", dia: 16, semana: "sexta-feira" });
+  assertEquals(partesDaData("2026-13-40"), null);
+  assertEquals(partesDaData("2026-02-31"), null); // dia que não existe
+  assertEquals(partesDaData("2028-02-29")?.dia, 29); // bissexto vale
+  assertEquals(partesDaData(null), null);
+  assertEquals(resumoDosTipos(["B", "A", "B"]), "2 × B · 1 × A");
 });
