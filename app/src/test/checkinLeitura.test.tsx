@@ -39,14 +39,14 @@ describe('formato do código', () => {
 })
 
 describe('motivo da leitura', () => {
-  it('liberado', () => expect(motivoLeitura({ http: 200, valid: true, message: 'Check-in realizado com sucesso!' })).toMatchObject({ tom: 'ok', rotulo: 'Acesso Permitido' }))
+  it('liberado', () => expect(motivoLeitura({ http: 200, valid: true, message: 'Check-in realizado com sucesso.' })).toMatchObject({ tom: 'ok', rotulo: 'Acesso Permitido' }))
   it('já usado traz o horário', () => {
-    const l = motivoLeitura({ http: 200, valid: false, message: 'Ingresso já foi utilizado!', checkedInAt: '2026-10-04T22:30:00.000Z' })
+    const l = motivoLeitura({ http: 200, valid: false, message: 'Ingresso já foi utilizado.', checkedInAt: '2026-10-04T22:30:00.000Z' })
     expect(l).toMatchObject({ tom: 'aviso', rotulo: 'Já usado' })
     expect(l.mensagem).toMatch(/^Já usado às \d{2}:\d{2}$/)
   })
   it('já usado sem horário (corrida entre dois aparelhos) continua aviso', () => {
-    expect(motivoLeitura({ http: 200, valid: false, message: 'Ingresso já foi utilizado!' })).toMatchObject({ tom: 'aviso', rotulo: 'Já usado' })
+    expect(motivoLeitura({ http: 200, valid: false, message: 'Ingresso já foi utilizado.' })).toMatchObject({ tom: 'aviso', rotulo: 'Já usado' })
   })
   it('cancelado, reembolsado e transferido', () => {
     expect(motivoLeitura({ http: 200, valid: false, message: 'Ingresso indisponível (Status: cancelled)' }).rotulo).toBe('Cancelado')
@@ -66,7 +66,7 @@ describe('motivo da leitura', () => {
 })
 
 describe('campo do Scanner', () => {
-  beforeEach(() => invoke.mockReset().mockResolvedValue({ data: { valid: true, message: 'Check-in realizado com sucesso!', buyerName: 'Ana Souza', ticketType: 'Pista' }, error: null }))
+  beforeEach(() => invoke.mockReset().mockResolvedValue({ data: { valid: true, message: 'Check-in realizado com sucesso.', buyerName: 'Ana Souza', ticketType: 'Pista' }, error: null }))
 
   it('código curto digitado não dispara; o uuid completo dispara uma vez só', async () => {
     const u = userEvent.setup()
@@ -97,7 +97,7 @@ describe('campo do Scanner', () => {
     await u.type(campo, UUID)
     await u.type(campo, UUID)
     const chamadas = invoke.mock.calls.length // conferida depois de liberar a pendente, para o teste não ficar preso se a trava faltar
-    liberar({ data: { valid: true, message: 'Check-in realizado com sucesso!' }, error: null })
+    liberar({ data: { valid: true, message: 'Check-in realizado com sucesso.' }, error: null })
     await waitFor(() => expect(screen.getByText('Acesso Permitido')).toBeInTheDocument())
     expect(chamadas).toBe(1)
     // terminada a 1ª, o código volta a poder ser lido

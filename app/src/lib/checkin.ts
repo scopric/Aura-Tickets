@@ -28,7 +28,7 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: 
 // Traduz a resposta de supabase/functions/check-in-validate. "falha" = problema do sistema ou da conta, não do ingresso.
 export function motivoLeitura(r: RespostaLeitura): Leitura {
   const msg = r.message ?? ''
-  if (r.valid) return { tom: 'ok', rotulo: 'Acesso Permitido', mensagem: msg || 'Check-in realizado com sucesso!' }
+  if (r.valid) return { tom: 'ok', rotulo: 'Acesso Permitido', mensagem: msg || 'Check-in realizado com sucesso.' }
   if (r.http === undefined || r.http >= 500) {
     return { tom: 'erro', rotulo: 'Sistema fora do ar', mensagem: 'Não foi possível conferir agora. O problema não é do ingresso: tente de novo.', falha: true }
   }

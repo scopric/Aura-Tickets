@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   if (!ticket) return json(404, { valid: false, message: 'Ingresso não encontrado ou inválido para este evento' })
 
   if (ticket.status === 'used') {
-    return json(200, { valid: false, message: 'Ingresso já foi utilizado!', checkedInAt: ticket.checked_in_at, buyerName: ticket.buyer_name })
+    return json(200, { valid: false, message: 'Ingresso já foi utilizado.', checkedInAt: ticket.checked_in_at, buyerName: ticket.buyer_name })
   }
   if (ticket.status !== 'active') {
     return json(200, { valid: false, message: `Ingresso indisponível (Status: ${ticket.status})` })
@@ -81,12 +81,12 @@ Deno.serve(async (req) => {
     .eq('id', ticket.id).eq('status', 'active')
     .select('id').maybeSingle()
   if (updateError) return falhou('update', updateError.message)
-  if (!marcado) return json(200, { valid: false, message: 'Ingresso já foi utilizado!' })
+  if (!marcado) return json(200, { valid: false, message: 'Ingresso já foi utilizado.' })
 
   const { error: logError } = await admin.from('check_ins')
     .insert({ event_id: eventId, ticket_id: ticket.id, user_id: ticket.user_id, checked_in_by: user.id, checked_in_at: agora })
   if (logError) console.error('[check-in-validate] registro em check_ins:', logError.message)
 
   const tipo = ticket.ticket_types as unknown as { name?: string } | null
-  return json(200, { valid: true, message: 'Check-in realizado com sucesso!', buyerName: ticket.buyer_name, ticketType: tipo?.name })
+  return json(200, { valid: true, message: 'Check-in realizado com sucesso.', buyerName: ticket.buyer_name, ticketType: tipo?.name })
 })
