@@ -58,10 +58,20 @@ const ORIGENS = ['Instagram', 'LinkedIn', 'Google Ads', 'Facebook', 'Indicação
 
 const leadVazio = { name: '', email: '', phone: '', source: 'Instagram', value: '', interest: '', notes: '' }
 
-// Só acrescenta o DDI 55 a número brasileiro sem DDI (10 ou 11 dígitos); número já completo fica como está
+// Decide pelo tamanho, não pelo prefixo (DDD 55 existe): 10 ou 11 dígitos = sem DDI, sempre ganha 55
 export function numeroWhatsApp(phone: string | null) {
-  const d = (phone ?? '').replace(/\D/g, '')
-  return !d.startsWith('55') && (d.length === 10 || d.length === 11) ? `55${d}` : d
+  const t = (phone ?? '').trim()
+  const d = t.replace(/\D/g, '')
+  if (t.startsWith('+')) return d
+  const n = d.replace(/^0+/, '')
+  return n.length === 10 || n.length === 11 ? `55${n}` : n
+}
+
+// Formato brasileiro ("1.500,50"); vazio = 0; inválido = null (não grava)
+export function valorEmReais(texto: string) {
+  const t = texto.trim().replace(/\./g, '').replace(',', '.')
+  if (!t) return 0
+  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null
 }
 
 export default function ProducerCRM() {
@@ -74,6 +84,7 @@ export default function ProducerCRM() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const origemNovoLead = useRef<HTMLElement | null>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [erroValor, setErroValor] = useState('')
   const [novo, setNovo] = useState(leadVazio)
   const [isSubmittingLead, setIsSubmittingLead] = useState(false)
   const [criandoEtapas, setCriandoEtapas] = useState(false)
@@ -183,6 +194,9 @@ export default function ProducerCRM() {
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novo.name.trim() || !user?.id) { toast.error('Preencha o nome do lead'); return }
+    const valor = valorEmReais(novo.value)
+    if (valor === null) { setErroValor('Valor inválido. Use números, como 1.500,50.'); return }
+    setErroValor('')
     setIsSubmittingLead(true)
     try {
       const campos = {
@@ -190,7 +204,7 @@ export default function ProducerCRM() {
         email: novo.email.trim() || null,
         phone: novo.phone.trim() || null,
         source: novo.source,
-        potential_value: Number(novo.value) || 0,
+        potential_value: valor,
         event_interest: novo.interest.trim() || null,
         notes: novo.notes.trim() || null,
       }
@@ -241,7 +255,7 @@ export default function ProducerCRM() {
     <PageHeader
       title="CRM"
       description="Funil de leads e histórico de contatos"
-      actions={<Button onClick={() => { origemNovoLead.current = document.activeElement as HTMLElement | null; setEditandoId(null); setNovo(leadVazio); setIsAddModalOpen(true) }}><I.Criar aria-hidden="true" />Novo lead</Button>}
+      actions={<Button onClick={() => { origemNovoLead.current = document.activeElement as HTMLElement | null; setEditandoId(null); setErroValor(''); setNovo(leadVazio); setIsAddModalOpen(true) }}><I.Criar aria-hidden="true" />Novo lead</Button>}
     />
   )
 
@@ -378,7 +392,8 @@ export default function ProducerCRM() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="lead-valor">Valor estimado (R$)</Label>
-                <Input id="lead-valor" type="number" inputMode="decimal" min="0" step="0.01" value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+                <Input id="lead-valor" inputMode="decimal" aria-invalid={!!erroValor} aria-describedby={erroValor ? 'lead-valor-erro' : undefined} value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+                {erroValor && <p id="lead-valor-erro" role="alert" className="text-xs text-destructive">{erroValor}</p>}
               </div>
             </div>
             <div className="grid gap-1.5">
@@ -435,7 +450,8 @@ export default function ProducerCRM() {
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => {
                     origemNovoLead.current = document.activeElement as HTMLElement | null
                     setEditandoId(selected.id)
-                    setNovo({ name: selected.full_name, email: selected.email ?? '', phone: selected.phone ?? '', source: selected.source ?? 'Instagram', value: selected.potential_value ? String(selected.potential_value) : '', interest: selected.event_interest ?? '', notes: selected.notes ?? '' })
+                    setErroValor('')
+                    setNovo({ name: selected.full_name, email: selected.email ?? '', phone: selected.phone ?? '', source: selected.source ?? 'Instagram', value: selected.potential_value ? String(selected.potential_value).replace('.', ',') : '', interest: selected.event_interest ?? '', notes: selected.notes ?? '' })
                     setIsAddModalOpen(true)
                   }}>Editar</Button>
                   <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>

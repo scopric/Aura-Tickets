@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import ProducerCRM, { numeroWhatsApp } from '../pages/producer/CRM'
+import ProducerCRM, { numeroWhatsApp, valorEmReais } from '../pages/producer/CRM'
 
 const m = vi.hoisted(() => ({ update: vi.fn(), eq: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
@@ -41,12 +41,37 @@ describe('CRM: editar lead', () => {
 })
 
 describe('numeroWhatsApp', () => {
-  it('acrescenta 55 em número brasileiro sem DDI', () => {
+  it('10 ou 11 dígitos: sempre acrescenta 55 (DDD 55 existe)', () => {
     expect(numeroWhatsApp('11987654321')).toBe('5511987654321')
-    expect(numeroWhatsApp('(11) 3456-7890')).toBe('551134567890')
+    expect(numeroWhatsApp('55991234567')).toBe('5555991234567')
+    expect(numeroWhatsApp('5532221234')).toBe('555532221234')
+    expect(numeroWhatsApp('011 98765-4321')).toBe('5511987654321')
   })
-  it('não mexe em número já completo', () => {
+  it('já completo ou internacional: não mexe', () => {
     expect(numeroWhatsApp('5511987654321')).toBe('5511987654321')
-    expect(numeroWhatsApp('+55 11 98765-4321')).toBe('5511987654321')
+    expect(numeroWhatsApp('+55 55 99123-4567')).toBe('5555991234567')
+    expect(numeroWhatsApp('+1 202 555 0123')).toBe('12025550123')
+  })
+})
+
+describe('valorEmReais', () => {
+  it('formato brasileiro', () => {
+    expect(valorEmReais('1.500,50')).toBe(1500.5)
+    expect(valorEmReais('')).toBe(0)
+    expect(valorEmReais('abc')).toBeNull()
+  })
+})
+
+describe('CRM: valor inválido', () => {
+  it('não grava e mostra erro no campo', async () => {
+    m.update.mockClear()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><MemoryRouter><ProducerCRM /></MemoryRouter></QueryClientProvider>)
+    fireEvent.click(await screen.findByText('Lead Teste'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }))
+    fireEvent.change(await screen.findByLabelText(/Valor estimado/), { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Valor inválido')
+    expect(m.update).not.toHaveBeenCalled()
   })
 })
