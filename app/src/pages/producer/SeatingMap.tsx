@@ -3,114 +3,19 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
-import { reduzirPlanta, pdfParaImagem } from '../../lib/plantaFundo'
+import { reduzirPlanta, pdfParaImagem, MAX_ARQUIVO_BYTES } from '../../lib/plantaFundo'
 import * as I from '@/components/icones/evokaa16'
 import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
-import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
+import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, CUSTO_LEITURA, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
 import { tetoPorPedido } from '@/lib/lotacao'
 import { Button } from '@/components/ui/button'
+import { formasNovas } from './mapa/catalogo'
+import { type ToolType, type SeatStatus, type SeatNode, type WallNode, type Section, type Environment, sectionColors, defaultSections, typeLabels, toolDefaults, novosPavimentos, fundoPadrao, montarFundo, instantaneo, normalizarEnvs } from './mapa/modelo'
 
-// Tipos de ferramentas do editor
-type ToolType = 
-  | 'select' | 'pan' | 'seat' | 'table' | 'stage' | 'bar' | 'door' | 'text' | 'dancefloor' | 'area' | 'stairs' 
-  | 'restroom' | 'info' | 'service' | 'wall' | 'ledscreen' | 'truss' | 'generator' | 'soundhouse' 
-  | 'barricade' | 'bistro' | 'couch' | 'tent' | 'stand' | 'chemical_toilet' | 'accessible_toilet' | 'emergency_exit'
-  | 'buffet_table' | 'dressing_room' | 'portico' | 'dj_deck' | 'unifila_barrier'
-  | 'vip_lounge' | 'l_bar' | 'u_bar' | 'food_court' | 'ticket_office' | 'parking_spot' | 'foh_desk'
-  | 'backdrop' | 'round_buffet' | 'cloakroom' | 'extinguisher' | 'runway_stage' | 'container_toilet' | 'large_tent'
 
-type SeatStatus = 'free' | 'sold' | 'blocked' | 'reserved'
-
-interface SeatNode {
-  id: string
-  x: number // em metros (posição do centro)
-  y: number // em metros (posição do centro)
-  label: string
-  type: ToolType
-  color: string
-  price: number
-  rotation: number
-  sold: number
-  capacity: number
-  sectionId: string
-  status: SeatStatus
-  locked: boolean
-  widthMeter?: number  // Largura real em metros
-  heightMeter?: number // Altura real em metros
-  tableShape?: 'circle' | 'rectangle' | 'square' // Formato para mesas (redonda, retangular, quadrada)
-  seatsCount?: number // Quantidade de cadeiras na mesa ou sofá
-}
-
-interface WallNode {
-  id: string
-  x1: number // ponto inicial em metros
-  y1: number // ponto inicial em metros
-  x2: number // ponto final em metros
-  y2: number // ponto final em metros
-  thickness: number // espessura em metros (ex: 0.15 ou 0.25)
-  color: string
-  locked: boolean
-}
-
-interface Section {
-  id: string
-  name: string
-  color: string
-  price: number
-  ticketTypeId?: string // ticket_types.id do ingresso que este setor vende (sem ele, o setor não vende)
-}
-
-interface Environment {
-  id: string
-  name: string
-  seats: SeatNode[]
-  sections: Section[]
-  walls?: WallNode[] // Opcional para manter retrocompatibilidade
-  pixelsPerMeter?: number // Escala do ambiente
-  roomShape?: 'rectangle' | 'l_shape'
-  roomWidth?: number  // em metros
-  roomHeight?: number // em metros
-  roomLWidth?: number  // largura perna L
-  roomLHeight?: number // altura perna L
-  roomRotation?: number // rotação global do pavilhão
-}
-
-// ponytail: custo padrão da leitura (ai_settings.credit_cost.imagem); o produtor não lê as configurações do Evo.
-// Se a administração mudar o valor, este texto fica desatualizado até uma leitura recusada ou concluída mostrar o real.
-const CUSTO_LEITURA = 5
 const ESCALA_PADRAO = 40 // pixelsPerMeter de um pavimento novo; 40 = escala ainda não calibrada
-const MAX_ARQUIVO_BYTES = 15 * 1024 * 1024 // planta enviada pelo produtor (imagem ou PDF); a que vai ao Evo já sai reduzida
 
-const sectionColors = [
-  '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626',
-  '#0891b2', '#8b5cf6', '#ec4899', '#78716c', '#059669'
-]
-
-const defaultSections: Section[] = [
-  { id: 'vip', name: 'VIP Frontal', color: '#d97706', price: 250 },
-  { id: 'premium', name: 'Premium', color: '#7a3b69', price: 150 },
-  { id: 'regular', name: 'Regular', color: '#1e3a5f', price: 80 },
-  { id: 'pista', name: 'Pista', color: '#16a34a', price: 60 },
-  { id: 'mezanino', name: 'Mezanino', color: '#8b5cf6', price: 120 },
-]
-
-const typeLabels: Record<ToolType, string> = {
-  select: 'Selecionar', pan: 'Mão (Pan)', seat: 'Cadeira', table: 'Mesa Inteligente', stage: 'Palco', bar: 'Bar',
-  door: 'Entrada', text: 'Texto', dancefloor: 'Pista Dança', area: 'Área Livre',
-  stairs: 'Escada', restroom: 'Banheiro', info: 'Informação', service: 'Atendimento',
-  wall: 'Muro / Parede', ledscreen: 'Painel LED', truss: 'Treliça', generator: 'Gerador',
-  soundhouse: 'House Mix', barricade: 'Barricada', bistro: 'Bistrô', couch: 'Sofá Lounge',
-  tent: 'Tenda/Gazebo', stand: 'Stand Exp.', chemical_toilet: 'WC Químico',
-  accessible_toilet: 'WC PNE', emergency_exit: 'Saída Emerg.',
-  buffet_table: 'Mesa Buffet', dressing_room: 'Camarim / Backstage', portico: 'Pórtico Entrada',
-  dj_deck: 'Praticável DJ', unifila_barrier: 'Grade Unifila',
-  vip_lounge: 'Lounge VIP', l_bar: 'Bar em L', u_bar: 'Bar em U', food_court: 'Praça Alimentação',
-  ticket_office: 'Bilheteria / Portaria', parking_spot: 'Vaga Estacionam.', foh_desk: 'Mesa de Som (FOH)',
-  backdrop: 'Backdrop (Fotos)', round_buffet: 'Mesa Buffet Red.', cloakroom: 'Guarda-volumes',
-  extinguisher: 'Extintor Incêndio', runway_stage: 'Passarela Desfile', container_toilet: 'WC Container',
-  large_tent: 'Tenda Pirâmide Gde.'
-}
 
 let _nextId = Date.now()
 const genId = () => `e${_nextId++}`
@@ -164,6 +69,7 @@ function toolIcon(t: ToolType) {
     case 'runway_stage': return RunwayStageIcon
     case 'container_toilet': return ContainerToiletIcon
     case 'large_tent': return LargeTentIcon
+    default: return I.Quadrado // tipos do catálogo novo (editor Konva) não têm ícone próprio aqui
   }
 }
 
@@ -256,58 +162,6 @@ function UnifilaIcon(props: any) {
   return <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="6" y1="15" x2="6" y2="21"/><line x1="18" y1="15" x2="18" y2="21"/></svg>
 }
 
-// Configurações padrão dos elementos em metros
-const toolDefaults: Record<ToolType, { wMeter: number; hMeter: number; cap: number; color: string }> = {
-  select: { wMeter: 0, hMeter: 0, cap: 0, color: '' },
-  pan: { wMeter: 0, hMeter: 0, cap: 0, color: '' },
-  seat: { wMeter: 0.5, hMeter: 0.5, cap: 1, color: '#7a3b69' },
-  table: { wMeter: 1.8, hMeter: 1.2, cap: 6, color: '#7a3b69' },
-  stage: { wMeter: 8.0, hMeter: 4.0, cap: 0, color: '#444444' },
-  bar: { wMeter: 3.5, hMeter: 1.2, cap: 0, color: '#7c3aed' },
-  door: { wMeter: 1.8, hMeter: 0.3, cap: 0, color: '#059669' },
-  text: { wMeter: 3.0, hMeter: 0.8, cap: 0, color: '#1e293b' },
-  dancefloor: { wMeter: 6.0, hMeter: 6.0, cap: 0, color: '#d97706' },
-  area: { wMeter: 8.0, hMeter: 8.0, cap: 0, color: '#78716c' },
-  stairs: { wMeter: 1.5, hMeter: 2.5, cap: 0, color: '#ea580c' },
-  restroom: { wMeter: 2.5, hMeter: 2.0, cap: 0, color: '#0891b2' },
-  info: { wMeter: 1.5, hMeter: 1.2, cap: 0, color: '#2563eb' },
-  service: { wMeter: 2.0, hMeter: 1.2, cap: 0, color: '#0d9488' },
-  
-  wall: { wMeter: 0, hMeter: 0, cap: 0, color: '#4b5563' },
-  ledscreen: { wMeter: 5.0, hMeter: 0.3, cap: 0, color: '#10b981' },
-  truss: { wMeter: 3.0, hMeter: 0.3, cap: 0, color: '#6b7280' },
-  generator: { wMeter: 2.2, hMeter: 1.5, cap: 0, color: '#ca8a04' },
-  soundhouse: { wMeter: 3.0, hMeter: 2.0, cap: 0, color: '#4f46e5' },
-  barricade: { wMeter: 1.5, hMeter: 0.2, cap: 0, color: '#4b5563' },
-  bistro: { wMeter: 0.8, hMeter: 0.8, cap: 0, color: '#8b5cf6' },
-  couch: { wMeter: 1.8, hMeter: 0.8, cap: 0, color: '#db2777' },
-  tent: { wMeter: 4.0, hMeter: 4.0, cap: 0, color: '#6d28d9' },
-  stand: { wMeter: 3.0, hMeter: 3.0, cap: 0, color: '#0284c7' },
-  chemical_toilet: { wMeter: 1.1, hMeter: 1.1, cap: 0, color: '#0891b2' },
-  accessible_toilet: { wMeter: 1.8, hMeter: 1.8, cap: 0, color: '#0891b2' },
-  emergency_exit: { wMeter: 1.8, hMeter: 0.3, cap: 0, color: '#dc2626' },
-  
-  buffet_table: { wMeter: 3.0, hMeter: 1.0, cap: 0, color: '#d97706' },
-  dressing_room: { wMeter: 4.0, hMeter: 3.0, cap: 0, color: '#db2777' },
-  portico: { wMeter: 4.0, hMeter: 0.8, cap: 0, color: '#0f766e' },
-  dj_deck: { wMeter: 2.5, hMeter: 1.8, cap: 0, color: '#4f46e5' },
-  unifila_barrier: { wMeter: 2.0, hMeter: 0.15, cap: 0, color: '#78716c' },
-
-  vip_lounge: { wMeter: 6.0, hMeter: 4.0, cap: 15, color: '#be185d' },
-  l_bar: { wMeter: 4.0, hMeter: 4.0, cap: 0, color: '#7c3aed' },
-  u_bar: { wMeter: 5.0, hMeter: 4.0, cap: 0, color: '#7c3aed' },
-  food_court: { wMeter: 12.0, hMeter: 8.0, cap: 40, color: '#ea580c' },
-  ticket_office: { wMeter: 3.0, hMeter: 2.0, cap: 0, color: '#0284c7' },
-  parking_spot: { wMeter: 2.5, hMeter: 5.0, cap: 0, color: '#64748b' },
-  foh_desk: { wMeter: 3.0, hMeter: 1.8, cap: 0, color: '#4f46e5' },
-  backdrop: { wMeter: 3.0, hMeter: 0.5, cap: 0, color: '#ec4899' },
-  round_buffet: { wMeter: 2.4, hMeter: 2.4, cap: 0, color: '#d97706' },
-  cloakroom: { wMeter: 3.0, hMeter: 1.5, cap: 0, color: '#4b5563' },
-  extinguisher: { wMeter: 0.4, hMeter: 0.4, cap: 0, color: '#ef4444' },
-  runway_stage: { wMeter: 2.0, hMeter: 8.0, cap: 0, color: '#444444' },
-  container_toilet: { wMeter: 6.0, hMeter: 2.4, cap: 0, color: '#0891b2' },
-  large_tent: { wMeter: 10.0, hMeter: 10.0, cap: 0, color: '#6d28d9' }
-}
 
 const TOOL_CATEGORIES = [
   { id: 'navigation', name: 'Navegação', tools: ['select', 'pan', 'text'] as ToolType[] },
@@ -318,22 +172,6 @@ const TOOL_CATEGORIES = [
   { id: 'facilities', name: 'Paredes & Acessos', tools: ['wall', 'door', 'emergency_exit', 'portico', 'ticket_office', 'chemical_toilet', 'accessible_toilet', 'container_toilet', 'restroom', 'extinguisher'] as ToolType[] }
 ]
 
-const novosPavimentos = (): Environment[] => [
-  {
-    id: 'terreo',
-    name: 'Térreo (Principal)',
-    seats: [],
-    sections: JSON.parse(JSON.stringify(defaultSections)),
-    walls: [],
-    pixelsPerMeter: 40
-  },
-]
-
-// O que vai para o banco e o que conta como "alterado": pavimentos + planta de fundo (zoom e pan não contam)
-const fundoPadrao = { scale: 1.0, offset: { x: 150, y: 100 }, opacity: 0.4 }
-const montarFundo = (image: string | null, scale: number, offset: { x: number; y: number }, opacity: number) =>
-  image ? { image, scale, offset, opacity } : null
-const instantaneo = (envs: Environment[], fundo: ReturnType<typeof montarFundo>) => JSON.stringify({ envs, fundo })
 
 export default function SeatingMap() {
   const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
@@ -616,18 +454,7 @@ export default function SeatingMap() {
 
       setAtivo(data?.is_active === true)
       if (data?.environments && Array.isArray(data.environments)) {
-        const loadedEnvs = (data.environments as Environment[]).map(env => ({
-          ...env,
-          walls: env.walls || [],
-          pixelsPerMeter: env.pixelsPerMeter || 40,
-          seats: (env.seats || []).map(s => ({
-            ...s,
-            widthMeter: s.widthMeter || (toolDefaults[s.type]?.wMeter || 0.5),
-            heightMeter: s.heightMeter || (toolDefaults[s.type]?.hMeter || 0.5),
-            tableShape: s.tableShape || 'circle',
-            seatsCount: s.seatsCount || (s.capacity > 0 ? s.capacity : 6)
-          }))
-        }))
+        const loadedEnvs = normalizarEnvs(data.environments as Environment[])
 
         setEnvironments(loadedEnvs)
         if (loadedEnvs[0]?.sections?.[0]) setActiveSec(loadedEnvs[0].sections[0].id)
@@ -2117,7 +1944,7 @@ export default function SeatingMap() {
   const blockedCount = seats.filter(s => s.status === 'blocked').length
 
   const filteredSeats = search
-    ? seats.filter(s => s.label.toLowerCase().includes(search.toLowerCase()) || typeLabels[s.type].toLowerCase().includes(search.toLowerCase()))
+    ? seats.filter(s => s.label.toLowerCase().includes(search.toLowerCase()) || (typeLabels[s.type] || '').toLowerCase().includes(search.toLowerCase()))
     : seats
 
   const canvasW = Math.max(60, roomWidth + 20) * pixelsPerMeter
@@ -2927,7 +2754,8 @@ export default function SeatingMap() {
                 s.type === 'vip_lounge' || s.type === 'round_buffet' || s.type === 'runway_stage' || s.type === 'backdrop' ||
                 s.type === 'foh_desk' || s.type === 'parking_spot' || s.type === 'l_bar' || s.type === 'u_bar' ||
                 s.type === 'food_court' || s.type === 'cloakroom' || s.type === 'ticket_office' || s.type === 'container_toilet' ||
-                s.type === 'large_tent' || s.type === 'buffet_table' || s.type === 'dressing_room' || s.type === 'portico' || s.type === 'dj_deck'
+                s.type === 'large_tent' || s.type === 'buffet_table' || s.type === 'dressing_room' || s.type === 'portico' || s.type === 'dj_deck' ||
+                s.type in formasNovas
 
               // Determinar o formato para mesas
               const isCircleTable = s.type === 'table' && s.tableShape === 'circle'
@@ -3383,6 +3211,16 @@ export default function SeatingMap() {
                     {s.type === 'extinguisher' && (
                       <div className="w-full h-full rounded-full border border-red-500 bg-red-50 flex items-center justify-center shadow-xs">
                         <ExtinguisherIcon className="w-4 h-4 text-red-600 animate-pulse flex-shrink-0" />
+                      </div>
+                    )}
+
+                    {/* Tipos do catálogo novo: retângulo com o nome (sem desenho próprio neste editor) */}
+                    {s.type in formasNovas && (
+                      <div
+                        className={`w-full h-full border flex items-center justify-center text-center overflow-hidden shadow-xs ${formasNovas[s.type] === 'c' ? 'rounded-full' : 'rounded-md'}`}
+                        style={{ borderColor: statusColor, background: `${statusColor}22` }}
+                      >
+                        <span className="text-[7.5px] font-bold leading-tight truncate max-w-full" style={{ color: statusColor }}>{s.label}</span>
                       </div>
                     )}
 

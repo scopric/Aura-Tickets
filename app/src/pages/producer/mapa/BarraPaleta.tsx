@@ -1,0 +1,150 @@
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
+import { Armchair, ChevronDown, DoorOpen, Hand, Info, MousePointer2, Search, Theater, Type, UtensilsCrossed, Wrench, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { CATEGORIAS, formaDe, type ItemCatalogo } from './paleta'
+import { REFERENCIAS } from './referencias'
+import Ilustracao from './Ilustracao'
+
+const fmt = (n: number) => String(n).replace('.', ',')
+const ICONES: Record<string, LucideIcon> = { navigation: MousePointer2, seating: Armchair, structures: Theater, technical: Wrench, food: UtensilsCrossed, facilities: DoorOpen }
+const NAVEGACAO: { id: string; nome: string; Icone: LucideIcon }[] = [
+  { id: 'select', nome: 'Selecionar', Icone: MousePointer2 }, { id: 'pan', nome: 'Mão', Icone: Hand }, { id: 'text', nome: 'Texto', Icone: Type },
+]
+
+// Miniatura plana (vista de cima) na proporção real do objeto, até 40 px; mesas ganham cadeirinhas
+function Miniatura({ i }: { i: ItemCatalogo }) {
+  const M = 40, cor = i.cor || '#94a3b8'
+  const mesa = i.tipo === 'table'
+  const reserva = mesa ? 9 : 2 // espaço das cadeirinhas em volta da mesa
+  // escala por item: a maior medida ocupa o quadro; a proporção largura/altura fica como a real
+  const k = (M - reserva * 2) / Math.max(i.w, i.h)
+  const w = i.w * k, h = i.h * k, cx = M / 2, cy = M / 2
+  const redonda = mesa ? (i.mesa || 'circle') === 'circle' : formaDe(i.tipo) === 'c'
+  const cadeiras = mesa ? Math.min(i.cap || 4, 8) : 0
+  const pontos = Array.from({ length: cadeiras }, (_, n) => {
+    const a = (n / cadeiras) * Math.PI * 2
+    return { x: cx + Math.cos(a) * (w / 2 + 4), y: cy + Math.sin(a) * (h / 2 + 4) }
+  })
+  return (
+    <svg width={M} height={M} viewBox={`0 0 ${M} ${M}`} aria-hidden className="mapa-mini flex-shrink-0" style={{ '--c': cor } as CSSProperties}>
+      {pontos.map((p, n) => <circle key={n} cx={p.x} cy={p.y} r={2.8} />)}
+      {redonda ? <ellipse cx={cx} cy={cy} rx={w / 2} ry={h / 2} /> : <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={2} />}
+    </svg>
+  )
+}
+
+const LARG_DICA = 288
+// Popover "O que é": fica fora da barra (portal) para não ser cortado pela rolagem nem pela gaveta; à direita do cartão se couber, senão sobre a tela
+function Dica({ item, ancora, onEntrar, onSair }: { item: ItemCatalogo; ancora: DOMRect; onEntrar: () => void; onSair: () => void }) {
+  const ref = REFERENCIAS[item.id]
+  const lado = window.innerWidth - ancora.right >= LARG_DICA + 16
+  const left = lado ? ancora.right + 8 : Math.max(8, (window.innerWidth - LARG_DICA) / 2)
+  const top = Math.max(8, Math.min(lado ? ancora.top : ancora.bottom + 8, window.innerHeight - 300))
+  return createPortal(
+    <div id="mapa-dica" role="tooltip" data-dica onMouseEnter={onEntrar} onMouseLeave={onSair} style={{ left, top, width: Math.min(LARG_DICA, window.innerWidth - 16) }}
+      className="mapa-viva fixed z-[80] rounded-lg border border-border bg-card p-3 text-sm text-foreground shadow-lg">
+      <div className="flex items-center gap-3">
+        <Ilustracao familia={ref.ilustracao} cor={item.cor || '#94a3b8'} tamanho={64} className="flex-shrink-0 rounded-md bg-foreground/5 p-1" />
+        <div className="min-w-0">
+          <p className="font-semibold leading-tight">{item.nome}</p>
+          {item.w > 0 && <p className="text-xs text-muted-foreground">{fmt(item.w)} × {fmt(item.h)} m</p>}
+        </div>
+      </div>
+      <p className="mt-2 leading-snug text-muted-foreground">{ref.descricao}</p>
+    </div>, document.body)
+}
+
+// Barra lateral: navegação em ícones, busca fixa e categorias recolhíveis com cartões. Escolher um item arma a ferramenta; o clique no mapa cria o elemento.
+export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: string; onEscolher: (id: string) => void }) {
+  const [busca, setBusca] = useState('')
+  const [abertas, setAbertas] = useState<Record<string, boolean>>({ seating: true })
+  const [dica, setDica] = useState<{ id: string; ancora: DOMRect; fixa: boolean } | null>(null) // popover "O que é" (hover/foco abrem; o botão (i) fixa, para toque)
+  const q = busca.trim().toLowerCase()
+  const cats = CATEGORIAS.filter(c => c.id !== 'navigation')
+    .map(c => ({ ...c, itens: q ? c.itens.filter(i => i.nome.toLowerCase().includes(q)) : c.itens }))
+    .filter(c => c.itens.length)
+
+  useEffect(() => {
+    if (!dica) return
+    // Esc só é "engolido" quando a dica está fixa (senão chega ao editor); rolagem e redimensionar fecham, pois a âncora mudou de lugar
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (dica.fixa) e.stopPropagation(); setDica(null) } }
+    const fecha = () => setDica(null)
+    const fora = (e: PointerEvent) => { if (!(e.target as Element).closest?.('[data-dica]')) setDica(null) }
+    window.addEventListener('keydown', esc, true); document.addEventListener('pointerdown', fora); window.addEventListener('scroll', fecha, true); window.addEventListener('resize', fecha)
+    return () => { window.removeEventListener('keydown', esc, true); document.removeEventListener('pointerdown', fora); window.removeEventListener('scroll', fecha, true); window.removeEventListener('resize', fecha) }
+  }, [dica])
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const cancelar = () => clearTimeout(timer.current)
+  const abrir = (id: string, el: Element, fixa = false) => { cancelar(); setDica(d => (d?.fixa && !fixa ? d : { id, ancora: el.getBoundingClientRect(), fixa })) }
+  const fechar = () => { cancelar(); timer.current = setTimeout(() => setDica(d => (d?.fixa ? d : null)), 150) } // atraso: o ponteiro pode ir do cartão ao popover (WCAG 1.4.13)
+  const itemDica = dica ? CATEGORIAS.flatMap(c => c.itens).find(i => i.id === dica.id) : undefined
+
+  return (
+    <nav aria-label="Paleta de elementos" className="flex h-full w-full flex-col bg-card text-foreground">
+      <div className="sticky top-0 z-10 space-y-2 border-b border-border bg-card p-3">
+        <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Navegação">
+          {NAVEGACAO.map(({ id, nome, Icone }) => (
+            <button key={id} type="button" aria-pressed={ferramenta === id} title={nome} onClick={() => onEscolher(id)}
+              className={`mapa-anim flex h-9 max-lg:h-10 flex-col items-center justify-center rounded-md border text-xs ${ferramenta === id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-foreground/30 hover:bg-foreground/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
+              <Icone className="h-4 w-4" aria-hidden /><span className="sr-only">{nome}</span>
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar elemento…" aria-label="Buscar elemento"
+            className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-8 text-sm outline-none [&::-webkit-search-cancel-button]:hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
+          {busca && (
+            <button type="button" aria-label="Limpar busca" onClick={() => setBusca('')} className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-foreground/10">
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="mapa-rolagem min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-3">
+        {cats.map(c => {
+          const aberta = q ? true : !!abertas[c.id]
+          const Icone = ICONES[c.id]
+          return (
+            <section key={c.id} className={`rounded-lg border ${aberta ? 'border-border bg-foreground/[0.03]' : 'border-transparent'}`}>
+              <button type="button" aria-expanded={aberta} onClick={() => setAbertas(a => ({ ...a, [c.id]: !a[c.id] }))}
+                className="mapa-anim flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Icone className={`h-4 w-4 flex-shrink-0 ${aberta ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden />
+                <span className="min-w-0 flex-1 text-sm font-semibold">{c.nome}</span>
+                <span className="rounded-full bg-foreground/10 px-1.5 text-xs text-muted-foreground">{c.itens.length}</span>
+                <ChevronDown className={`mapa-anim h-4 w-4 flex-shrink-0 text-muted-foreground ${aberta ? 'rotate-180' : ''}`} aria-hidden />
+              </button>
+              <div className={`mapa-colapso ${aberta ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`} inert={!aberta}>
+                <div className="min-h-0 overflow-hidden">
+                  <ul className="grid grid-cols-2 gap-2 p-2 pt-1">
+                    {c.itens.map(i => {
+                      const ativo = ferramenta === i.id
+                      return (
+                        <li key={i.id} className="relative min-w-0" data-dica onMouseEnter={e => abrir(i.id, e.currentTarget)} onMouseLeave={fechar} onFocus={e => abrir(i.id, e.currentTarget)} onBlur={fechar}>
+                          <button type="button" aria-pressed={ativo} onClick={() => { setDica(null); onEscolher(i.id) }} aria-describedby={dica?.id === i.id ? 'mapa-dica' : undefined}
+                            className={`mapa-anim mapa-cartao flex h-full w-full flex-col items-center gap-1.5 rounded-md border p-2 text-center hover:scale-[1.03] hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${ativo ? 'mapa-pulso border-primary bg-primary/15' : 'border-border bg-card'}`}>
+                            <Miniatura i={i} />
+                            {REFERENCIAS[i.id] && <Ilustracao familia={REFERENCIAS[i.id].ilustracao} cor={i.cor || '#94a3b8'} tamanho={22} className="pointer-events-none absolute right-1.5 top-1.5" />}
+                            <span className="text-[13px] font-medium leading-tight [overflow-wrap:anywhere]">{i.nome}</span>
+                            {i.w > 0 && <span className="text-xs leading-none text-muted-foreground">{fmt(i.w)} × {fmt(i.h)} m</span>}
+                          </button>
+                          <button type="button" aria-label={`O que é: ${i.nome}`} aria-expanded={dica?.id === i.id} onClick={e => (dica?.id === i.id && dica.fixa ? setDica(null) : abrir(i.id, e.currentTarget.parentElement!, true))}
+                            className="mapa-anim absolute left-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:h-10 max-lg:w-10">
+                            <Info className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          )
+        })}
+        {dica && itemDica && REFERENCIAS[itemDica.id] && <Dica item={itemDica} ancora={dica.ancora} onEntrar={cancelar} onSair={fechar} />}
+        {!cats.length && <p className="p-2 text-sm text-muted-foreground">Nenhum elemento com “{busca}”.</p>}
+      </div>
+    </nav>
+  )
+}

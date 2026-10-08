@@ -97,10 +97,10 @@ describe('conferirArquivo', () => {
 })
 
 describe('tipos x editor', () => {
-  it('cada tipo da lista existe no toolDefaults e em typeLabels do SeatingMap', () => {
-    const src = readFileSync(resolve(process.cwd(), 'src/pages/producer/SeatingMap.tsx'), 'utf8')
-    const defaults = src.slice(src.indexOf('const toolDefaults'), src.indexOf('const TOOL_CATEGORIES'))
-    const rotulos = src.slice(src.indexOf('const typeLabels'), src.indexOf('let _nextId'))
+  it('cada tipo da lista existe no toolDefaults e em typeLabels do modelo do mapa', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/pages/producer/mapa/modelo.ts'), 'utf8')
+    const defaults = src.slice(src.indexOf('export const toolDefaults'), src.indexOf('export const novosPavimentos'))
+    const rotulos = src.slice(src.indexOf('export const typeLabels'), src.indexOf('export const toolDefaults'))
     for (const t of TIPOS) {
       expect(defaults, t).toMatch(new RegExp(`\\b${t}: \\{ wMeter: [1-9\\d.]+`))
       expect(rotulos, t).toMatch(new RegExp(`\\b${t}:`))
