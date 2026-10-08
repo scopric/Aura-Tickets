@@ -3,11 +3,11 @@ import { cn } from '@/lib/utils'
 
 export type ItemLateral = { id: string; nome: string; pronta: boolean; faltam: number; atual: boolean }
 
-// Lateral fixa (a partir de 1180 px) do painel do evento: "N de 8 prontos" e as seções, com ✓ ou o contador do que falta.
+// Lateral fixa (a partir de 1440 px) do painel do evento: "N/8 prontos" (sem "de": o texto "N de 8" da barra do painel é o que os e2e procuram) e as seções, com ✓ ou o contador do que falta.
 export default function LateralSecoes({ itens, onIr, prontos, total }: { itens: ItemLateral[]; onIr: (id: string) => void; prontos: number; total: number }) {
   return (
     <nav aria-label="Seções do evento" className="sticky top-6 grid gap-3 self-start">
-      <p className="px-2"><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos} de {total}</span> <span className="text-sm text-muted-foreground">prontos</span></p>
+      <p className="px-2"><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos}/{total}</span> <span className="text-sm text-muted-foreground">prontos</span></p>
       <ul className="m-0 grid list-none gap-0.5 p-0">
         {itens.map(s => (
           <li key={s.id}>
