@@ -66,6 +66,7 @@ describe('totais, entradas e CSV', () => {
   it('festa que vira a noite fica em ordem, com o dia quando passa de um', () => {
     const h = entradasPorHora(['2026-10-09T01:10:00Z', '2026-10-09T03:20:00Z']) // 22h do dia 8 e 0h do dia 9 em Brasília
     expect(h.rotulos).toEqual(['08/10 22h', '08/10 23h', '09/10 0h']); expect(h.valores).toEqual([1, 0, 1])
+    expect(h.eixo).toEqual(['08/10 22h', '23h', '09/10 0h']) // eixo curto: a data só na 1ª hora de cada dia
   })
   it('CSV com forma traz só o total daquela forma', () => {
     expect(csvCentral(v, 'pix').split('\r\n')[1]).toBe('Total;"Vendas pagas (bruto), Pix";2;"200,00"')

@@ -60,9 +60,9 @@ export function totais(v: VendasPagas, forma: string | null): { total: number; p
 }
 
 /** Entradas por hora cheia de Brasília, em ordem e sem misturar dias: da primeira à última hora com entrada */
-export function entradasPorHora(isos: string[]): { rotulos: string[]; valores: number[] } {
+export function entradasPorHora(isos: string[]): { rotulos: string[]; eixo: string[]; valores: number[] } {
   const hs = isos.map(Date.parse).filter(t => !Number.isNaN(t)).map(t => Math.floor((t - BRT) / 3600000))
-  if (!hs.length) return { rotulos: [], valores: [] }
+  if (!hs.length) return { rotulos: [], eixo: [], valores: [] }
   const ini = Math.min(...hs), fim = Math.max(...hs)
   const valores = Array<number>(fim - ini + 1).fill(0)
   for (const h of hs) valores[h - ini]++
@@ -71,7 +71,9 @@ export function entradasPorHora(isos: string[]): { rotulos: string[]; valores: n
     const d = new Date((ini + i) * 3600000) // relógio de Brasília nos campos UTC
     return `${varios ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ` : ''}${d.getUTCHours()}h`
   })
-  return { rotulos, valores }
+  // eixo: a data só na primeira hora de cada dia (rótulo curto, cabe no celular); a dica e a tabela usam o completo
+  const eixo = rotulos.map((r, i) => (varios && i > 0 && !r.endsWith(' 0h') ? r.slice(r.indexOf(' ') + 1) : r))
+  return { rotulos, eixo, valores }
 }
 
 const virgula = (n: number) => (Number(n) || 0).toFixed(2).replace('.', ',')

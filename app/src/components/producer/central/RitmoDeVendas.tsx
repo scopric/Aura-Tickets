@@ -67,7 +67,6 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-      {forma && <p className="text-xs text-muted-foreground xl:col-span-12">Com a forma de pagamento escolhida, só o bruto e os pedidos ao lado mudam. O gráfico por dia, as barras por evento e a rosca continuam com todas as formas.</p>}
 
       {/* peça principal: o gráfico do período, bem maior que o resto */}
       <Mosaico
@@ -84,10 +83,10 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
       </Mosaico>
 
       {/* painel de ritmo: um número dominante e duas linhas de apoio */}
-      <section aria-labelledby={idKpi} className="flex flex-col gap-3 xl:col-span-4">
+      <section aria-labelledby={idKpi} className="flex flex-col gap-3 self-start xl:col-span-4">
         <h2 id={idKpi} className="sr-only">Ritmo do período</h2>
         <KpiCard
-          destaque className="flex-1" rotulo="Vendas pagas (bruto)" valor={carregando ? '—' : erro || !t ? '—' : brl(t.total)}
+          destaque rotulo="Vendas pagas (bruto)" valor={carregando ? '—' : erro || !t ? '—' : brl(t.total)}
           comparacao={t ? cmp(t.total, tAnt?.total ?? null) : undefined}
           ajuda="Soma do que os compradores pagaram nos pedidos pagos, com a taxa de serviço. Pedido reembolsado fica de fora."
         />
@@ -102,6 +101,7 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
             </div>
           ))}
         </dl>
+        {forma && <p className="px-1 text-xs text-muted-foreground">Com a forma de pagamento escolhida, só o bruto e os pedidos mudam. O gráfico por dia, as barras por evento e a rosca continuam com todas as formas.</p>}
       </section>
 
       <Mosaico
