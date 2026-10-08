@@ -23,8 +23,14 @@ language plpgsql as $f$
 begin
   insert into public.orders (id, user_id, event_id, subtotal, discount, service_fee, total, status, payment_method, reservado_ate)
     values (p_id, 'fc000000-0000-4000-8000-00000000000a', p_ev, p_unit * p_qtd, p_disc, 0, p_total, 'pending', 'pix', p_ate);
-  insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio)
-    values (p_id, p_tt, p_qtd, p_unit, p_unit * p_qtd, p_ben);
+  -- meia_tipo existe em produção (20261030a) mas não no banco local do CI: só entra se a coluna existir
+  if p_ben = 'meia' and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_items' and column_name = 'meia_tipo') then
+    insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio, meia_tipo)
+      values (p_id, p_tt, p_qtd, p_unit, p_unit * p_qtd, p_ben, 'estudante');
+  else
+    insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio)
+      values (p_id, p_tt, p_qtd, p_unit, p_unit * p_qtd, p_ben);
+  end if;
 end $f$;
 grant execute on function pg_temp.novo(uuid, uuid, int, numeric, numeric, numeric, text, timestamptz, uuid) to service_role;
 
@@ -152,7 +158,7 @@ select pg_temp.como('postgres');
 select pg_temp.novo('fc000000-0000-4000-8000-0000000000d3', 'fc000000-0000-4000-8000-0000000000b1', 1, 25, 0, 25, 'meia');
 select pg_temp.como('service_role');
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d3', 'ORDE_D3', 2500), 'pago', 'meia: pago');
-select is((select beneficio || '/' || price_paid from public.tickets where order_id = 'fc000000-0000-4000-8000-0000000000d3'), 'meia/25.00', 'meia: ingresso com beneficio meia e price_paid 25');
+select is((select oi.beneficio || '/' || tk.price_paid from public.tickets tk join public.order_items oi on oi.id = tk.order_item_id where tk.order_id = 'fc000000-0000-4000-8000-0000000000d3'), 'meia/25.00', 'meia: item meia e ingresso com price_paid 25');
 
 -- p_event_id explícito diferente do id de pagamento
 select pg_temp.como('postgres');
@@ -194,6 +200,10 @@ select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a8', '
 select pg_temp.como('postgres');
 insert into public.ticket_types (id, event_id, name, price, quantity_total, max_per_order) values
   ('fc000000-0000-4000-8000-0000000000b6', 'fc000000-0000-4000-8000-0000000000e1', 'No mapa', 50, 20, 2);
+-- mapa de lugares ativo com o tipo b6: faz a tipo_no_mapa REAL (produção) valer; o stub local ignora este mapa
+insert into public.seating_maps (event_id, name, is_active, environments) values
+  ('fc000000-0000-4000-8000-0000000000e1', 'Mapa teste', true,
+   '[{"id":"default","name":"Principal","sections":[{"ticketTypeId":"fc000000-0000-4000-8000-0000000000b6"}]}]'::jsonb);
 select pg_temp.novo('fc000000-0000-4000-8000-0000000000a9', 'fc000000-0000-4000-8000-0000000000b6', 2, 50, 0, 100);
 select pg_temp.como('service_role');
 select public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a9', 'ORDE_H1', 10000);

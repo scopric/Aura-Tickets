@@ -28,7 +28,7 @@
 --    criado na fatia 2 DEVE ser <= reservado_ate, senão o cliente paga um Pix ainda válido que aqui vira 'estorno'.
 --    A emissão dos ingressos REPLICA o trecho de emissão de confirmar_pedido_gratis (20261030a): essa função é recriada a partir de
 --    produção com conferência de md5 e depende de auth.uid(); mexer nela agora arrisca a venda gratuita. Se mudar lá (sold, tickets), mudar aqui.
---    Acrescenta price_paid e beneficio (inteira/meia), que o gratuito deixa no padrão. price_paid = unit_price menos o desconto do cupom
+--    Acrescenta price_paid, que o gratuito deixa no padrão (o beneficio inteira/meia fica em order_items.beneficio: tickets não tem essa coluna em produção). price_paid = unit_price menos o desconto do cupom
 --    rateado entre os ingressos de benefício 'inteira' (meia não recebe desconto, como em reservar_ingressos), sem a taxa. Não repete o
 --    rateio inteiro de reservar_ingressos (a base nominal do cupom não fica gravada): usa orders.discount, que já é o desconto aplicado;
 --    pode diferir em centavos do arredondamento de lá.
@@ -152,8 +152,8 @@ begin
           raise exception 'Ingressos esgotados' using errcode = '22023';
         end if;
         v_pp := case when it.beneficio = 'inteira' and v_base > 0 then it.unit_price - round(o.discount * it.unit_price / v_base, 2) else it.unit_price end;
-        insert into public.tickets (order_item_id, order_id, ticket_type_id, event_id, user_id, buyer_name, buyer_email, status, price_paid, beneficio)
-        select it.id, o.id, it.ticket_type_id, o.event_id, o.user_id, v_nome, v_email, 'active', v_pp, it.beneficio
+        insert into public.tickets (order_item_id, order_id, ticket_type_id, event_id, user_id, buyer_name, buyer_email, status, price_paid)
+        select it.id, o.id, it.ticket_type_id, o.event_id, o.user_id, v_nome, v_email, 'active', v_pp
           from generate_series(1, it.quantity);
         n := n + it.quantity;
       end loop;
