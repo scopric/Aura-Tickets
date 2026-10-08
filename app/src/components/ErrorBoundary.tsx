@@ -23,17 +23,6 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, errorInfo)
-    // Depois de um deploy, a página aberta pede um arquivo que não existe mais: recarrega sozinho uma vez
-    // (a cada 60 s no máximo, para não entrar em laço se o arquivo realmente sumiu).
-    if (/dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(error.message)) {
-      try {
-        const ultima = Number(sessionStorage.getItem('evk-chunk-reload') ?? 0)
-        if (Date.now() - ultima > 60_000) {
-          sessionStorage.setItem('evk-chunk-reload', String(Date.now()))
-          window.location.reload()
-        }
-      } catch { /* sem sessionStorage: fica a tela de erro com o botão Recarregar */ }
-    }
   }
 
   handleReload = () => {
