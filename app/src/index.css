@@ -1338,3 +1338,17 @@ body {
   .painel-produtor > aside, .painel-produtor > nav, .painel-produtor > [role="region"], .painel-produtor > div > .sticky, .painel-produtor [data-tour="evo"] { display: none !important; }
   .painel-produtor > div { margin-left: 0 !important; padding-bottom: 0 !important; }
 }
+
+/* ---- Login: passo do código 2FA (MfaCodigo.tsx) ---- */
+.mfa-anel { background: conic-gradient(from 0deg, #7c3aed, #3b82f6, #ec4899, #7c3aed); box-shadow: 0 8px 30px -8px rgb(124 58 237 / .5); }
+.mfa-anel--digitando { box-shadow: 0 0 0 6px rgb(124 58 237 / .12), 0 8px 30px -8px rgb(124 58 237 / .6); }
+.mfa-anel--ok { background: #10b981; box-shadow: 0 0 0 8px rgb(16 185 129 / .18), 0 8px 30px -8px rgb(16 185 129 / .6); }
+.mfa-anel--erro { background: #ef4444; box-shadow: 0 0 0 6px rgb(239 68 68 / .15); }
+@keyframes mfa-flutuar { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes mfa-pulo { 0%, 100% { transform: scale(1) } 40% { transform: scale(1.12) } }
+@keyframes mfa-tremer { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-8px) } 40% { transform: translateX(8px) } 60% { transform: translateX(-5px) } 80% { transform: translateX(5px) } }
+@media (prefers-reduced-motion: no-preference) {
+  .mfa-anel { animation: mfa-flutuar 3.2s ease-in-out infinite; }
+  .mfa-anel--ok { animation: mfa-pulo .6s ease-out; }
+  .mfa-tremer { animation: mfa-tremer .45s ease-in-out; }
+}

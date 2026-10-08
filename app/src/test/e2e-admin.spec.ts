@@ -45,7 +45,7 @@ test.describe('admin com conta real', () => {
     const erros: string[] = []
     page.on('pageerror', e => erros.push(String(e)))
     await login(page, email!, senha!)
-    if (await page.getByText('Código de Autenticação').isVisible().catch(() => false)) {
+    if (await page.getByText('Digite o código do seu app').isVisible().catch(() => false)) {
       test.skip(true, 'a conta de teste tem 2FA; use uma conta sem 2FA para os e2e')
     }
 
