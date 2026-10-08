@@ -10,10 +10,11 @@ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect()
 const q = (data: unknown, extra: Record<string, unknown> = {}) => ({ data, isLoading: false, isError: false, isFetching: false, refetch: vi.fn(), ...extra })
 const banco = vi.hoisted(() => ({
   eventos: { current: {} as Record<string, unknown> }, modelos: { current: {} as Record<string, unknown> }, parts: { current: {} as Record<string, unknown> },
-  emitidos: { current: {} as Record<string, unknown> }, fator: vi.fn(), baixar: vi.fn(), emitir: vi.fn(), revogar: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  emitidos: { current: {} as Record<string, unknown> }, logoOrg: { current: null as string | null }, logoCarregando: { current: false }, fator: vi.fn(), baixar: vi.fn(), emitir: vi.fn(), revogar: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('sonner', () => ({ toast: banco.toast }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
+vi.mock('../hooks/useLogoProdutor', () => ({ useLogoProdutor: () => ({ logo: { data: banco.logoOrg.current, isLoading: banco.logoCarregando.current } }) }))
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => banco.eventos.current }))
 vi.mock('../lib/vendasPagas', () => ({ faltaSegundoFator: banco.fator }))
 vi.mock('../lib/exportCsv', async orig => ({ ...(await orig<typeof import('../lib/exportCsv')>()), downloadCsv: banco.baixar }))
@@ -42,7 +43,7 @@ const comDados = (emitidos = [emi('i1', 'p1', 'cod-ana')]) => {
 }
 
 describe('tela Certificados', () => {
-  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); banco.fator.mockResolvedValue(false); banco.emitir.mockResolvedValue([]); banco.revogar.mockResolvedValue(undefined) })
+  beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co'); banco.logoOrg.current = null; banco.logoCarregando.current = false; localStorage.clear(); banco.fator.mockResolvedValue(false); banco.emitir.mockResolvedValue([]); banco.revogar.mockResolvedValue(undefined) })
 
   it('cabeçalho do evento, KPIs (elegíveis, emitidos, pendentes) e Em breve com botões desativados', () => {
     comDados(); montar()
@@ -120,7 +121,7 @@ describe('tela Certificados', () => {
   describe('PDF', () => {
     let imprimir: ReturnType<typeof vi.fn>
     beforeEach(() => { imprimir = vi.fn(); window.print = imprimir })
-    afterEach(() => { document.body.classList.remove('imprimindo-cert') })
+    afterEach(() => { document.body.classList.remove('imprimindo-cert'); vi.unstubAllEnvs() })
 
     it('um participante: uma folha com o nome e o código dele', async () => {
       comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
@@ -157,6 +158,48 @@ describe('tela Certificados', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
       await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(2))
       expect(document.querySelectorAll('#cert-print')).toHaveLength(1)
+    })
+
+    const ORG = 'https://test.supabase.co/storage/v1/object/public/logos-produtor/u1/abcdefgh.png' // mesmo host do stubEnv do beforeEach
+    it('modelo sem logo gravada usa a logo do organizador no PDF', async () => {
+      banco.logoOrg.current = ORG
+      comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
+      await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
+      expect(document.querySelector('#cert-print .cert-folha img')).toHaveAttribute('src', ORG)
+    })
+    it('enquanto a logo do organizador carrega, os botões de PDF ficam desativados (senão sairia sem logo); com logo no modelo, não esperam', async () => {
+      banco.logoCarregando.current = true
+      comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      expect(screen.getByRole('button', { name: 'Baixar PDF de Ana' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /Baixar PDF de todos/ })).toBeDisabled()
+    })
+    it('modelo que já tem logo não espera a logo do organizador', async () => {
+      banco.logoCarregando.current = true
+      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgo=' }, is_active: true }])
+      montar('/producer/certificados?eventId=e1&aba=emitidos')
+      expect(screen.getByRole('button', { name: 'Baixar PDF de Ana' })).toBeEnabled()
+    })
+    it('modelo com logo própria mantém a dele no PDF, mesmo havendo logo do organizador', async () => {
+      banco.logoOrg.current = ORG
+      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgo=' }, is_active: true }])
+      montar('/producer/certificados?eventId=e1&aba=emitidos')
+      await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
+      await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
+      expect(document.querySelector('#cert-print .cert-folha img')).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=')
+    })
+    it('sem logo nenhuma, o PDF sai sem imagem (e sem erro)', async () => {
+      comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
+      await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
+      expect(document.querySelector('#cert-print .cert-folha img')).toBeNull()
+    })
+    it('logo do organizador fora do padrão (outro host) não vai para o PDF', async () => {
+      banco.logoOrg.current = 'https://evil.example/logo.png'
+      comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
+      await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
+      expect(document.querySelector('#cert-print .cert-folha img')).toBeNull()
     })
 
     it('espera as imagens decodificarem antes de imprimir', async () => {

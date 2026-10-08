@@ -6,6 +6,7 @@ import * as I from '@/components/icones/evokaa16'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import { useLogoProdutor } from '../../hooks/useLogoProdutor'
 import {
   useEventCertificates,
   useParticipantesCertificado,
@@ -18,7 +19,7 @@ import { faltaSegundoFator } from '../../lib/vendasPagas'
 import { downloadCsv, csvFilename, slugArquivo } from '../../lib/exportCsv'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import { dataBR } from '../../lib/bordero'
-import { LIMITES, csvEmitidos, dataLonga, modeloComCor, modeloPorId, partesDoLote, sanearTemplate, type DadosCertificado } from '../../lib/certificados'
+import { LIMITES, csvEmitidos, dataLonga, imagemSegura, modeloComCor, modeloPorId, partesDoLote, sanearTemplate, type DadosCertificado } from '../../lib/certificados'
 import { CabecalhoEvento, EmBreve, KpiCard } from '@/components/producer/ui-evento'
 import { ImpressaoCertificados } from '@/components/producer/CertificadoDesenho'
 import { EmptyState, Erro, SectionTitle, selectNativo } from '@/components/producer/ui'
@@ -122,6 +123,12 @@ export default function Certificates() {
 
   const nomeEmitido = (c: CertificadoEmitido) => nomeDe.get(c.user_id) ?? 'Nome indisponível'
   const modeloVisual = modelo ? sanearTemplate(modelo.template) : null
+  // Modelo sem logo gravada (salvo antes da logo do organizador existir, ou nunca salvo com ela) usa a logo salva em Configurações:
+  // o PDF sai com a mesma logo que a prévia do editor mostra. Modelo com logo (própria ou guardada) mantém a dele.
+  const { logo: logoOrg } = useLogoProdutor()
+  const logoDoPdf = modeloVisual ? (modeloVisual.logoUrl ?? imagemSegura(logoOrg.data ?? null)) : null
+  // clicar em PDF antes de a logo chegar abriria a impressão sem ela (a espera de imagens não tem o que esperar): trava o botão até chegar
+  const esperandoLogo = !!modeloVisual && !modeloVisual.logoUrl && logoOrg.isLoading
 
   // PDF: o contêiner só-impressão usa o mesmo desenho da prévia do editor, um certificado por folha
   const dadosDe = (c: CertificadoEmitido): DadosCertificado => ({
@@ -284,7 +291,7 @@ export default function Certificates() {
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0}><I.Baixar aria-hidden="true" />Exportar CSV</Button>
                   {partes.map((parte, i) => (
-                    <Button key={i} className="min-h-11" onClick={() => imprimir(parte.map(dadosDe))}>
+                    <Button key={i} className="min-h-11" onClick={() => imprimir(parte.map(dadosDe))} disabled={esperandoLogo}>
                       <I.Imprimir aria-hidden="true" />{partes.length === 1 ? `Baixar PDF de todos (${parte.length})` : `Baixar PDF: ${i * LIMITES.loteMax + 1} a ${i * LIMITES.loteMax + parte.length}`}
                     </Button>
                   ))}
@@ -304,7 +311,7 @@ export default function Certificates() {
                         <p className="truncate font-mono text-xs text-muted-foreground">Código {c.code} · emitido em {dataDe(c.issued_at)}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id)} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</Button>
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id) || esperandoLogo} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</Button>
                         <Button variant="ghost" size="sm" className={`min-h-11 ${icone}`} onClick={() => setRevogando({ id: c.id, nome: nomeEmitido(c) })} disabled={revogar.isPending} aria-label={`Revogar o certificado de ${nomeEmitido(c)}`}>Revogar</Button>
                       </div>
                     </li>
@@ -362,7 +369,7 @@ export default function Certificates() {
       </AlertDialog>
       {impressao && modeloVisual && (
         <ImpressaoCertificados key={impressao.id} itens={impressao.itens.map(dados => ({ dados }))} modelo={modeloComCor(modeloPorId(modeloVisual.selectedTemplate), modeloVisual.accentColor)}
-          campos={modeloVisual.fields} logoUrl={modeloVisual.logoUrl} sigUrl={modeloVisual.sigUrl} onFim={() => setImpressao(null)} />
+          campos={modeloVisual.fields} logoUrl={logoDoPdf} sigUrl={modeloVisual.sigUrl} onFim={() => setImpressao(null)} />
       )}
     </div>
   )
