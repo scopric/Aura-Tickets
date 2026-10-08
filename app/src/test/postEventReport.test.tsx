@@ -28,6 +28,7 @@ describe('PostEventReport', () => {
     montar()
     await waitFor(() => expect(screen.getByText(/1\.500,50/)).toBeInTheDocument())
     expect(screen.queryByText(/Ainda não há pedidos pagos/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }))
     const [nome, csv] = m.baixar.mock.calls[0]
     expect(nome).toMatch(/^evokaa-pos-evento-festa-junina-\d{4}-\d{2}-\d{2}\.csv$/)
@@ -40,9 +41,11 @@ describe('PostEventReport', () => {
   it('sem pedido pago, explica a causa', async () => {
     m.vendas = { total: 0, pedidos: 0 }
     montar()
-    expect(await screen.findByText('Ainda não há pedidos pagos neste evento; as vendas aparecem zeradas.')).toBeInTheDocument()
+    expect(await screen.findByText('Nenhum pedido pago apareceu para esta conta neste evento. Se você esperava vendas, confirme o 2FA ou entre com a conta dona do evento; as vendas aparecem zeradas.')).toBeInTheDocument()
     // participantes (7, de tickets/cortesias) não são declarados zerados
     expect(screen.queryByText(/participantes aparecem zerados/i)).toBeNull()
+    expect(screen.queryByText(/Ainda não há pedidos pagos/)).toBeNull()
+    expect(screen.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled()
     expect(screen.getByText('7')).toBeInTheDocument()
   })
 
@@ -51,5 +54,6 @@ describe('PostEventReport', () => {
     montar()
     expect(await screen.findByText('Confirme o 2FA para ver as vendas')).toBeInTheDocument()
     expect(screen.queryByText(/Ainda não há pedidos pagos/)).toBeNull()
+    expect(screen.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled()
   })
 })

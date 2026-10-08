@@ -96,6 +96,8 @@ export default function PostEventReport() {
   const nps = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
   const avgRating = total > 0 ? (surveys.reduce((s, r) => s + r.score, 0) / total).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'
 
+  const semDados = !!statsQ.data?.faltaFator || statsQ.data?.pedidos === 0
+
   function exportar() {
     const linhas = [
       { Indicador: 'Evento', Valor: selectedEvent?.title ?? '' },
@@ -145,10 +147,15 @@ export default function PostEventReport() {
                 <p className="mt-1 text-sm text-muted-foreground">Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos, e o zero seria falso.</p>
               </div>
             ) : statsQ.data?.pedidos === 0 && (
-              <p role="status" className="mb-3 text-sm text-muted-foreground">Ainda não há pedidos pagos neste evento; as vendas aparecem zeradas.</p>
+              <p role="status" className="mb-3 text-sm text-muted-foreground">Nenhum pedido pago apareceu para esta conta neste evento. Se você esperava vendas, confirme o 2FA ou entre com a conta dona do evento; as vendas aparecem zeradas.</p>
             )}
             <div className="mb-3 flex justify-end">
-              <Button variant="outline" size="sm" onClick={exportar}>Exportar CSV</Button>
+              <Button
+                variant="outline" size="sm" onClick={exportar}
+                disabled={semDados}
+                title={semDados ? 'Não há pedidos pagos visíveis para exportar.' : undefined}
+                aria-label={semDados ? 'Exportar CSV (indisponível: não há pedidos pagos visíveis para exportar)' : undefined}
+              >Exportar CSV</Button>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Stat label="NPS" value={total > 0 ? (nps > 0 ? `+${nps}` : nps) : '—'} hint={total > 0 ? `${total} resposta(s)` : 'Sem respostas'} />
