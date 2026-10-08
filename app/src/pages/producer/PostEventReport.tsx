@@ -3,7 +3,7 @@ import * as I from '@/components/icones/evokaa16'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
-import { vendasPagas } from '../../lib/vendasPagas'
+import { vendasPagas, faltaSegundoFator } from '../../lib/vendasPagas'
 import { toCsv, downloadCsv, csvFilename, slugArquivo } from '../../lib/exportCsv'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
@@ -45,7 +45,9 @@ export default function PostEventReport() {
         vendasPagas({ eventId: selectedEventId }),
       ])
       if (ingressos.error) throw ingressos.error
-      return { participants: ingressos.count ?? 0, revenue: Number(vendas.total) || 0, pedidos: Number(vendas.pedidos) || 0 }
+      return { participants: ingressos.count ?? 0, revenue: Number(vendas.total) || 0, pedidos: Number(vendas.pedidos) || 0,
+        // zero pedidos pode ser sessão sem 2FA concluído: o banco devolve zero sem erro
+        faltaFator: Number(vendas.pedidos) === 0 && (await faltaSegundoFator()) }
     },
   })
 
@@ -137,8 +139,13 @@ export default function PostEventReport() {
           />
         ) : (
           <>
-            {statsQ.data?.pedidos === 0 && (
-              <p role="status" className="mb-3 text-sm text-muted-foreground">Ainda não há pedidos pagos neste evento. Participantes e vendas aparecem zerados por isso.</p>
+            {statsQ.data?.faltaFator ? (
+              <div role="alert" className="mb-3 rounded-[10px] border border-border bg-card p-4">
+                <p className="text-sm font-medium text-foreground">Confirme o 2FA para ver as vendas</p>
+                <p className="mt-1 text-sm text-muted-foreground">Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos, e o zero seria falso.</p>
+              </div>
+            ) : statsQ.data?.pedidos === 0 && (
+              <p role="status" className="mb-3 text-sm text-muted-foreground">Ainda não há pedidos pagos neste evento; as vendas aparecem zeradas.</p>
             )}
             <div className="mb-3 flex justify-end">
               <Button variant="outline" size="sm" onClick={exportar}>Exportar CSV</Button>
