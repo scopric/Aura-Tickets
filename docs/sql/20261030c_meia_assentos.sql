@@ -16,7 +16,8 @@
 --    Itens separados em order_items (inteira x cada meia_tipo, por tipo), com beneficio, meia_tipo, unit_price e taxa_unit.
 --    Subtotal e taxa do pedido: evk_preco_meia e evk_taxa_centavos (antes: 10% com mínimo de 300 centavos escrito na função; para a
 --    inteira o resultado é o mesmo). Cupom NÃO entra aqui. A cota de 40% por tipo é a do guard (abaixo).
---    Lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então meia recusada com a mesma mensagem uniforme.
+--    Lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então meia recusada com a mesma mensagem uniforme, tanto em
+--    reservar_assentos quanto no GUARD (que também barra reservar_ingressos direto com beneficio 'meia'; inteira não muda).
 --    NULL dentro de p_seats não driblava a conferência das meias (coalesce). Itens inseridos com ordem de trava garantida (posição 'n' + order by).
 --    O retorno ganha 'meias' (quantidade); o resto igual. pedido_assentos agora é gravado ANTES dos itens (o guard precisa dele);
 --    se qualquer passo falhar, a transação inteira é desfeita como antes. pedido_assentos NÃO guarda qual lugar é meia (só os itens,
@@ -153,6 +154,10 @@ begin
   if new.beneficio = 'meia' then
     if not v_meia_ok then
       raise exception 'Este ingresso não tem meia-entrada' using errcode = '22023';
+    end if;
+    -- lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então sem meia (20261030c); vale para qualquer porta
+    if v_lotacao = 0 then
+      raise exception 'Meia-entrada não disponível para algum dos lugares escolhidos' using errcode = '22023';
     end if;
     -- meia em lugar marcado (20261030c): só em lugar individual já preso a este pedido (reservar_assentos grava pedido_assentos antes dos itens)
     if v_mapa and (select coalesce(sum(oi.quantity), 0) from public.order_items oi

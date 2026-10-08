@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(35);
+select plan(37);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -163,6 +163,17 @@ select throws_ok($$insert into public.order_items (order_id, ticket_type_id, qua
 select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio, meia_tipo, taxa_unit)
   values ('fe000000-0000-4000-8000-0000000000f1', 'fe000000-0000-4000-8000-0000000000b1', 1, 50, 50, 'meia', 'estudante', 5)$$,
   '22023', 'Meia-entrada em lugar marcado só vale em lugar individual escolhido', 'guard: meia em tipo do mapa sem lugar individual preso ao pedido é recusada');
+
+-- 9b. Lotação 0 no guard e em reservar_ingressos (porta de tipo sem lugar marcado): meia recusada, inteira vende
+insert into public.ticket_types (id, event_id, name, price, quantity_total, type, is_active) values
+  ('fe000000-0000-4000-8000-0000000000b6', 'fe000000-0000-4000-8000-0000000000e1', 'Sem lotação', 40, 0, 'individual', true);
+select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, subtotal, beneficio, meia_tipo, taxa_unit)
+  values ('fe000000-0000-4000-8000-0000000000f1', 'fe000000-0000-4000-8000-0000000000b6', 1, 20, 20, 'meia', 'estudante', 3)$$,
+  '22023', 'Meia-entrada não disponível para algum dos lugares escolhidos', 'guard: meia em tipo de lotação 0 é recusada');
+select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000005');
+select is((select public.reservar_ingressos('fe000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fe000000-0000-4000-8000-0000000000b6","quantidade":1,"beneficio":"meia","meia_tipo":"estudante"}]')->>'mensagem'),
+  'Meia-entrada não disponível para algum dos lugares escolhidos', 'reservar_ingressos: meia em tipo de lotação 0 volta ok:false com a mensagem uniforme');
 
 -- 10. Navegador (authenticated) não grava item de meia direto: política gf_order_items_so_inteira
 select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000008');
