@@ -118,7 +118,7 @@ export function useCreateOrder() {
       // Uma porta só: o servidor calcula preço, meia, taxa, cupom e prazo, cria o pedido e os itens e cancela a reserva anterior da conta.
       const { data, error } = await supabase.rpc('reservar_ingressos' as never, {
         p_event_id: event_id,
-        p_itens: items.map(i => ({ ticket_type_id: i.ticket_type_id, quantidade: i.quantity, beneficio: i.beneficio ?? 'inteira', meia_tipo: i.meia_tipo ?? null })),
+        p_itens: items.map(i => ({ ticket_type_id: i.ticket_type_id, quantidade: i.quantity, beneficio: i.beneficio ?? 'inteira', ...(i.meia_tipo ? { meia_tipo: i.meia_tipo } : {}) })), // sem meia_tipo na inteira: o servidor recusa o JSON null (jsonb_typeof = 'null')
         p_cupom: cupom?.trim() || null,
         p_cpf: exigeCpf ? (customer_cpf ?? '').replace(/\D/g, '') || null : null,
       } as never)
