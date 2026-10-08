@@ -38,14 +38,12 @@ jobs:
 
       - name: Aplicar docs/sql
         run: |
-          set -o pipefail
           supabase/tests/ci-aplicar.sh | tee ci-aplicar.log
 
       - name: supabase test db
         id: testes
         continue-on-error: true
         run: |
-          set -o pipefail
           supabase test db 2>&1 | tee testes.log
 
       - name: Resumo
@@ -54,6 +52,7 @@ jobs:
           {
             echo "## pgTAP"
             echo "Resultado do \`supabase test db\`: **${{ steps.testes.outcome }}** (job informativo, não bloqueia o merge)."
+            echo "docs/sql que não aplicaram: **$(grep -c '^NAO APLICOU' ci-aplicar.log 2>/dev/null || echo '?')** (os testes que dependem deles falham; 'success' só vale com zero aqui)."
             echo
             echo "### Arquivos de teste"
             echo '```'
