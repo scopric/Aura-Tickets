@@ -160,6 +160,14 @@ Deno.test("cancelamento falha mas a releitura mostra a charge CANCELED -> sucess
   assertEquals((await handler(await req(), m.deps)).status, 200);
   assert(!m.logs.some(l => l.includes("ALERTA")));
 });
+Deno.test("cancelamento falha e a releitura mostra IN_DISPUTE -> ALERTA ESTORNO_STATUS e 200 (não conta como estornado)", async () => {
+  const m = montar({ rpc: "estorno", falhaCancel: true, releitura: consulta("IN_DISPUTE") });
+  const r = await handler(await req(), m.deps);
+  assertEquals(r.status, 200);
+  assert(m.logs.some((l: string) => l.includes("ALERTA_PAGBANK ESTORNO_STATUS")));
+  assert(!m.logs.some((l: string) => l.includes("já estornada")));
+});
+
 Deno.test("charge já CANCELED na consulta -> 200 sem RPC nem cancelamento", async () => {
   const m = montar({ consulta: consulta("CANCELED") });
   assertEquals((await handler(await req(), m.deps)).status, 200);

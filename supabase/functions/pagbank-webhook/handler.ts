@@ -31,6 +31,7 @@
 //   VARIAS_PAID          mais de uma charge PAID no pedido (200, nada feito). Ação: reconciliar e estornar à mão a excedente.
 //   RPC_ERRO             confirmar_pedido_pago lançou (500). Ação: dinheiro pode ter entrado sem desfecho; ver logs do banco.
 //   ESTORNO_FALHOU       cancelamento falhou e a charge segue PAID (502, PagBank reenvia). Ação: se repetir, estornar no painel.
+//   ESTORNO_STATUS       cancelamento falhou e a charge saiu de PAID por outro motivo (disputa/chargeback; 200, sem repetir). Ação: reconciliar à mão.
 //   CONFLITO             o ORDE_ já é de outro pedido (200). Ação: conferir os dois pedidos antes de estornar à mão.
 //   NAO_ENCONTRADO       reference_id sem pedido no banco (200). Ação: investigar; estornar à mão se não houver pedido.
 //   RETORNO_DESCONHECIDO a RPC devolveu algo fora do contrato (200, sem estorno). Ação: conferir a versão da função no banco.
@@ -161,8 +162,13 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
       try {
         const de = chargesDe(await d.pagbank(`/orders/${id}`, { method: 'GET' })).find(x => x?.id === cid)
         const s = de?.amount?.summary
-        if (de && (de.status !== 'PAID' || (s?.refunded ?? 0) >= (s?.paid ?? Infinity))) {
-          d.log(`pagbank-webhook: pedido ${pid} ${res}: ${curto(cid)} já fora de PAID (${String(de.status).slice(0, 12)})`)
+        if (de && (de.status === 'CANCELED' || (s?.refunded ?? 0) >= (s?.paid ?? Infinity))) {
+          d.log(`pagbank-webhook: pedido ${pid} ${res}: ${curto(cid)} já estornada (${String(de.status).slice(0, 12)})`)
+          return ok()
+        }
+        // saiu de PAID por outro motivo (disputa, chargeback...): o dinheiro NÃO voltou ao cliente; alerta e 200 (nada a repetir)
+        if (de && de.status !== 'PAID') {
+          alerta('ESTORNO_STATUS', pid, `${res} ${curto(cid)} status ${String(de.status).slice(0, 16)}, reconciliar à mão`)
           return ok()
         }
       } catch { /* releitura falhou: cai no alerta */ }
