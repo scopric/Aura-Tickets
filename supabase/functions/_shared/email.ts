@@ -51,7 +51,7 @@ export function emailShell(title: string, intro: string, body: string, ctaLabel:
 
 // Sem modo "demo": sem chave não há envio, e quem chama responde 503 (ver MANDA_EMAIL abaixo). Fingir
 // envio fazia a tela dizer "enviado" sem ninguém receber nada.
-export async function sendMail(to: string, subject: string, html: string, from: string) {
+export async function sendMail(to: string, subject: string, html: string, from: string, attachments?: { filename: string; content: string }[]) {
   if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY ausente");
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -65,6 +65,7 @@ export async function sendMail(to: string, subject: string, html: string, from: 
       to: [to],
       subject,
       html,
+      ...(attachments ? { attachments } : {}),
     }),
     // Resend travada não prende a função. 60 s: send-email (newsletter em lote) e admin-invite usam.
     signal: AbortSignal.timeout(60000),
