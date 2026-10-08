@@ -7,6 +7,7 @@ import { reenvioDoProdutor, TIPO_LOG_PRODUTOR, LIMITE_PRODUTOR_POR_PEDIDO, LIMIT
 import { adminCan, comoQuemChamou, mfaOk } from "../_shared/mfa.ts";
 import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
+import { formatarHora } from "../_shared/hora.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -42,7 +43,7 @@ function getWelcomeHtml(rawName: string, role: "user" | "producer") {
         <p style="margin: 0;"><strong>4.</strong> No dia do evento, use o Check-in para validar os ingressos na portaria.</p>
       </div>
     `;
-    return emailShell("Bem-vindo(a) à Evokaa!", `Olá, ${name}! Sua conta de produtor está pronta.`, steps, "Criar meu primeiro evento", `${APP_URL}/producer/events/new`);
+    return emailShell("Bem-vindo(a) à Evokaa", `Olá, ${name}. Sua conta de produtor está pronta.`, steps, "Criar meu primeiro evento", `${APP_URL}/producer/events/new`);
   }
   const steps = `
     <div style="background-color: ${colors.canvas}; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 14px; line-height: 1.8; color: ${colors.textDark};">
@@ -51,7 +52,7 @@ function getWelcomeHtml(rawName: string, role: "user" | "producer") {
       <p style="margin: 0;"><strong>3.</strong> Seus ingressos ficam disponíveis pelo Hub, em "Meus Ingressos".</p>
     </div>
   `;
-  return emailShell("Bem-vindo(a) à Evokaa!", `Olá, ${name}! Sua conta está pronta.`, steps, "Ver eventos disponíveis", `${APP_URL}/events`);
+  return emailShell("Bem-vindo(a) à Evokaa", `Olá, ${name}. Sua conta está pronta.`, steps, "Ver eventos disponíveis", `${APP_URL}/events`);
 }
 
 function getSignupNotificationHtml(rawName: string, rawEmail: string, role: string) {
@@ -59,7 +60,7 @@ function getSignupNotificationHtml(rawName: string, rawEmail: string, role: stri
   const email = escapeHtml(rawEmail);
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-      <div style="background-color: ${colors.plum}; padding: 24px; text-align: center; color: white;">
+      <div style="background-color: ${colors.marca}; padding: 24px; text-align: center; color: white;">
         <h2 style="margin: 0; font-size: 18px;">Novo cadastro na Evokaa</h2>
       </div>
       <div style="padding: 24px; font-size: 14px; color: ${colors.textDark}; line-height: 1.8;">
@@ -108,17 +109,17 @@ function getContactHtml(rawName: string, rawEmail: string, rawPhone: string, raw
 function getOrderConfirmationHtml(recipientName: string, eventTitle: string, orderId: string, createdDate: string, total: number) {
   return `
     <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);">
-        <div style="background-color: ${colors.plum}; padding: 40px 30px; text-align: center; color: #FFFFFF;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
+        <div style="background-color: ${colors.marca}; padding: 40px 30px; text-align: center; color: #FFFFFF;">
           <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Evokaa</h1>
-          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 16px;">Seu pagamento foi confirmado com sucesso!</p>
+          <p style="margin: 10px 0 0 0; color: #FFFFFF; font-size: 16px;">Pagamento confirmado</p>
         </div>
         <div style="padding: 30px;">
-          <h2 style="font-size: 20px; margin-top: 0; color: ${colors.plum};">Olá, ${recipientName}!</h2>
+          <h2 style="font-size: 20px; margin-top: 0; color: ${colors.marca};">Olá, ${recipientName}</h2>
           <p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">Preparamos tudo para você. O pagamento do seu pedido foi processado e seus ingressos já estão ativos.</p>
 
           <div style="background-color: ${colors.canvas}; border-radius: 12px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin-top: 0; font-size: 16px; color: ${colors.espresso}; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">Resumo do Pedido</h3>
+            <h3 style="margin-top: 0; font-size: 16px; color: ${colors.marinho}; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">Resumo do Pedido</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr>
                 <td style="padding: 6px 0; font-weight: bold; color: ${colors.textMuted};">Evento:</td>
@@ -134,20 +135,20 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
               </tr>
               <tr>
                 <td style="padding: 12px 0 6px 0; font-weight: bold; color: ${colors.textDark}; font-size: 16px; border-top: 1px dashed rgba(0,0,0,0.1);">Total Pago:</td>
-                <td style="padding: 12px 0 6px 0; text-align: right; font-weight: bold; color: ${colors.plumLight}; font-size: 18px; border-top: 1px dashed rgba(0,0,0,0.1);">R$ ${total.toFixed(2)}</td>
+                <td style="padding: 12px 0 6px 0; text-align: right; font-weight: bold; color: ${colors.marca}; font-size: 18px; border-top: 1px dashed rgba(0,0,0,0.1);">R$ ${total.toFixed(2)}</td>
               </tr>
             </table>
           </div>
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${APP_URL}/app/tickets" style="background-color: ${colors.plum}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px; box-shadow: 0 4px 6px rgba(126,34,206,0.2);">Acessar Meus Ingressos</a>
+            <a href="${APP_URL}/app/tickets" style="background-color: ${colors.marca}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px;">Acessar Meus Ingressos</a>
           </div>
 
           <p style="font-size: 13px; color: ${colors.textMuted}; text-align: center; line-height: 1.5;">Os ingressos em formato digital com QR Code foram enviados em um e-mail separado. Você também poderá acessá-los a qualquer momento pelo nosso app.</p>
         </div>
-        <div style="background-color: ${colors.void}; padding: 20px; text-align: center; color: rgba(255,255,255,0.6); font-size: 12px;">
+        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: #5B6577; font-size: 12px;">
           <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
-          <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.4);">Dúvidas ou suporte? Entre em contato pelo e-mail contato@evokaa.com.br</p>
+          <p style="margin: 5px 0 0 0; ">Dúvidas ou suporte? Entre em contato pelo e-mail contato@evokaa.com.br</p>
         </div>
       </div>
     </div>
@@ -167,9 +168,9 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
     <ul style="padding-left: 20px; margin: 0; font-size: 13px; color: ${colors.textMuted}; line-height: 1.6;">
       <li>Abra o PDF em anexo e apresente o QR na entrada, pelo celular ou impresso.</li>
       <li>O ingresso é nominal e pessoal. Não compartilhe o PDF com quem não vai ao evento.</li>
-      <li>Você também encontra o ingresso em "Meus ingressos", com a opção de baixar o PDF de novo.</li>
+      <li>Você também encontra o ingresso em "Meus ingressos", com a opção de baixar o PDF de novo. Entre com a conta usada na compra.</li>
     </ul>`;
-  return emailShell("Seus ingressos chegaram!", `Olá, ${recipientName}! ${ticketCount > 1 ? "Seus ingressos" : "Seu ingresso"} para <strong>${eventTitle}</strong> ${ticketCount > 1 ? "estão" : "está"} em anexo (um PDF com uma página por ingresso).`, body, "Ver meus ingressos", `${APP_URL}/app/tickets`);
+  return emailShell("Seus ingressos estão em anexo", `Olá, ${recipientName}. ${ticketCount > 1 ? "Seus ingressos" : "Seu ingresso"} para <strong>${eventTitle}</strong> ${ticketCount > 1 ? "estão" : "está"} em anexo (um PDF com uma página por ingresso).`, body, "Ver meus ingressos", `${APP_URL}/app/tickets`);
 }
 
 // Tipos que só existem para mandar e-mail: sem RESEND_API_KEY, 503 antes de qualquer efeito (inclusive
@@ -350,7 +351,7 @@ serve(async (req) => {
 
       try {
         const mailRes = emailType === "welcome"
-          ? await sendMail(caller.email, "Bem-vindo(a) à Evokaa!", getWelcomeHtml(name, role), from)
+          ? await sendMail(caller.email, "Bem-vindo(a) à Evokaa", getWelcomeHtml(name, role), from)
           : await sendMail(TEAM_EMAIL, `[Novo cadastro] ${name} (${role === "producer" ? "Produtor" : "Participante"})`, getSignupNotificationHtml(name, caller.email, role), from);
 
         return new Response(JSON.stringify({ success: true, ...mailRes }), {
@@ -757,7 +758,7 @@ serve(async (req) => {
       const recipientName = escapeHtml(order.customer_name || "Participante");
       const eventTitle = escapeHtml(eventTitleRaw);
       const eventDate = order.events?.date ? new Date(order.events.date + "T00:00:00").toLocaleDateString("pt-BR") : "";
-      const eventTime = escapeHtml(order.events?.time || "");
+      const eventTime = formatarHora(order.events?.time);
       const venueName = escapeHtml(order.events?.venue_name || "Local a definir");
 
       if (!recipientEmail) throw new Error("E-mail do cliente não configurado.");
@@ -767,10 +768,10 @@ serve(async (req) => {
       let mailAttachments: { filename: string; content: string }[] | undefined;
 
       if (emailType === "order_confirmation") {
-        mailSubject = `Compra Confirmada! — ${eventTitleRaw}`;
+        mailSubject = `Compra confirmada — ${eventTitleRaw}`;
         mailHtml = getOrderConfirmationHtml(recipientName, eventTitle, orderId, new Date(order.created_at).toLocaleDateString("pt-BR"), Number(order.total || 0));
       } else if (emailType === "ticket_delivery") {
-        mailSubject = `Seus Ingressos Chegaram! — ${eventTitleRaw}`;
+        mailSubject = `Seus ingressos — ${eventTitleRaw}`;
         const paginas = ingressosParaPdf(order, tickets).slice(0, 50); // só ingresso ativo; teto de 50 páginas
         if (paginas.length === 0) { await soltarProdutor(); return json({ error: "Este pedido não tem ingresso ativo." }, 404); }
         mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);

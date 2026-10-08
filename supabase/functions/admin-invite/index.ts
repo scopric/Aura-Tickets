@@ -66,10 +66,10 @@ export const horaBrasilia = (iso: string) =>
 // O mesmo visual de emailShell, sem o botão
 const emailContaCriada = (quando: string) => `
   <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);">
-      <div style="background-color: ${colors.plum}; padding: 32px 30px; text-align: center; color: #FFFFFF;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
+      <div style="background-color: ${colors.marca}; padding: 32px 30px; text-align: center; color: #FFFFFF;">
         <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Evokaa</h1>
-        <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 16px;">Conta criada</p>
+        <p style="margin: 10px 0 0 0; color: #FFFFFF; font-size: 16px;">Conta criada</p>
       </div>
       <div style="padding: 30px; font-size: 15px; line-height: 1.6; color: ${colors.textDark};">
         <p>Sua conta de colaborador da Evokaa foi criada em ${escapeHtml(quando)} (horário de Brasília).</p>
@@ -81,7 +81,7 @@ const emailContaCriada = (quando: string) => `
 const ASSUNTO_CONVITE = 'Você foi convidado para a equipe de colaboradores da Evokaa'
 const htmlConvite = (link: string) => emailShell(
   'Convite para a equipe',
-  'Olá! Você foi convidado para a equipe de colaboradores da Evokaa.',
+  'Você foi convidado para a equipe de colaboradores da Evokaa.',
   `<p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">Para aceitar, crie a sua senha (ou entre com a sua conta, se já tiver uma), ative a verificação em duas etapas e preencha o seu cadastro.</p>
    <p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">O link vale por 7 dias e só pode ser usado uma vez. Se você não esperava este convite, ignore este e-mail.</p>`,
   'Aceitar o convite',

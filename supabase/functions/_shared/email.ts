@@ -12,37 +12,36 @@ export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 }
 
-// Paleta de cores premium Aura (Plum, Espresso, Cream, Canvas, Void)
+// Paleta da marca (mesma do app: azul #1d68c4 e marinho #0c2340). Sem degradê, sombra nem brilho (Guia de estilo, Decisão 198).
 export const colors = {
-  plum: "#581C87", // Ameixa Escuro
-  plumLight: "#7E22CE",
-  espresso: "#292524", // Cinza Escuro Quente
-  cream: "#FAF8F5", // Off-white
+  marca: "#1d68c4", // azul royal; branco por cima passa de 5:1
+  marinho: "#0c2340",
+  cream: "#FAF8F5", // fundo do e-mail
   canvas: "#F5F5F4",
-  void: "#0C0A09", // Preto Quente
+  rodape: "#F4F6F9",
   textDark: "#1C1917",
   textMuted: "#78716C",
-  accent: "#D97706" // Ouro/Âmbar
+  accent: "#D97706" // aviso (urgente)
 };
 
 export function emailShell(title: string, intro: string, body: string, ctaLabel: string, ctaHref: string) {
   return `
     <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);">
-        <div style="background-color: ${colors.plum}; padding: 40px 30px; text-align: center; color: #FFFFFF;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
+        <div style="background-color: ${colors.marca}; padding: 32px 30px; text-align: center; color: #FFFFFF;">
           <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Evokaa</h1>
-          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 16px;">${title}</p>
+          <p style="margin: 10px 0 0 0; color: #FFFFFF; font-size: 16px;">${title}</p>
         </div>
         <div style="padding: 30px;">
           <p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">${intro}</p>
           ${body}
           <div style="text-align: center; margin: 30px 0 10px 0;">
-            <a href="${ctaHref}" style="background-color: ${colors.plum}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px;">${ctaLabel}</a>
+            <a href="${ctaHref}" style="background-color: ${colors.marca}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px;">${ctaLabel}</a>
           </div>
         </div>
-        <div style="background-color: ${colors.void}; padding: 20px; text-align: center; color: rgba(255,255,255,0.6); font-size: 12px;">
+        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: #5B6577; font-size: 12px;">
           <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
-          <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.4);">Dúvidas? contato@evokaa.com.br</p>
+          <p style="margin: 5px 0 0 0;">Dúvidas? contato@evokaa.com.br</p>
         </div>
       </div>
     </div>

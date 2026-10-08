@@ -60,7 +60,7 @@ const TEXTO = [
   ASSINATURA,
 ].join('\n')
 
-const link = (u: string) => `<a href="${u}" style="color: #7E22CE;">${u}</a>`
+const link = (u: string) => `<a href="${u}" style="color: #1d68c4;">${u}</a>`
 const HTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1F1B24; font-size: 15px; line-height: 1.6;">
 <p>Olá,</p>
 <p>${INTRO}</p>
