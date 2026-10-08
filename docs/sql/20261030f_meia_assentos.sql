@@ -1,11 +1,11 @@
 -- =============================================================================
 -- Tela 06, fatia 3: meia-entrada em LUGAR MARCADO individual (Decisão 192, do Ricardo, 08/10/2026). 2026-10-30 (NÃO aplicado)
 -- ORDEM: depois de 20261030a_venda_servidor_meia.sql (usa evk_preco_meia, evk_taxa_centavos, beneficios_uf, permite_meia, tipo_no_mapa).
--- NÃO confundir com 20261030c_equipe_convite_email.sql (outro assunto, mesmo prefixo; os dois são independentes).
+-- Nome: prefixo 20261030f para não repetir o de 20261030c_equipe_convite_email.sql (outro assunto; os dois são independentes).
 -- BASE: reservar_assentos de PRODUÇÃO = docs/sql/20261008_assento_reserva.sql l.132-246, md5 de pg_get_functiondef(reservar_assentos(uuid,text[]))
 --   5a23e3532704777b08aadb1229053f11 (informado pelo Ricardo; ESTE agente não tinha acesso ao banco e NÃO conferiu o texto de produção contra o arquivo).
 --   order_items_estoque_guard de produção = o do 20261030a, md5 3641e118aeaf0f2b64acaeb314938fe3. O bloco 0 aborta se o md5 de qualquer
---   das duas for outro (a menos que já tenha a marca '20261030c', o que torna o arquivo reaplicável).
+--   das duas for outro (a menos que já tenha a marca '20261030f', o que torna o arquivo reaplicável).
 -- 1. reservar_assentos(p_event, p_seats, p_meias jsonb default '[]'): a assinatura muda, então a de 2 argumentos é APAGADA (drop) e a nova é
 --    criada; a chamada antiga de 2 argumentos continua valendo (o 3º tem default) e vende tudo como inteira, como hoje.
 --    p_meias = lista de {"seat_key":"ambiente:assento","meia_tipo":"estudante"}; cada seat_key tem de estar em p_seats, sem repetir.
@@ -26,7 +26,7 @@
 --    de ser recusado se houver, no mesmo pedido e tipo, lugares individuais vivos (pedido_assentos, lugares = 1) em número >= meias;
 --    mensagem nova "Meia-entrada em lugar marcado só vale em lugar individual escolhido"; (b) a cota de 40% (ceil) passa a valer
 --    também no tipo de lugar marcado, mas lá ela só LIMITA as meias, não guarda vagas da inteira (v_reserva = 0): quem escolhe lugar
---    não pode ter lugar "guardado" que ninguém consegue apontar. Lotação 0 continua sem teto. Marca: '20261030c'.
+--    não pode ter lugar "guardado" que ninguém consegue apontar. Lotação 0 continua sem teto. Marca: '20261030f'.
 --    Os testes do 20261030a que esperam a recusa antiga ("ainda não está disponível") deixam de valer depois deste arquivo.
 -- Risco que resta: o guard não sabe se o lugar da meia é o 1º ou o 2º do pedido (só conta): é indiferente para preço (mesmo tipo = mesmo preço).
 -- Como aplicar: colar inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA TextEdit). Uma transação. NÃO mover para supabase/migrations/.
@@ -49,7 +49,7 @@ begin
     raise exception 'faltam pedido_assentos ou evento_acesso (20261008_assento_reserva, 20261017_f1_pr3e_visibilidade)';
   end if;
   d := pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure);
-  if md5(d) <> '3641e118aeaf0f2b64acaeb314938fe3' and position('20261030c' in d) = 0 then
+  if md5(d) <> '3641e118aeaf0f2b64acaeb314938fe3' and position('20261030f' in d) = 0 then
     raise exception 'order_items_estoque_guard mudou desde a leitura de produção (md5 %): refazer a partir da definição atual', md5(d);
   end if;
   if to_regprocedure('public.reservar_assentos(uuid, text[])') is not null then
@@ -148,18 +148,18 @@ begin
     end if;
   end if;
   -- meia (20261030): quem pode ter meia e a cota. Mesa, coletiva, preço 0 e permite_meia=false não têm meia; lugar marcado
-  -- só tem em lugar individual (20261030c, abaixo). Quem não tem meia não segura cota.
+  -- só tem em lugar individual (20261030f, abaixo). Quem não tem meia não segura cota.
   v_mapa := public.tipo_no_mapa(new.ticket_type_id);
   v_meia_ok := v_permite and v_tipo not in ('mesa', 'coletiva') and v_preco > 0;
   if new.beneficio = 'meia' then
     if not v_meia_ok then
       raise exception 'Este ingresso não tem meia-entrada' using errcode = '22023';
     end if;
-    -- lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então sem meia (20261030c); vale para qualquer porta
+    -- lotação 0 (quantity_total e capacity vazios): sem base para a cota de 40%, então sem meia (20261030f); vale para qualquer porta
     if v_lotacao = 0 then
       raise exception 'Meia-entrada não disponível para algum dos lugares escolhidos' using errcode = '22023';
     end if;
-    -- meia em lugar marcado (20261030c): só em lugar individual já preso a este pedido (reservar_assentos grava pedido_assentos antes dos itens)
+    -- meia em lugar marcado (20261030f): só em lugar individual já preso a este pedido (reservar_assentos grava pedido_assentos antes dos itens)
     if v_mapa and (select coalesce(sum(oi.quantity), 0) from public.order_items oi
                     where oi.order_id = new.order_id and oi.ticket_type_id = new.ticket_type_id and oi.beneficio = 'meia' and oi.id is distinct from new.id)
                   + new.quantity > (select count(*) from public.pedido_assentos pa
@@ -382,10 +382,10 @@ begin
      or not exists (select 1 from pg_proc where oid = 'public.reservar_assentos(uuid, text[], jsonb)'::regprocedure and proconfig = array['search_path=""']) then
     raise exception 'reservar_assentos sem security definer ou sem search_path vazio';
   end if;
-  if position('20261030c' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) = 0
+  if position('20261030f' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) = 0
      or has_function_privilege('authenticated', 'public.order_items_estoque_guard()', 'execute')
      or has_function_privilege('anon', 'public.order_items_estoque_guard()', 'execute') then
-    raise exception 'order_items_estoque_guard sem a marca 20261030c ou com EXECUTE para o navegador';
+    raise exception 'order_items_estoque_guard sem a marca 20261030f ou com EXECUTE para o navegador';
   end if;
 end $$;
 

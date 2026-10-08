@@ -1,5 +1,5 @@
--- pgTAP de docs/sql/20261030c_meia_assentos.sql (meia-entrada em lugar marcado individual). Só no banco local descartável: aplicar antes os de
--- docs/sql até 20261030a e o próprio 20261030c, e rodar `supabase test db`. Tudo em begin ... rollback. Nunca contra produção.
+-- pgTAP de docs/sql/20261030f_meia_assentos.sql (meia-entrada em lugar marcado individual). Só no banco local descartável: aplicar antes os de
+-- docs/sql até 20261030a e o próprio 20261030f, e rodar `supabase test db`. Tudo em begin ... rollback. Nunca contra produção.
 -- Não usa CPF (reservar_assentos não pede); os CPFs fictícios de venda_servidor_meia.test.sql não são necessários aqui.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -58,7 +58,7 @@ insert into public.beneficios_uf (uf, codigo, nome, documento) values ('SP', 'do
 select is(to_regprocedure('public.reservar_assentos(uuid, text[])') is null, true, 'a assinatura antiga de 2 argumentos não existe mais (a chamada de 2 argumentos usa o default)');
 select is(has_function_privilege('anon', 'public.reservar_assentos(uuid, text[], jsonb)', 'execute'), false, 'anon não executa reservar_assentos');
 select is(has_function_privilege('authenticated', 'public.reservar_assentos(uuid, text[], jsonb)', 'execute'), true, 'authenticated executa reservar_assentos');
-select is(position('20261030c' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) > 0, true, 'guard com a marca 20261030c');
+select is(position('20261030f' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) > 0, true, 'guard com a marca 20261030f');
 
 -- 2. Chamada antiga (2 argumentos): tudo inteira, preço e taxa pelo servidor
 select pg_temp.como('authenticated', 'fe000000-0000-4000-8000-000000000001');
