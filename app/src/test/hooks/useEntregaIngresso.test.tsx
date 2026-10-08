@@ -36,3 +36,12 @@ describe('useEntregaIngresso', () => {
     expect(invoke).toHaveBeenCalledWith('send-email', { body: { orderId: 'pedido-1', emailType: 'ticket_delivery' } })
   })
 })
+
+describe('mensagem do servidor', () => {
+  it('mostra o texto do 429 e cai no padrão quando não há corpo', async () => {
+    const { mensagemDoServidor } = await import('../../hooks/useEntregaIngresso')
+    const limite = { context: new Response(JSON.stringify({ error: 'Você já pediu 3 vezes' }), { status: 429 }) }
+    expect(await mensagemDoServidor(limite, 'padrão')).toBe('Você já pediu 3 vezes')
+    expect(await mensagemDoServidor(new Error('x'), 'padrão')).toBe('padrão')
+  })
+})

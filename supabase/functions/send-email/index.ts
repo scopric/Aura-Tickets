@@ -671,9 +671,14 @@ serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .eq("order_id", orderId)
         .eq("email_type", emailType)
-        .eq("status", "sent");
+        // reserva que nunca fechou (falha da função) só conta por 1 hora
+        .or(`status.eq.sent,and(status.eq.pending,created_at.gte.${new Date(Date.now() - 3600_000).toISOString()})`);
       if (entrega) jaEnviados = jaEnviados.gte("created_at", new Date(Date.now() - 3600_000).toISOString());
-      const { count: enviados } = await jaEnviados;
+      const { count: enviados, error: erroContagem } = await jaEnviados;
+      // Sem a tabela (SQL 20261030e não aplicado) não há limite: segue, mas deixa rastro no log.
+      if (erroContagem) console.error("[send-email] email_logs indisponível, sem limite de reenvio:", erroContagem.message);
+      // ponytail: a contagem e a reserva abaixo não são atômicas; só a janela de milissegundos entre elas fica aberta.
+      // Se pesar: função SQL com pg_advisory_xact_lock que conta e reserva de uma vez.
 
       if (entrega && (enviados ?? 0) >= 3) {
         return json({ error: "Você já pediu este e-mail 3 vezes na última hora. Tente de novo mais tarde ou baixe o PDF." }, 429);
@@ -721,8 +726,8 @@ serve(async (req) => {
         mailHtml = getOrderConfirmationHtml(recipientName, eventTitle, orderId, new Date(order.created_at).toLocaleDateString("pt-BR"), Number(order.total || 0));
       } else if (emailType === "ticket_delivery") {
         mailSubject = `Seus Ingressos Chegaram! — ${eventTitleRaw}`;
-        const paginas = ingressosParaPdf(order, tickets.slice(0, 50)); // só ingresso ativo; teto de 50 páginas
-        if (paginas.length === 0) throw new Error("Nenhum ingresso ativo neste pedido.");
+        const paginas = ingressosParaPdf(order, tickets).slice(0, 50); // só ingresso ativo; teto de 50 páginas
+        if (paginas.length === 0) return json({ error: "Este pedido não tem ingresso ativo." }, 404);
         mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);
         // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
         const bytes = await gerarPdf(paginas);
@@ -733,28 +738,26 @@ serve(async (req) => {
         throw new Error(`Tipo de e-mail ${emailType} não suportado para e-mails de pedido.`);
       }
 
+      // Reserva o registro ANTES de enviar (conta no limite mesmo com o envio ainda em andamento); sem a tabela, não reserva.
+      const { data: reserva } = await supabaseAdmin
+        .from("email_logs")
+        .insert({ order_id: orderId, email_type: emailType, recipient: recipientEmail, status: "pending" })
+        .select("id")
+        .maybeSingle();
+      const fechar = (campos: Record<string, unknown>) => reserva?.id
+        ? supabaseAdmin.from("email_logs").update(campos).eq("id", reserva.id)
+        : supabaseAdmin.from("email_logs").insert({ order_id: orderId, email_type: emailType, recipient: recipientEmail, ...campos });
+
       try {
         const mailRes = await sendMail(recipientEmail, mailSubject, mailHtml, from, mailAttachments);
-
-        await supabaseAdmin.from("email_logs").insert({
-          order_id: orderId,
-          email_type: emailType,
-          recipient: recipientEmail,
-          status: "sent",
-          resend_id: mailRes.id
-        });
+        await fechar({ status: "sent", resend_id: mailRes.id });
 
         return new Response(JSON.stringify({ success: true, message: "E-mail enviado.", resendId: mailRes.id }), {
           headers: { ...cors, "Content-Type": "application/json" },
         });
       } catch (e) {
-        await supabaseAdmin.from("email_logs").insert({
-          order_id: orderId,
-          email_type: emailType,
-          recipient: recipientEmail,
-          status: "failed",
-          error_message: e.message
-        });
+        // texto genérico: a mensagem da Resend costuma repetir o e-mail do destinatário (o detalhe vai só ao log do servidor)
+        await fechar({ status: "failed", error_message: "falha no envio" });
         throw e;
       }
     }

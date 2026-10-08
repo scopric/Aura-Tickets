@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { mensagemDoServidor } from '../../hooks/useEntregaIngresso'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
@@ -65,8 +66,8 @@ export default function CheckoutSuccess() {
       if (sessionStorage.getItem(chave)) return
       sessionStorage.setItem(chave, '1')
     } catch { /* sem sessionStorage: envia mesmo assim */ }
-    supabase.functions.invoke('send-email', { body: { orderId, emailType: 'ticket_delivery' } }).then(({ error }) => {
-      if (error) toast.error('Não consegui enviar o ingresso por e-mail. Baixe o PDF em "Meus ingressos".')
+    supabase.functions.invoke('send-email', { body: { orderId, emailType: 'ticket_delivery' } }).then(async ({ error }) => {
+      if (error) toast.error(await mensagemDoServidor(error, 'Não consegui enviar o ingresso por e-mail. Baixe o PDF em "Meus ingressos".'))
       else toast.success('Enviamos o PDF do ingresso para o seu e-mail.')
     })
   }, [orderId, temAtivo])

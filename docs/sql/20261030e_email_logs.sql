@@ -2,8 +2,10 @@
 -- Registro dos e-mails de pedido (email_logs): a função send-email já grava aqui (confirmação e entrega do ingresso),
 -- mas a tabela nunca foi criada em produção. Sem ela, nada limitava o reenvio. Com ela, a entrega do ingresso pode ser
 -- pedida no máximo 3 vezes por hora por pedido (regra no send-email) e a confirmação sai uma vez só.
+-- O status 'pending' é a reserva gravada antes do envio (conta no limite mesmo com o envio em andamento).
 -- Só a Edge Function (service_role) lê e grava: RLS ligada, sem policy, sem acesso para anon e authenticated.
--- Retenção: 90 dias (o registro tem o e-mail do destinatário); a limpeza roda pelo pg_cron, se a extensão existir.
+-- Retenção: 90 dias (o registro tem o e-mail do destinatário; o erro do envio fica só no log do servidor); a limpeza roda
+-- pelo pg_cron, se a extensão existir (o resultado do script avisa quando não existe).
 -- Como aplicar: ensaiar com ROLLBACK, colar inteiro no SQL Editor (UTF-8 via pbcopy, nunca TextEdit).
 --   Uma transação, idempotente. Depois de aplicar, publicar send-email (ver o PR do PDF e e-mail do ingresso).
 -- NÃO mover para supabase/migrations/.
@@ -24,7 +26,7 @@ create table if not exists public.email_logs (
   order_id uuid not null references public.orders(id) on delete cascade,
   email_type text not null,
   recipient text,
-  status text not null check (status in ('sent', 'failed')),
+  status text not null check (status in ('pending', 'sent', 'failed')),
   resend_id text,
   error_message text,
   created_at timestamptz not null default now()
