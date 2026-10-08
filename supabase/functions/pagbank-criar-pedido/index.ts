@@ -44,4 +44,5 @@ Deno.serve(req => handler(req, {
   },
   pagbank: (caminho, init) => pagbankFetch(cfg(), caminho, init),
   agora: () => new Date(),
+  esperar: (ms) => new Promise(r => setTimeout(r, ms)),
 }))
