@@ -1,21 +1,19 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
-import EventoCapa from '../../components/EventoCapa'
 import { EmptyState, Erro } from '@/components/producer/ui'
+import { BarraFiltros, CabecalhoEvento, KpiCard } from '@/components/producer/ui-evento'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Segmented } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { useFixados } from '../../hooks/useFixados'
 import { siteUrl } from '../../lib/appHost'
-import { corSorteada, ehHex, temFoto, varsDoEvento } from '../../lib/corEvento'
-import { confirmacaoDuplicar, refDoEvento, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { corSorteada, ehHex, varsDoEvento } from '../../lib/corEvento'
+import { confirmacaoDuplicar, refDoEvento, situacaoEvento } from '../../lib/eventoProdutor'
 import { downloadCsv, csvFilename, slugArquivo, toCsv } from '../../lib/exportCsv'
 import { PERIODOS, ehPeriodo, type Periodo } from '../../lib/inicioProdutor'
 import { supabase } from '../../lib/supabase'
@@ -38,11 +36,6 @@ const TONS = [
   { cor: 'hsl(var(--muted-foreground))', o: 0.6 }, { cor: 'hsl(var(--muted-foreground))', o: 0.4 }, { cor: 'hsl(var(--muted-foreground))', o: 0.25 },
 ]
 const tom = (i: number) => TONS[i % TONS.length]
-
-// Ponto do selo (sobre fundo escuro nos dois temas)
-const PONTO: Record<Situacao, string> = {
-  Publicado: '#4cc38a', 'Em análise': '#f0b44c', Rascunho: '#9aa1ad', Encerrado: '#9aa1ad', Cancelado: '#ef5a52', Recusado: '#ef5a52',
-}
 
 interface Dados {
   ingressos: { ticket_type_id: string; created_at: string }[] // para o gráfico: no máximo 1.000 (o max_rows do PostgREST)
@@ -187,19 +180,9 @@ function Visao({ e }: { e: DbEvent }) {
   const cap = (e.ticket_types ?? []).reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || e.capacity || 0
   const fixado = fixados.includes(e.id)
   const link = siteUrl(`/event/${refDoEvento(e)}`)
-  // mesma regra do EventoCapa: foto válida que carrega = texto branco; sem foto (ou foto que falhou) = cartaz, texto na tinta dele
-  const foto = [e.cover_image, e.image_url].find(temFoto)
-  const [falhou, setFalhou] = useState<string>()
-  useEffect(() => {
-    if (!foto) return
-    const img = new Image()
-    img.onerror = () => setFalhou(foto)
-    img.src = foto
-    return () => { img.onerror = null }
-  }, [foto])
-  const comFoto = !!foto && foto !== falhou
   const local = [e.venue_name, e.venue_city].filter(Boolean).join(', ')
-  const partes = [diaEv ? dataComSemana(diaEv) : 'sem data', horaCurta(e.time), local, cap > 0 ? `${inteiro(cap)} lugares` : null].filter(Boolean)
+  const quando = [diaEv ? dataComSemana(diaEv) : 'sem data', horaCurta(e.time)].filter(Boolean).join(' às ')
+  const onde = [local, cap > 0 ? `${inteiro(cap)} lugares` : null].filter(Boolean).join(' · ')
 
   const compartilhar = async () => {
     try {
@@ -208,7 +191,7 @@ function Visao({ e }: { e: DbEvent }) {
       toast.success('Link copiado.')
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return // a pessoa fechou a folha de compartilhar
-      toast.error('Não foi possível compartilhar. Copie o link em "Ver página".')
+      toast.error('Não foi possível compartilhar. Copie o link abaixo do título.')
     }
   }
 
@@ -216,77 +199,30 @@ function Visao({ e }: { e: DbEvent }) {
     if (window.confirm(confirmacaoDuplicar(e.title))) void duplicarEv(e)
   }
 
-  // botão do grupo de vidro: texto só no computador, no celular só o ícone (o texto fica para leitor de tela)
-  const bv = 'rounded-[999px] text-[var(--vidro-texto)] hover:text-[var(--vidro-texto)] active:text-[var(--vidro-texto)] max-sm:size-8 max-sm:px-0'
-  const rotulo = (t: string) => <span className="max-sm:sr-only">{t}</span>
-
   return (
     <div className="evento-cor" style={varsDoEvento(cor, false, e.accent_intensity ?? 100) as CSSProperties}>
-      <header
-        className="relative isolate flex min-h-[184px] flex-col justify-between gap-6 overflow-hidden rounded-ev-xl pb-5 pl-6 pr-4 pt-4"
-        style={{ color: comFoto ? '#ffffff' : 'var(--cz-tinta)', textShadow: comFoto ? '0 1px 3px rgb(0 0 0 / 0.55)' : undefined }}
-      >
-        <EventoCapa evento={e} tamanho="faixa" cor={cor} />
-        {/* foto original (sem duotone) pode ser clara: véu escuro para o texto branco continuar legível */}
-        {comFoto && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/75" />}
-        <div className="relative z-[1] flex flex-wrap items-center gap-2">
-          {/* cor inline: o tema claro escurece .text-white em alguns contextos e o selo é escuro nos dois temas */}
-          <span className="inline-flex h-7 items-center gap-1.5 rounded-ev-pill px-3 text-xs font-semibold" style={{ background: '#0b0d12', color: '#ffffff' }}>
-            <span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: PONTO[sit] }} />
-            {sit}
-          </span>
-          <div role="group" aria-label="Ações do evento" className="vidro ml-auto flex items-center gap-0.5 p-1">
-            <Button
-              variant="ghost" size="icon-sm" className={bv}
-              aria-pressed={fixado}
-              aria-label="Fixar evento na lateral"
-              onClick={() => alternaFixo(e.id)}
-            >
+      <CabecalhoEvento
+        titulo={e.title} situacao={sit} data={quando} local={onde || undefined}
+        linkPublico={sit === 'Publicado' ? link : undefined}
+        editarHref={`/producer/events/${e.id}/edit`}
+        onDuplicar={duplicar} duplicando={duplicando}
+        extras={
+          <>
+            <Button variant="outline" size="icon" aria-pressed={fixado} aria-label="Fixar evento na lateral" onClick={() => alternaFixo(e.id)}>
               <I.Estrela size={16} ativo={fixado} className={fixado ? 'text-primary' : undefined} />
             </Button>
-            <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-current opacity-20" />
             {sit === 'Publicado' && (
-              <>
-                <Button asChild variant="ghost" size="sm" className={bv}>
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <I.AbrirExterno size={16} aria-hidden="true" />{rotulo('Ver página')}<span className="sr-only"> (abre em nova aba)</span>
-                  </a>
-                </Button>
-                <Button variant="ghost" size="sm" className={bv} onClick={compartilhar}>
-                  <I.Compartilhar size={16} aria-hidden="true" />{rotulo('Compartilhar')}
-                </Button>
-              </>
+              <Button variant="outline" onClick={compartilhar}><I.Compartilhar aria-hidden="true" />Compartilhar</Button>
             )}
-            <Button asChild variant="ghost" size="sm" className={bv}>
-              <Link to={`/producer/events/${e.id}/edit`}><I.Editar size={16} aria-hidden="true" />{rotulo('Editar')}</Link>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" className={bv} aria-label="Mais ações do evento"><I.Mais size={16} aria-hidden="true" /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={duplicar} disabled={duplicando}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        <div className="relative z-[1]">
-          <h1 className="wide m-0 break-words font-display text-[28px] font-extrabold leading-8 tracking-[-0.02em] sm:text-[40px] sm:leading-[42px]">{e.title}</h1>
-          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            {partes.map((t, i) => (
-              <span key={i} className="inline-flex gap-2">{i > 0 && <span aria-hidden="true">·</span>}{t}</span>
-            ))}
-          </p>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Segmented label="Período" size="sm" value={periodo} onValueChange={mudaPeriodo} items={PERIODOS} className="w-full sm:w-72" />
-        <Button variant="outline" size="sm" onClick={exportar} disabled={!dados || dados.porDia.length === 0}>
-          <I.Baixar aria-hidden="true" />Exportar CSV
-        </Button>
-        <p className="text-xs text-muted-foreground">O período vale para vendas, valores, pedidos e o gráfico. Ingressos por tipo, ocupação e check-in mostram o total do evento.</p>
-      </div>
+      <BarraFiltros
+        periodo={periodo} onPeriodo={mudaPeriodo} periodos={PERIODOS}
+        onExportar={exportar} exportarDesabilitado={!dados || dados.porDia.length === 0}
+      />
+      <p className="-mt-3 mb-6 text-xs text-muted-foreground">O período vale para vendas, valores, pedidos e o gráfico. Ingressos por tipo, ocupação e check-in mostram o total do evento.</p>
 
       {isPending || (doisFatoresQ.isPending && dados?.pagosQtd === 0) ? (
         <Esqueleto />
@@ -332,6 +268,12 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
           <Button asChild><Link to={`/producer/checkin?eventId=${e.id}`}><I.Checkin size={16} aria-hidden="true" />Abrir check-in</Link></Button>
         </section>
       )}
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiCard rotulo="Vendas" valor={brl(dados.bruto)} ajuda="Valor bruto dos pedidos pagos, com a taxa do comprador." />
+        <KpiCard rotulo="Ingressos vendidos" valor={inteiro(dados.vendidosPeriodo)} />
+        <KpiCard rotulo="Ticket médio" valor={dados.pagosQtd > 0 ? brl(dados.bruto / dados.pagosQtd) : '—'} ajuda="Valor bruto dividido pelo número de pedidos pagos." />
+      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         <section aria-labelledby="t-vend" className={cn(painel, 'self-start p-5 lg:col-span-8')}>
