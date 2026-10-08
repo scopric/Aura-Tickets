@@ -37,7 +37,6 @@ export interface DbTicket {
   ticket_type_id: string
   user_id: string
   code: string
-  qr_code?: string
   status: 'active' | 'used' | 'cancelled' | 'refunded' | 'transferred'
   seat_info: string | null
   buyer_name?: string | null
@@ -72,7 +71,7 @@ export interface DbTicket {
 // Colunas lidas de orders e tickets: nunca '*' (customer_cpf, customer_phone e buyer_cpf ficam sem grant de SELECT,
 // docs/sql/20261011_orders_tickets_colunas_pessoais.sql; o teste colunasPessoais.test.ts barra o '*').
 const COLUNAS_PEDIDO = 'id, user_id, event_id, total, status, payment_method, gateway_payment_id, created_at, updated_at'
-const COLUNAS_INGRESSO = 'id, order_id, event_id, ticket_type_id, user_id, qr_code, status, buyer_name, checked_in_at, created_at, updated_at'
+const COLUNAS_INGRESSO = 'id, order_id, event_id, ticket_type_id, user_id, status, buyer_name, checked_in_at, created_at, updated_at'
 
 // Resultado de reservar_ingressos (docs/sql/20261030a_venda_servidor_meia.sql): ok:false = recusa de regra, sem exceção
 type Reserva = { ok: boolean; motivo?: string; mensagem?: string; order_id?: string; subtotal?: number; desconto?: number; taxa?: number; total?: number; reservado_ate?: string; agora?: string }
@@ -261,7 +260,7 @@ export function useUserTickets() {
       // Mapear retorno aninhado para facilitar o consumo no frontend
       const lista = (data || []).map((t: any) => ({
         ...t,
-        code: t.code ?? t.qr_code,
+        code: t.code ?? '', // o código fixo (qr_code) não é mais lido pelo navegador do comprador: o QR vem de ingresso-codigo (Decisão 211)
         ticket_types: {
           name: t.ticket_types?.name,
           price: Number(t.ticket_types?.price) || 0,
@@ -323,7 +322,7 @@ export function useOrderTickets(orderId?: string) {
 
       return (data || []).map((t: any) => ({
         ...t,
-        code: t.code ?? t.qr_code,
+        code: t.code ?? '', // o código fixo (qr_code) não é mais lido pelo navegador do comprador: o QR vem de ingresso-codigo (Decisão 211)
         ticket_types: {
           name: t.ticket_types?.name,
           price: Number(t.ticket_types?.price) || 0,

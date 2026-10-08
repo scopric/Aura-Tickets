@@ -32,7 +32,7 @@ test('celular: QR visível e Wake Lock pedido ao ampliar', async ({ page }) => {
   await abrir(page, 'published', '/app/tickets?evento=e1&qr=1')
   await page.getByRole('button', { name: /Ampliar o QR/ }).click()
   await expect(page.getByRole('dialog').locator('svg').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: /Salvar QR como imagem/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Salvar QR como imagem/ })).toHaveCount(0) // QR dinâmico: PNG salvo não vale
   await expect.poll(() => page.evaluate(() => (window as unknown as { __wl: number }).__wl)).toBeGreaterThan(0)
   await page.screenshot({ path: 'test-results/p07-qr-mobile.png' })
 })
