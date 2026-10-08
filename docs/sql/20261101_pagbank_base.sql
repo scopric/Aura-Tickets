@@ -24,6 +24,8 @@
 --    LIMITE POR CONTA: igual ao da reserva: pula tipo pago sem max_per_order e tipo de lugar marcado (tipo_no_mapa, 20261030a). Para tipo
 --    pago com max_per_order explícito, o teto "por pessoa" só é imposto NO PAGAMENTO (a reserva só confere por pedido): o cliente pode pagar
 --    e levar 'estorno'. O ideal é a reserva recusar antes de cobrar: pendência/decisão do Ricardo (reservar_ingressos não foi alterada aqui).
+--    p_pago_em: quando o PagBank registrou o pagamento (paid_at da consulta à cobrança, NUNCA do corpo do webhook). O prazo é medido nesse
+--    instante (no máximo agora), não na chegada do webhook: webhook atrasado não vira estorno de pagamento feito em dia. Sem ele, vale now().
 --    PRAZO: vale reservado_ate (10 min na criação por reservar_ingressos; sem ele, 30 min do created_at). O vencimento do QR Pix
 --    criado na fatia 2 DEVE ser <= reservado_ate, senão o cliente paga um Pix ainda válido que aqui vira 'estorno'.
 --    A emissão dos ingressos REPLICA o trecho de emissão de confirmar_pedido_gratis (20261030a): essa função é recriada a partir de
@@ -70,7 +72,9 @@ alter table public.payments add constraint payments_gateway_check
   check (gateway = any (array['stripe'::text, 'woovi'::text, 'pagseguro'::text, 'pagbank'::text]));
 
 -- 4. Confirmação de pedido pago -------------------------------------------------------------------------------------------
-create or replace function public.confirmar_pedido_pago(p_order_id uuid, p_gateway_payment_id text, p_valor_pago_centavos integer, p_event_id text default null)
+-- assinatura antiga (4 argumentos), caso já tenha sido aplicada: sem isto os dois overloads ficariam ambíguos
+drop function if exists public.confirmar_pedido_pago(uuid, text, integer, text);
+create or replace function public.confirmar_pedido_pago(p_order_id uuid, p_gateway_payment_id text, p_valor_pago_centavos integer, p_event_id text default null, p_pago_em timestamptz default null)
 returns text
 language plpgsql
 security definer
@@ -104,7 +108,7 @@ begin
   elsif o.status <> 'pending' then
     -- cancelado pelo cron (ou failed/refunded): não revive, o chamador estorna
     v_ret := 'estorno'; v_res := 'pagamento_tardio';
-  elsif o.created_at <= now() - interval '30 minutes' or (o.reservado_ate is not null and o.reservado_ate <= now()) then
+  elsif o.created_at <= least(coalesce(p_pago_em, now()), now()) - interval '30 minutes' or (o.reservado_ate is not null and o.reservado_ate <= least(coalesce(p_pago_em, now()), now())) then
     v_ret := 'estorno'; v_res := 'pagamento_tardio'; -- pendente vencido que o cron ainda não cancelou
   elsif p_valor_pago_centavos::bigint is distinct from round(o.total * 100)::bigint then
     v_ret := 'valor_divergente'; v_res := 'valor_divergente: pago ' || coalesce(p_valor_pago_centavos::text, 'null') || ', esperado ' || round(o.total * 100)::bigint;
@@ -181,16 +185,16 @@ begin
   return v_ret;
 end;
 $$;
-revoke all on function public.confirmar_pedido_pago(uuid, text, integer, text) from public, anon, authenticated;
-grant execute on function public.confirmar_pedido_pago(uuid, text, integer, text) to service_role;
+revoke all on function public.confirmar_pedido_pago(uuid, text, integer, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.confirmar_pedido_pago(uuid, text, integer, text, timestamptz) to service_role;
 
 -- Conferência
 do $$
 begin
-  assert (select prosecdef from pg_proc where oid = 'public.confirmar_pedido_pago(uuid,text,integer,text)'::regprocedure), 'confirmar_pedido_pago não é security definer';
-  assert not has_function_privilege('anon', 'public.confirmar_pedido_pago(uuid,text,integer,text)', 'execute'), 'anon executa';
-  assert not has_function_privilege('authenticated', 'public.confirmar_pedido_pago(uuid,text,integer,text)', 'execute'), 'authenticated executa';
-  assert has_function_privilege('service_role', 'public.confirmar_pedido_pago(uuid,text,integer,text)', 'execute'), 'service_role não executa';
+  assert (select prosecdef from pg_proc where oid = 'public.confirmar_pedido_pago(uuid,text,integer,text,timestamptz)'::regprocedure), 'confirmar_pedido_pago não é security definer';
+  assert not has_function_privilege('anon', 'public.confirmar_pedido_pago(uuid,text,integer,text,timestamptz)', 'execute'), 'anon executa';
+  assert not has_function_privilege('authenticated', 'public.confirmar_pedido_pago(uuid,text,integer,text,timestamptz)', 'execute'), 'authenticated executa';
+  assert has_function_privilege('service_role', 'public.confirmar_pedido_pago(uuid,text,integer,text,timestamptz)', 'execute'), 'service_role não executa';
   assert (select relrowsecurity from pg_class where oid = 'public.webhook_events'::regclass), 'webhook_events sem RLS';
   assert not has_table_privilege('authenticated', 'public.webhook_events', 'select'), 'authenticated lê webhook_events';
   assert exists (select 1 from pg_constraint where conname = 'payments_gateway_check' and pg_get_constraintdef(oid) like '%pagbank%'), 'CHECK sem pagbank';
@@ -199,7 +203,7 @@ end $$;
 commit;
 
 /* Desfazer:
-drop function if exists public.confirmar_pedido_pago(uuid, text, integer, text);
+drop function if exists public.confirmar_pedido_pago(uuid, text, integer, text, timestamptz);
 drop index if exists public.orders_gateway_payment_id_uk;
 drop table if exists public.webhook_events;
 alter table public.payments drop constraint if exists payments_gateway_check;
