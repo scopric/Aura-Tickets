@@ -1,5 +1,6 @@
 import { PDFDocument, PDFFont, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import qrcode from "npm:qrcode-generator@1.4.4";
+import { formatarHora } from "./hora.ts";
 
 export interface IngressoPdf {
   evento: string;
@@ -11,7 +12,7 @@ export interface IngressoPdf {
   codigo: string; // valor do QR: é a credencial de check-in
 }
 
-const AZUL = rgb(0.29, 0.376, 0.89); // #4a60e3
+const AZUL = rgb(0.114, 0.408, 0.769); // #1d68c4 (marca)
 const TEXTO = rgb(0.047, 0.137, 0.251); // #0c2340
 const MUTED = rgb(0.4, 0.45, 0.52);
 
@@ -60,7 +61,6 @@ export async function gerarPdf(ingressos: IngressoPdf[]): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const normal = await pdf.embedStandardFont(StandardFonts.Helvetica);
   const negrito = await pdf.embedStandardFont(StandardFonts.HelveticaBold);
-  const mono = await pdf.embedStandardFont(StandardFonts.Courier);
 
   for (const t of ingressos) {
     const page = pdf.addPage([595, 842]);
@@ -108,8 +108,6 @@ export async function gerarPdf(ingressos: IngressoPdf[]): Promise<Uint8Array> {
       }
     }
 
-    const codigo = truncar(mono, seguro(mono, t.codigo), 11, largura);
-    page.drawText(codigo, { x: (595 - mono.widthOfTextAtSize(codigo, 11)) / 2, y: qy - 22, size: 11, font: mono, color: TEXTO });
     const aviso = "Apresente este QR na entrada. Ingresso nominal e pessoal.";
     page.drawText(aviso, { x: (595 - normal.widthOfTextAtSize(aviso, 9)) / 2, y: 60, size: 9, font: normal, color: MUTED });
     page.drawText("Evokaa", { x: (595 - negrito.widthOfTextAtSize("Evokaa", 10)) / 2, y: 44, size: 10, font: negrito, color: AZUL });
@@ -128,7 +126,7 @@ export function ingressosParaPdf(order: any, tickets: any[]): IngressoPdf[] {
   return tickets.filter((t) => t.status === "active").map((t) => ({
     evento: ev?.title || "Evento",
     data,
-    hora: ev?.time || "",
+    hora: formatarHora(ev?.time),
     local: ev?.venue_name || "Local a definir",
     tipo: (Array.isArray(t.ticket_types) ? t.ticket_types[0] : t.ticket_types)?.name || "Ingresso",
     portador: t.buyer_name || order.customer_name || "Participante",
