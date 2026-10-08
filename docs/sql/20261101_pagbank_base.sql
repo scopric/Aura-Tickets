@@ -1,7 +1,7 @@
 -- =============================================================================
 -- PagBank, base no banco (fatia 1) — 2026-11-01 (NÃO aplicado)
 -- Aplicar à mão no SQL Editor do Supabase. NÃO vai para supabase/migrations (Decisão 02). Idempotente. Antes de produção, ensaio com ROLLBACK.
--- 1) webhook_events: um registro por evento do gateway, chave única (gateway, event_id). RLS ligado, sem política: só service_role (e o dono do banco).
+-- 1) webhook_events: um registro por evento do gateway, chave única (gateway, event_id). RLS ligado, só a política restritiva gf_mfa_aal2 e nenhuma permissiva: só service_role (e o dono do banco).
 --    payload: guardar só o mínimo necessário (nunca dado de cartão); quem grava é a Edge Function.
 -- 2) Índice único parcial em orders(gateway_payment_id): o mesmo pagamento do gateway não paga dois pedidos. ABORTA se já houver duplicata.
 -- 3) 'pagbank' no CHECK de payments.gateway (mantém stripe, woovi, pagseguro).
@@ -14,6 +14,16 @@
 --      'conflito' (este gateway_payment_id já é de OUTRO pedido: o dinheiro já está contabilizado lá; não estornar sem olhar).
 --    Todo desfecho é gravado em webhook_events (event_id omitido = o próprio gateway_payment_id); o PRIMEIRO desfecho do evento fica
 --    (on conflict do nothing), a repetição não o sobrescreve.
+--    CHAMADOR (Edge, fatia 3): DEVE obter p_order_id e o valor consultando a cobrança no PagBank por id (o reference_id gravado na criação do
+--    pedido), nunca do corpo do webhook sem validar assinatura/consulta; p_order_id tem de ser o reference_id daquela cobrança. Exceção/erro
+--    da chamada (qualquer SQLSTATE não tratado aqui) = alertar e reconciliar, nunca ignorar: o dinheiro pode ter entrado sem desfecho.
+--    'nao_encontrado' com dinheiro entrando = investigar manualmente (prazo e dono definidos por quem opera).
+--    event_id = id da NOTIFICAÇÃO já verificada. webhook_events é LOG: NÃO deduplicar por ele antes de chamar a função (ela já é
+--    idempotente: reenvio devolve 'ja_pago').
+--    Se o gateway_payment_id já pertence a OUTRO pedido, devolve 'conflito' ANTES de qualquer 'estorno' (estornar tiraria o dinheiro de lá).
+--    LIMITE POR CONTA: igual ao da reserva: pula tipo pago sem max_per_order e tipo de lugar marcado (tipo_no_mapa, 20261030a). Para tipo
+--    pago com max_per_order explícito, o teto "por pessoa" só é imposto NO PAGAMENTO (a reserva só confere por pedido): o cliente pode pagar
+--    e levar 'estorno'. O ideal é a reserva recusar antes de cobrar: pendência/decisão do Ricardo (reservar_ingressos não foi alterada aqui).
 --    PRAZO: vale reservado_ate (10 min na criação por reservar_ingressos; sem ele, 30 min do created_at). O vencimento do QR Pix
 --    criado na fatia 2 DEVE ser <= reservado_ate, senão o cliente paga um Pix ainda válido que aqui vira 'estorno'.
 --    A emissão dos ingressos REPLICA o trecho de emissão de confirmar_pedido_gratis (20261030a): essa função é recriada a partir de
@@ -80,7 +90,10 @@ declare
   it record;
 begin
   select * into o from public.orders where id = p_order_id for update;
-  if not found then
+  if exists (select 1 from public.orders where id <> p_order_id and gateway_payment_id = p_gateway_payment_id) then
+    -- este pagamento já é de OUTRO pedido: estornar tiraria o dinheiro dele. Vem antes de qualquer 'estorno'.
+    v_ret := 'conflito'; v_res := 'conflito_gateway_payment_id';
+  elsif not found then
     v_ret := 'nao_encontrado'; v_res := 'nao_encontrado';
   elsif o.status = 'paid' then
     if o.gateway_payment_id is not distinct from p_gateway_payment_id then
@@ -114,7 +127,9 @@ begin
                     select sum(oi2.quantity) from public.order_items oi2 join public.orders o2 on o2.id = oi2.order_id
                      where o2.user_id = o.user_id and o2.status = 'paid' and oi2.ticket_type_id = a.ticket_type_id), 0) as total
                   from (select oi.ticket_type_id, sum(oi.quantity) as q from public.order_items oi where oi.order_id = o.id group by 1) a
-                  join public.ticket_types tt on tt.id = a.ticket_type_id loop
+                  join public.ticket_types tt on tt.id = a.ticket_type_id
+                 -- mesma regra da reserva (reservar_ingressos): tipo PAGO sem max_per_order e tipo de lugar marcado não têm teto por conta
+                 where not (tt.price > 0 and tt.max_per_order is null) and not public.tipo_no_mapa(tt.id) loop
         if it.total > it.teto then
           raise exception 'Limite de % ingressos por pessoa em "%"', it.teto, it.name using errcode = '22023';
         end if;

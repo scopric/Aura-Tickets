@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(37);
+select plan(42);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -28,6 +28,12 @@ begin
 end $f$;
 grant execute on function pg_temp.novo(uuid, uuid, int, numeric, numeric, numeric, text, timestamptz, uuid) to service_role;
 
+-- tipo_no_mapa vem de 20261030a (não existe no banco local do CI): stub só neste teste, desfeito no rollback. Só o tipo b5 'está no mapa'.
+do $$ begin
+  if to_regprocedure('public.tipo_no_mapa(uuid)') is null then
+    create function public.tipo_no_mapa(p uuid) returns boolean language sql as 'select p = ''fc000000-0000-4000-8000-0000000000b6''::uuid';
+  end if;
+end $$;
 -- Dados (como postgres): a compradora, p produtora; evento aberto daqui a 7 dias; tipo pago de R$ 50, lotação 10
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
   ('fc000000-0000-4000-8000-00000000000a', 'a@teste-pagbank.local', now(), '{"full_name":"Ana"}'),
@@ -171,6 +177,38 @@ select pg_temp.novo('fc000000-0000-4000-8000-0000000000d5', 'fc000000-0000-4000-
 select pg_temp.como('service_role');
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d5', 'ORDE_D5', 5000), 'estorno', 'tipo inativo: estorno');
 select is((select count(*) from public.tickets where order_id = 'fc000000-0000-4000-8000-0000000000d5'), 0::bigint, 'tipo inativo: nenhum ingresso');
+
+-- tipo PAGO sem max_per_order: sem teto por conta (como na reserva): 6 pagos + 6 de novo = 'pago'
+select pg_temp.como('postgres');
+insert into public.ticket_types (id, event_id, name, price, quantity_total) values
+  ('fc000000-0000-4000-8000-0000000000b4', 'fc000000-0000-4000-8000-0000000000e1', 'Pago livre', 50, 50);
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000a7', 'fc000000-0000-4000-8000-0000000000b4', 6, 50, 0, 300);
+select pg_temp.como('service_role');
+select public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a7', 'ORDE_G1', 30000);
+select pg_temp.como('postgres');
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000a8', 'fc000000-0000-4000-8000-0000000000b4', 6, 50, 0, 300);
+select pg_temp.como('service_role');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a8', 'ORDE_G2', 30000), 'pago', 'tipo pago sem max_per_order: 6 + 6 não é limitado');
+
+-- tipo de lugar marcado (tipo_no_mapa) com max_per_order explícito 2: 2 + 2 = 'pago'
+select pg_temp.como('postgres');
+insert into public.ticket_types (id, event_id, name, price, quantity_total, max_per_order) values
+  ('fc000000-0000-4000-8000-0000000000b6', 'fc000000-0000-4000-8000-0000000000e1', 'No mapa', 50, 20, 2);
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000a9', 'fc000000-0000-4000-8000-0000000000b6', 2, 50, 0, 100);
+select pg_temp.como('service_role');
+select public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a9', 'ORDE_H1', 10000);
+select pg_temp.como('postgres');
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000aa', 'fc000000-0000-4000-8000-0000000000b6', 2, 50, 0, 100);
+select pg_temp.como('service_role');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000aa', 'ORDE_H2', 10000), 'pago', 'tipo no mapa: teto por conta não se aplica');
+
+-- gateway_payment_id de OUTRO pedido (f1 pagou ORDE_1): sempre 'conflito', nunca 'estorno'
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000f2', 'ORDE_1', 11000), 'conflito', 'conflito: pedido cancelado com id de outro pedido');
+select pg_temp.como('postgres');
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000ab', 'fc000000-0000-4000-8000-0000000000b1', 1, 50, 0, 50);
+select pg_temp.como('service_role');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000ab', 'ORDE_1', 1), 'conflito', 'conflito: valor diferente com id de outro pedido');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000a7', 'ORDE_1', 30000), 'conflito', 'conflito: pedido já pago por Y com id de outro pedido');
 
 -- pedido inexistente
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000ff', 'ORDE_9', 11000), 'nao_encontrado', 'pedido inexistente: nao_encontrado');
