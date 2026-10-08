@@ -1,9 +1,11 @@
+-- NUNCA aplicar em produção: é só para `supabase start`/`db reset` locais. Na produção esta versão já está marcada como aplicada (ver README).
 -- Baseline: retrato SÓ DO SCHEMA (sem dados) do banco de produção do Evokaa (projeto rwaezeqyuhxrssntcxdv).
 -- Regerado em 2026-10-08 com `supabase db dump --linked` (pg_dump, somente leitura; nenhuma escrita em produção), schema public.
 -- Substitui o retrato de 2026-09-30 (que não tinha 28 tabelas, 130 triggers e dezenas de funções que entraram via docs/sql).
 -- A mesma versão (20260930134600) é mantida de propósito: na produção ela já está marcada como aplicada (ver README).
 -- O final ("Completado fora de public") vem do retrato anterior: gatilho em auth.users, bucket e policies do Storage e event trigger.
--- Segue de fora: dados, jobs do pg_cron, segredos do Vault, arquivos do Storage, buckets/policies do Storage posteriores a 30/09.
+-- Segue de fora: dados, jobs do pg_cron, segredos do Vault, arquivos do Storage e os buckets/policies do Storage posteriores a 30/09
+-- (ex.: capas-eventos, logos-produtor): o banco local NÃO é idêntico à produção nessa parte.
 
 
 -- Zera os privilégios padrão do Supabase local em public ANTES de criar os objetos: o pg_dump só emite os GRANTs que a produção

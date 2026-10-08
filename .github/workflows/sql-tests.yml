@@ -1,6 +1,7 @@
 name: Testes SQL (pgTAP)
 
-# Job INFORMATIVO: sobe um Supabase local descartável com o baseline (retrato da produção de 08/10/2026) e roda os pgTAP de supabase/tests.
+# Job INFORMATIVO: sobe um Supabase local descartável com o baseline (retrato da produção) e roda os pgTAP de supabase/tests. Os docs/sql NÃO são aplicados aqui:
+# SQL novo só é testado depois que o baseline for regerado (ou ao mover o SQL para supabase/migrations).
 # Não usa segredo nem `supabase link`: nunca toca a produção. Não bloqueia o merge (continue-on-error) enquanto
 # os testes e a produção divergirem (ver o resumo do job). Torná-lo obrigatório é decisão do Ricardo.
 on:
@@ -8,7 +9,6 @@ on:
     branches: [ main ]
     paths:
       - 'supabase/**'
-      - 'docs/sql/**'
       - '.github/workflows/sql-tests.yml'
 
 permissions:
