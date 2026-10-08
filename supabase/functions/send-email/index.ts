@@ -5,6 +5,7 @@ import { validarContato, validarEmail } from "../_shared/validar.ts";
 import { colors, emailShell, escapeHtml, limitarPorIp, sendMail } from "../_shared/email.ts";
 import { adminCan, comoQuemChamou } from "../_shared/mfa.ts";
 import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
+import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -152,78 +153,22 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
   `;
 }
 
-// Função para gerar o HTML do e-mail de Entrega de Ingressos
-function getTicketDeliveryHtml(recipientName: string, eventTitle: string, tickets: any[], venueName: string, eventDate: string, eventTime: string) {
-  let ticketsHtmlList = "";
-  for (const ticket of tickets) {
-    ticketsHtmlList += `
-      <div style="border: 2px dashed ${colors.plumLight}; border-radius: 12px; background-color: #FFFFFF; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid ${colors.canvas}; padding-bottom: 10px; margin-bottom: 15px;">
-          <div>
-            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${colors.accent}; font-weight: bold;">Ingresso</span>
-            <h4 style="margin: 4px 0 0 0; font-size: 18px; color: ${colors.plum};">${escapeHtml(ticket.ticket_types?.name || "Ingresso Individual")}</h4>
-          </div>
-          <div style="text-align: right;">
-            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${colors.textMuted};">Código</span>
-            <h4 style="margin: 4px 0 0 0; font-size: 16px; font-family: monospace; color: ${colors.textDark};">${escapeHtml((ticket.qr_code || "").substring(0, 10).toUpperCase())}</h4>
-          </div>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: ${colors.textDark};">
-          <tr>
-            <td style="padding: 4px 0; color: ${colors.textMuted};">Nome do Portador:</td>
-            <td style="padding: 4px 0; text-align: right; font-weight: bold;">${ticket.buyer_name ? escapeHtml(ticket.buyer_name) : recipientName}</td>
-          </tr>
-          <tr>
-            <td style="padding: 4px 0; color: ${colors.textMuted};">CPF:</td>
-            <td style="padding: 4px 0; text-align: right; font-family: monospace;">${ticket.buyer_cpf ? escapeHtml(ticket.buyer_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")) : "Não informado"}</td>
-          </tr>
-          <tr>
-            <td style="padding: 4px 0; color: ${colors.textMuted};">Local do Evento:</td>
-            <td style="padding: 4px 0; text-align: right; font-weight: bold;">${venueName}</td>
-          </tr>
-          <tr>
-            <td style="padding: 4px 0; color: ${colors.textMuted};">Data e Horário:</td>
-            <td style="padding: 4px 0; text-align: right; font-weight: bold; color: ${colors.accent};">${eventDate} às ${eventTime}</td>
-          </tr>
-        </table>
-        <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px dashed ${colors.canvas};">
-          <p style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 10px;">Apresente o QR Code abaixo na entrada do evento pelo celular:</p>
-          <div style="background-color: ${colors.canvas}; padding: 15px; display: inline-block; border-radius: 8px; font-family: monospace; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: ${colors.textDark}; border: 1px solid rgba(0,0,0,0.08);">
-            ${escapeHtml(ticket.qr_code)}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  return `
-    <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);">
-        <div style="background-color: ${colors.plum}; padding: 40px 30px; text-align: center; color: #FFFFFF;">
-          <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Seus Ingressos Disponíveis!</h1>
-          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 16px;">Prepare o celular e bom evento!</p>
-        </div>
-        <div style="padding: 30px; background-color: ${colors.canvas};">
-          <h2 style="font-size: 20px; margin-top: 0; color: ${colors.plum};">Olá, ${recipientName}!</h2>
-          <p style="line-height: 1.5; font-size: 14px; color: ${colors.textDark}; margin-bottom: 20px;">Aqui estão os seus ingressos digitais para <strong>${eventTitle}</strong>. Salve este e-mail ou faça o download dos ingressos na plataforma.</p>
-
-          ${ticketsHtmlList}
-
-          <div style="background-color: #FFFFFF; border-radius: 12px; padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-top: 25px;">
-            <h4 style="margin-top: 0; color: ${colors.espresso}; font-size: 14px;">⚠️ Instruções Importantes:</h4>
-            <ul style="padding-left: 20px; margin: 5px 0 0 0; font-size: 13px; color: ${colors.textMuted}; line-height: 1.6;">
-              <li>Chegue com antecedência ao local para evitar filas na portaria.</li>
-              <li>Deixe o brilho da tela do celular no máximo ao validar seu QR Code.</li>
-              <li>Cada QR Code é único e garante apenas um acesso. Não compartilhe esta imagem.</li>
-            </ul>
-          </div>
-        </div>
-        <div style="background-color: ${colors.void}; padding: 20px; text-align: center; color: rgba(255,255,255,0.6); font-size: 12px;">
-          <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
-        </div>
-      </div>
-    </div>
-  `;
+// E-mail de entrega: o ingresso vai no PDF em anexo (QR gerado no servidor); o corpo não repete
+// dado pessoal (CPF) nem o código, porque o e-mail pode ser encaminhado.
+function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticketCount: number, venueName: string, eventDate: string, eventTime: string) {
+  const body = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: ${colors.textDark}; margin: 16px 0;">
+      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Evento</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${eventTitle}</td></tr>
+      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Data e horário</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${[eventDate, eventTime && `às ${eventTime}`].filter(Boolean).join(" ") || "A definir"}</td></tr>
+      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Local</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${venueName}</td></tr>
+      <tr><td style="padding: 6px 0; color: ${colors.textMuted};">Ingressos</td><td style="padding: 6px 0; text-align: right; font-weight: bold;">${ticketCount}</td></tr>
+    </table>
+    <ul style="padding-left: 20px; margin: 0; font-size: 13px; color: ${colors.textMuted}; line-height: 1.6;">
+      <li>Abra o PDF em anexo e apresente o QR na entrada, pelo celular ou impresso.</li>
+      <li>O ingresso é nominal e pessoal. Não compartilhe o PDF com quem não vai ao evento.</li>
+      <li>Você também encontra o ingresso em "Meus ingressos", com a opção de baixar o PDF de novo.</li>
+    </ul>`;
+  return emailShell("Seus ingressos chegaram!", `Olá, ${recipientName}! ${ticketCount > 1 ? "Seus ingressos" : "Seu ingresso"} para <strong>${eventTitle}</strong> ${ticketCount > 1 ? "estão" : "está"} em anexo (um PDF com uma página por ingresso).`, body, "Ver meus ingressos", `${APP_URL}/app/tickets`);
 }
 
 // Tipos que só existem para mandar e-mail: sem RESEND_API_KEY, 503 antes de qualquer efeito (inclusive
@@ -718,16 +663,22 @@ serve(async (req) => {
         });
       }
 
-      // Evitar reenvio (best-effort: se `email_logs` não existir, só deixa de bloquear reenvio
-      // duplicado — o dono do próprio pedido pago pedindo de novo não é um risco novo)
-      const { data: existingEmail } = await supabaseAdmin
+      // Evitar reenvio (best-effort: se `email_logs` não existir, só deixa de bloquear). A confirmação sai uma vez
+      // por pedido; a entrega pode ser pedida de novo (botão "Enviar por e-mail"), no máximo 3 vezes por hora.
+      const entrega = emailType === "ticket_delivery";
+      let jaEnviados = supabaseAdmin
         .from("email_logs")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .eq("order_id", orderId)
         .eq("email_type", emailType)
-        .maybeSingle();
+        .eq("status", "sent");
+      if (entrega) jaEnviados = jaEnviados.gte("created_at", new Date(Date.now() - 3600_000).toISOString());
+      const { count: enviados } = await jaEnviados;
 
-      if (existingEmail) {
+      if (entrega && (enviados ?? 0) >= 3) {
+        return json({ error: "Você já pediu este e-mail 3 vezes na última hora. Tente de novo mais tarde ou baixe o PDF." }, 429);
+      }
+      if (!entrega && (enviados ?? 0) > 0) {
         return new Response(JSON.stringify({ success: true, message: "E-mail já enviado anteriormente para este pedido." }), {
           status: 200,
           headers: { ...cors, "Content-Type": "application/json" },
@@ -736,7 +687,7 @@ serve(async (req) => {
 
       const { data: tickets, error: ticketsError } = await supabaseAdmin
         .from("tickets")
-        .select("*, ticket_types(name)")
+        .select("qr_code, buyer_name, status, ticket_types(name)")
         .eq("order_id", orderId);
 
       if (ticketsError || !tickets || tickets.length === 0) {
@@ -755,7 +706,7 @@ serve(async (req) => {
       const eventTitleRaw = order.events?.title || "Evento Evokaa";
       const recipientName = escapeHtml(order.customer_name || "Participante");
       const eventTitle = escapeHtml(eventTitleRaw);
-      const eventDate = order.events?.date ? new Date(order.events.date).toLocaleDateString("pt-BR") : "";
+      const eventDate = order.events?.date ? new Date(order.events.date + "T00:00:00").toLocaleDateString("pt-BR") : "";
       const eventTime = escapeHtml(order.events?.time || "");
       const venueName = escapeHtml(order.events?.venue_name || "Local a definir");
 
@@ -763,19 +714,27 @@ serve(async (req) => {
 
       let mailSubject = "";
       let mailHtml = "";
+      let mailAttachments: { filename: string; content: string }[] | undefined;
 
       if (emailType === "order_confirmation") {
         mailSubject = `Compra Confirmada! — ${eventTitleRaw}`;
         mailHtml = getOrderConfirmationHtml(recipientName, eventTitle, orderId, new Date(order.created_at).toLocaleDateString("pt-BR"), Number(order.total || 0));
       } else if (emailType === "ticket_delivery") {
         mailSubject = `Seus Ingressos Chegaram! — ${eventTitleRaw}`;
-        mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, tickets, venueName, eventDate, eventTime);
+        const paginas = ingressosParaPdf(order, tickets.slice(0, 50)); // só ingresso ativo; teto de 50 páginas
+        if (paginas.length === 0) throw new Error("Nenhum ingresso ativo neste pedido.");
+        mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);
+        // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
+        const bytes = await gerarPdf(paginas);
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        mailAttachments = [{ filename: "ingresso-evokaa.pdf", content: btoa(bin) }];
       } else {
         throw new Error(`Tipo de e-mail ${emailType} não suportado para e-mails de pedido.`);
       }
 
       try {
-        const mailRes = await sendMail(recipientEmail, mailSubject, mailHtml, from);
+        const mailRes = await sendMail(recipientEmail, mailSubject, mailHtml, from, mailAttachments);
 
         await supabaseAdmin.from("email_logs").insert({
           order_id: orderId,

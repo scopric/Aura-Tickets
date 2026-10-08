@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,22 @@ export default function CheckoutSuccess() {
   // A cor do evento vem do evento inteiro (os ingressos só trazem a capa); sem ela, o mesmo sorteio do restante do site
   const { data: eventoCompleto, isLoading: carregandoEvento } = usePublicEvent(event?.id)
   const corEv = ehHex(eventoCompleto?.accent_color) ? eventoCompleto.accent_color : corSorteada(event?.id ?? orderId ?? 'evento')
+
+  // Manda o ingresso por e-mail uma vez por pedido (a trava sobrevive a F5 e a voltar no histórico), quando já há
+  // ingresso ativo. Pagamento confirmado depois (Pix, cartão) não passa por aqui: fica o botão em "Meus ingressos".
+  const temAtivo = tickets.some(t => t.status === 'active')
+  useEffect(() => {
+    if (!orderId || !temAtivo) return
+    const chave = `ingresso-email-${orderId}`
+    try {
+      if (sessionStorage.getItem(chave)) return
+      sessionStorage.setItem(chave, '1')
+    } catch { /* sem sessionStorage: envia mesmo assim */ }
+    supabase.functions.invoke('send-email', { body: { orderId, emailType: 'ticket_delivery' } }).then(({ error }) => {
+      if (error) toast.error('Não consegui enviar o ingresso por e-mail. Baixe o PDF em "Meus ingressos".')
+      else toast.success('Enviamos o PDF do ingresso para o seu e-mail.')
+    })
+  }, [orderId, temAtivo])
 
   if (isLoading || carregandoPedido) {
     return (

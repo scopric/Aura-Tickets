@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
-import { Agenda, Atualizar, Baixar, ChevronDireita, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'
+import { Agenda, Atualizar, Baixar, ChevronDireita, Email, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'
 import EventoCapa from './EventoCapa'
 import TicketQRCode from './TicketQRCode'
 import { Button } from './ui/button'
@@ -13,6 +13,7 @@ import { temFoto, varsDoEvento } from '../lib/corEvento'
 import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta, salvarQrPng } from '../lib/ingresso'
 import { useFalta } from '../hooks/useFalta'
 import { useTelaAcesa } from '../hooks/useTelaAcesa'
+import { useEntregaIngresso } from '../hooks/useEntregaIngresso'
 import type { DbTicket } from '../hooks/useCheckout'
 import './Ingresso.css'
 import './EventoCapa.css'
@@ -234,6 +235,7 @@ export default function IngressosDoEvento({ ingressos, evento, abrirNoQr = false
   const n = ingressos.length
   const endereco = enderecoDoEvento(evento)
   const motivo = motivoSemQr(t)
+  const { ocupado, baixarPdf, enviarEmail } = useEntregaIngresso(t.order_id)
 
   const ir = (d: number) => { setI(a => Math.max(0, Math.min(n - 1, a + d))); setVerso(false) }
 
@@ -277,6 +279,12 @@ export default function IngressosDoEvento({ ingressos, evento, abrirNoQr = false
         )}
         <Button variant="ghost" size="sm" onClick={compartilhar}><Compartilhar aria-hidden="true" /> Copiar link do evento</Button>
       </div>
+      {t.status === 'active' && !motivo && (
+        <div className="mx-auto mt-1 flex max-w-[360px] items-center justify-center gap-1">
+          <Button variant="ghost" size="sm" onClick={baixarPdf} disabled={ocupado !== null}><Baixar aria-hidden="true" /> Baixar PDF</Button>
+          <Button variant="ghost" size="sm" onClick={enviarEmail} disabled={ocupado !== null}><Email aria-hidden="true" /> Enviar por e-mail</Button>
+        </div>
+      )}
 
       {detalhes && <Detalhes t={t} evento={evento} aoFechar={() => setDetalhes(false)} />}
       {ampliado && <QrAmpliado t={t} evento={evento} aoFechar={() => setAmpliado(false)} />}
