@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, render, screen } from '@testing-library/react'
+import { renderHook, act, render, screen, fireEvent } from '@testing-library/react'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
 
 const evo = vi.hoisted(() => ({ chamarEvo: vi.fn() }))
@@ -130,6 +130,7 @@ describe('usarLeitorPlanta', () => {
     expect(result.current.lendo).toBe(false)
     await act(async () => { solta(ok([peca()])); await p })
     expect(result.current.propostaAtual).toBeNull()
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('já foi cobrada'))
   })
 
   it('planta salva grande demais não é enviada', async () => {
@@ -184,8 +185,40 @@ describe('PainelLeitor', () => {
     expect(d.textContent).toMatch(/5 créditos/)
     expect(d.textContent).toMatch(/proposta/)
     expect(d.textContent).toMatch(/não desfaz a cobrança/)
-    d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    fireEvent.keyDown(d, { key: 'Escape' })
+    expect(onFechar).toHaveBeenCalledTimes(1)
     rerender(<PainelLeitor leitor={leitor({ lendo: true })} naoCalibrada={false} onLer={vi.fn()} onAplicar={vi.fn()} onFechar={onFechar} />)
     expect((screen.getByRole('button', { name: 'Lendo…' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  describe('com proposta já cobrada', () => {
+    const prop = { imagem: IMG, eventId: 'e1', custo: 5, restante: 7, pecas: [{ ...peca(), id: 'ia-0', marcada: true }] }
+    const montar = () => {
+      const l = leitor({ propostaAtual: prop })
+      const onFechar = vi.fn()
+      render(<PainelLeitor leitor={l} naoCalibrada={false} onLer={vi.fn()} onAplicar={vi.fn()} onFechar={onFechar} />)
+      return { l: l as unknown as { descartar: ReturnType<typeof vi.fn> }, onFechar }
+    }
+    it('mostra o aviso permanente; Esc e Fechar só fecham e não apagam a proposta', () => {
+      const { l, onFechar } = montar()
+      expect(screen.getByRole('dialog').textContent).toContain('Esta leitura já foi cobrada; fechar não perde a proposta, descartar sim.')
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+      fireEvent.click(screen.getByRole('button', { name: /Fechar o painel/ }))
+      expect(onFechar).toHaveBeenCalledTimes(2)
+      expect(l.descartar).not.toHaveBeenCalled()
+    })
+    it('Descartar pede confirmação: recusando nada acontece; confirmando apaga e fecha', () => {
+      const { l, onFechar } = montar()
+      const c = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+      expect(c.mock.calls[0][0]).toContain('já foi cobrada')
+      expect(l.descartar).not.toHaveBeenCalled()
+      expect(onFechar).not.toHaveBeenCalled()
+      c.mockReturnValue(true)
+      fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+      expect(l.descartar).toHaveBeenCalledTimes(1)
+      expect(onFechar).toHaveBeenCalledTimes(1)
+      c.mockRestore()
+    })
   })
 })

@@ -32,7 +32,7 @@ export function usarLeitorPlanta(eventId: string | null, imagem: string | undefi
     const doEvento = eventId
     let r: Awaited<ReturnType<typeof chamarEvo>>
     try { r = await chamarEvo({ mode: 'planta', event_id: doEvento, imagem }) } catch { r = { ok: false, motivo: 'rede' } }
-    if (atual.current.eventId !== doEvento) return // trocou de evento: o efeito acima já soltou a trava
+    if (atual.current.eventId !== doEvento) { toast.info('Você trocou de evento durante a leitura; a proposta foi descartada. A leitura já foi cobrada.'); return } // o efeito acima já soltou a trava
     emVoo.current = false
     setLendo(false)
     try {
@@ -86,9 +86,13 @@ export default function PainelLeitor({ leitor, naoCalibrada, onLer, onAplicar, o
     const q = requestAnimationFrame(() => raiz.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus())
     return () => cancelAnimationFrame(q)
   }, [!!prop])
-  const descartar = () => { leitor.descartar(); onFechar() }
+  // descartar apaga uma proposta já cobrada: só com confirmação. Esc e Fechar só fecham o painel (a proposta fica guardada)
+  const descartar = () => {
+    if (!window.confirm('Descartar a proposta? A leitura já foi cobrada e não dá para recuperá-la; será preciso ler a planta de novo (e pagar de novo).')) return
+    leitor.descartar(); onFechar()
+  }
   const teclas = (e: TeclaReact) => {
-    if (e.key === 'Escape') { e.stopPropagation(); if (prop) descartar(); else onFechar() }
+    if (e.key === 'Escape') { e.stopPropagation(); onFechar() }
     else if (e.key === 'Tab' && !prop) { // diálogo modal: o Tab não sai dele
       const f = [...raiz.current!.querySelectorAll<HTMLElement>('button:not(:disabled)')]
       if (!f.length) return
@@ -138,8 +142,9 @@ export default function PainelLeitor({ leitor, naoCalibrada, onLer, onAplicar, o
             {typeof prop.restante === 'number' && ` Esta leitura gastou ${creditos(prop.custo ?? CUSTO_LEITURA)}; restam ${prop.restante}.`}
           </p>
         </div>
-        <Button variant="ghost" size="sm" aria-label="Descartar a proposta e fechar (Esc)" onClick={descartar}>Fechar</Button>
+        <Button variant="ghost" size="sm" aria-label="Fechar o painel (Esc); a proposta continua guardada" onClick={onFechar}>Fechar</Button>
       </div>
+      <p role="note" className="text-[11px] font-bold">Esta leitura já foi cobrada; fechar não perde a proposta, descartar sim.</p>
       <ul className="space-y-1">
         {Object.entries(porTipo).map(([tipo, c]) => (
           <li key={tipo} className="text-xs">

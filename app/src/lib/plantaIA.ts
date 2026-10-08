@@ -14,7 +14,7 @@ export type Quadro = {
   pixelsPerMeter: number
 }
 
-// ponytail: custo padrão da leitura (ai_settings.credit_cost.imagem); o produtor não lê as configurações do Evo.
+// ponytail: custo padrão da leitura (ai_settings.credit_cost.imagem); o produtor não lê as configurações do Evo (o servidor cobra cfg.credit_cost.imagem).
 // Se a administração mudar o valor, este texto fica desatualizado até uma leitura recusada ou concluída mostrar o real.
 export const CUSTO_LEITURA = 5
 
