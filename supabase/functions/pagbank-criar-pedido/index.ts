@@ -27,9 +27,12 @@ Deno.serve(req => handler(req, {
     if (!o || o.user_id !== uid) return null
     const ev = (Array.isArray(o.events) ? o.events[0] : o.events) as Pedido['evento'] | null
     if (!ev) throw new Error('pedido sem evento')
-    const { data: pp } = await admin.from('producer_profiles').select('payout_account_id').eq('id', ev.producer_id).maybeSingle()
+    // pendente: decisão do Ricardo + SQL futuro. Em produção `producer_profiles` NÃO tem coluna de conta PagBank do produtor
+    // (só stripe_account_id e woovi_account_id, dos gateways antigos; conferido no banco em 08/10/2026). Sem ela não há split:
+    // todo o valor cai na conta da Evokaa e o repasse ao produtor fica fora desta fatia. Quando existir (ex.: producer_profiles.pagbank_account_id,
+    // preenchida pelo Connect/cadastro, só pelo servidor), troque `null` pela leitura dela; `montarSplit` e os testes de split já estão prontos.
     return {
-      ...o, evento: ev, payout_account_id: pp?.payout_account_id ?? null,
+      ...o, evento: ev, payout_account_id: null,
       itens: ((o.order_items ?? []) as { id: string; ticket_type_id: string; quantity: number; unit_price: number; ticket_types: { name: string } | { name: string }[] | null }[]).map(i => ({
         id: i.id, ticket_type_id: i.ticket_type_id, nome: (Array.isArray(i.ticket_types) ? i.ticket_types[0]?.name : i.ticket_types?.name) ?? 'Ingresso', quantity: i.quantity, unit_price: i.unit_price,
       })),
