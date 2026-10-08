@@ -12,7 +12,7 @@ import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, atalhoBusca, eventoDaUrl, filtra, gravarNav, hrefDaTela,
+  DASHBOARDS, INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, atalhoBusca, eventoDaUrl, filtra, gravarNav, hrefDaTela,
   rotaAtiva, rotuloSecao, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
@@ -176,6 +176,22 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
       >
         <I.Inicio size={16} ativo={inicioAtivo} className={inicioAtivo ? 'text-primary' : undefined} />
         {!rail && <span className="truncate">{INICIO.tela}</span>}
+      </Link>
+    </Dica>
+  )
+
+  const dashAtivo = ativa(DASHBOARDS.rota)
+  const dashboards = (
+    <Dica key="dashboards" rail={rail} texto={DASHBOARDS.tela}>
+      <Link
+        to={DASHBOARDS.rota}
+        onClick={onNavega}
+        aria-current={dashAtivo ? 'page' : undefined}
+        aria-label={rail ? DASHBOARDS.tela : undefined}
+        className={rail ? cn(botaoIcone, itemCor(dashAtivo), 'self-center') : cn(itemBase, itemCor(dashAtivo))}
+      >
+        <I.Relatorio size={16} ativo={dashAtivo} className={dashAtivo ? 'text-primary' : undefined} />
+        {!rail && <span className="truncate">{DASHBOARDS.tela}</span>}
       </Link>
     </Dica>
   )
@@ -366,6 +382,7 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
 
       <nav aria-label="Menu do produtor" className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 pb-2 pt-0.5 sidebar-dark-scroll', rail && 'items-center')}>
         {escopo === 'produtora' && inicio}
+        {escopo === 'produtora' && dashboards}
         {secoes.filter(s => s !== 'Conta').map(s => rail ? (
           <Fragment key={s}>
             {areaTrilho(s)}

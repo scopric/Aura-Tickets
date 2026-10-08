@@ -18,16 +18,16 @@ export interface Tela {
   noEvento?: string
 }
 
-// 31 telas na lista (Central de comando, Decisão 197, só na produtora e só para o dono) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153), os Participantes, os Ingressos e a Divulgação (hub Links e QR; Afiliados, Banners e Lista de interesse seguem como itens e ganham a faixa de abas).
+// 31 telas na lista (Dashboards, Decisão 197, item solto sob o Início, só na produtora) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153), os Participantes, os Ingressos e a Divulgação (hub Links e QR; Afiliados, Banners e Lista de interesse seguem como itens e ganham a faixa de abas).
 // Decisão 143 (desvio do contrato §6.4): Banners, Lista de interesse, Galeria, Tarefas e CRM ficam só no escopo da
 // produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento
 // e filtram pelo ?eventId= (V4a2, useFiltroEvento).
 export const NAV: Tela[] = [
   { tela: 'Início', secao: 'Topo', rota: '/producer/dashboard' },
+  { tela: 'Dashboards', secao: 'Topo', rota: '/producer/central' }, // Decisão 197: item solto, fora de Eventos (Ricardo, 08/10)
   { tela: 'Meus eventos', secao: 'Eventos', rota: '/producer/events', rotulo: 'Todos os eventos' },
   // A Pasta do evento é a Visão geral (V7, EventOverview); a edição fica no botão "Editar" dela.
   { tela: 'Pasta do evento', secao: 'Eventos', rota: '/producer/event/:eventId', noEvento: 'Visão geral' },
-  { tela: 'Central de comando', secao: 'Eventos', rota: '/producer/central' },
   { tela: 'Relatório pós-evento', secao: 'Eventos', rota: '/producer/pos-evento', rotulo: 'Relatórios', noEvento: 'Relatório' },
   { tela: 'Ingressos', secao: 'Vendas', rota: '/producer/ingressos', noEvento: 'Ingressos' },
   { tela: 'Cupons', secao: 'Vendas', rota: '/producer/cupons', noEvento: 'Cupons' },
@@ -61,6 +61,7 @@ const porNome = (nome: string) => NAV.find(t => t.tela === nome)!
 
 /** Início é item solto (fora das seções); "Criar evento" é o botão "+", não item */
 export const INICIO = porNome('Início')
+export const DASHBOARDS = porNome('Dashboards')
 export const ROTA_CRIAR_EVENTO = '/producer/events/new'
 
 /** A rota é a da tela atual (a raiz /producer conta como Início); a lateral e a folha Menu usam a mesma regra */

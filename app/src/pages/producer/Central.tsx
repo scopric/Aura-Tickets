@@ -16,9 +16,9 @@ import PublicoConversao from '@/components/producer/central/PublicoConversao'
 
 function Seletor({ rotulo, valor, onChange, children }: { rotulo: string; valor: string; onChange: (v: string) => void; children: ReactNode }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+    <label className="flex w-full flex-col gap-1 text-sm text-muted-foreground sm:w-auto sm:flex-row sm:items-center sm:gap-2">
       {rotulo}
-      <select value={valor} onChange={e => onChange(e.target.value)} className={cn(selectNativo, 'min-h-11 w-auto min-w-40')}>{children}</select>
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cn(selectNativo, 'min-h-11 w-full text-base sm:w-auto sm:min-w-40 sm:text-sm')}>{children}</select>
     </label>
   )
 }
@@ -28,7 +28,7 @@ export default function ProducerCentral() {
   const { tipo, periodo, comparar, evento, forma, eventos, definir } = c
   const atualizado = (ms?: number) => (ms ? new Date(ms) : undefined)
 
-  if (c.eventosQ.isError) return <div><PageHeader title="Central de comando" /><Erro texto="Não foi possível carregar seus eventos agora." refetch={() => c.eventosQ.refetch()} carregando={c.eventosQ.isFetching} /></div>
+  if (c.eventosQ.isError) return <div><PageHeader title="Dashboards" /><Erro texto="Não foi possível carregar seus eventos agora." refetch={() => c.eventosQ.refetch()} carregando={c.eventosQ.isFetching} /></div>
 
   const selEvento = (
     <Seletor rotulo="Evento" valor={evento ?? ''} onChange={v => definir('evento', v)}>
@@ -86,7 +86,7 @@ export default function ProducerCentral() {
 
   return (
     <div>
-      <PageHeader title="Central de comando" description="Números das suas vendas, da portaria e do público, um tipo de painel por vez" />
+      <PageHeader title="Dashboards" description="Números das suas vendas, da portaria e do público, um tipo de painel por vez" />
       <Tabs value={tipo} onValueChange={v => definir('tipo', v)} className="mb-6">
         <TabsList aria-label="Tipo de painel" className="max-w-full justify-start overflow-x-auto">
           {TIPOS.map(t => <TabsTrigger key={t.value} value={t.value} className="min-h-11">{t.label}</TabsTrigger>)}
