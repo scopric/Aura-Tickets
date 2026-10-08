@@ -1,0 +1,67 @@
+name: Testes SQL (pgTAP)
+
+# Job INFORMATIVO: sobe um Supabase local descartável, aplica o baseline e os docs/sql e roda os pgTAP de supabase/tests.
+# Não usa segredo nem `supabase link`: nunca toca a produção. Não bloqueia o merge (continue-on-error) enquanto os docs/sql
+# não reproduzirem a produção (ver supabase/tests/ci-aplicar.sh e o resumo do job). Torná-lo obrigatório é decisão do Ricardo.
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'supabase/**'
+      - 'docs/sql/**'
+      - '.github/workflows/sql-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pgtap:
+    name: pgTAP no Supabase local
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Supabase CLI
+        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+        with:
+          version: 2.118.0
+
+      # Sem analytics, studio, edge-runtime etc.: só banco, auth, storage e API (o baseline precisa de auth e storage).
+      - name: Supabase start (baseline)
+        run: supabase start -x logflare,vector,studio,imgproxy,edge-runtime,mailpit,postgres-meta,realtime,supavisor
+
+      - name: Aplicar docs/sql
+        run: |
+          set -o pipefail
+          supabase/tests/ci-aplicar.sh | tee ci-aplicar.log
+
+      - name: supabase test db
+        id: testes
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          supabase test db 2>&1 | tee testes.log
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "## pgTAP"
+            echo "Resultado do \`supabase test db\`: **${{ steps.testes.outcome }}** (job informativo, não bloqueia o merge)."
+            echo
+            echo "### Arquivos de teste"
+            echo '```'
+            sed -E 's#^.*/supabase/tests/##' testes.log | grep -E '^[a-z0-9_]+\.test\.sql \.+' -A0 || true
+            grep -E '^(Files=|Result:)' testes.log || true
+            echo '```'
+            echo "### docs/sql que não aplicaram"
+            echo '```'
+            grep -E '^(passe|NAO APLICOU)' ci-aplicar.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
