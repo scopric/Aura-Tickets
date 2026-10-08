@@ -2,7 +2,7 @@ import { contraste, ehHex } from './corEvento'
 
 // Estilo do ingresso do produtor (Decisão 206). O modelo padrão da Evokaa é o do PDF atual (azul da marca). Sem texto livre (rodapé): sai pela Evokaa sem moderação.
 // "Meu estilo" é do plano PRO; hoje useFeatures libera para todos e a cobrança entra depois.
-export const AZUL_EVOKAA = '#4a60e3'
+export const AZUL_EVOKAA = '#1d68c4' // azul da marca; o PDF do servidor usa o mesmo
 export const TINTA = '#0c2340'
 export const FEATURE_ESTILO = 'ingresso_estilo'
 
@@ -13,8 +13,8 @@ export const ESTILO_PADRAO: EstiloIngresso = { cor: null, logo: 'esquerda' }
 /** Cor do topo: a escolhida (#rrggbb) ou o azul da Evokaa. */
 export const corDoTopo = (e: EstiloIngresso) => (ehHex(e.cor) ? e.cor : AZUL_EVOKAA)
 
-/** Texto branco quando passa de 4,5:1 sobre a cor; senão a tinta escura da marca. */
-export const textoSobre = (cor: string) => (contraste(cor, '#ffffff') >= 4.5 ? '#ffffff' : TINTA)
+/** O de maior contraste entre branco e a tinta escura da marca (igual ao servidor). */
+export const textoSobre = (cor: string) => (contraste(cor, '#ffffff') >= contraste(cor, TINTA) ? '#ffffff' : TINTA)
 
 /** Aceita só o que o ingresso sabe desenhar (o banco repete esta conferência). */
 export function estiloLimpo(e: Partial<EstiloIngresso> | null | undefined): EstiloIngresso {

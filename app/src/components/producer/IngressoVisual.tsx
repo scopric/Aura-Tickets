@@ -23,10 +23,10 @@ export default function IngressoVisual({ dados, tipo, estilo, logoUrl, modo, exe
       aria-label={`Prévia do ingresso ${tipo}`}
       className={cn('relative mx-auto w-full max-w-[22rem] overflow-hidden rounded-[14px] border border-border bg-white text-[#0c2340]', modo === 'celular' && 'shadow-[0_1px_2px_rgb(0_0_0/0.12)]')}
     >
-      <div className="px-5 pb-5 pt-4" style={{ background: topo, color: texto }}>
-        <div className={cn('flex h-10 items-center', estilo.logo === 'centro' ? 'justify-center' : 'justify-start')}>
+      <div className="border-b border-[#e0e5ed] px-5 pb-5 pt-4" style={{ background: topo, color: texto }}>
+        <div className={cn('flex h-11 items-center', estilo.logo === 'centro' ? 'justify-center' : 'justify-start')}>
           {logoUrl
-            ? <img src={logoUrl} alt="Logo da produtora" className="max-h-10 max-w-[9rem] object-contain" />
+            ? <span className="inline-flex h-11 w-32 items-center justify-center rounded-[4px] bg-white p-1.5 ring-1 ring-[#e0e5ed]"><img src={logoUrl} alt="Logo da produtora" className="max-h-full max-w-full object-contain" /></span>
             : <span aria-hidden="true" className="rounded-md border border-dashed px-2 py-1 text-[11px] font-medium" style={{ borderColor: texto }}>Sua logo aqui</span>}
         </div>
         <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.06em]">{tipo || 'Ingresso'}</p>
@@ -49,7 +49,7 @@ export default function IngressoVisual({ dados, tipo, estilo, logoUrl, modo, exe
         </p>
       </div>
 
-      <p className="border-t border-[#e0e5ed] px-5 py-2 text-center font-display text-[11px] font-semibold text-[#4a60e3]">Evokaa</p>
+      <p className="border-t border-[#e0e5ed] px-5 py-2 text-center font-display text-[11px] font-semibold text-[#1d68c4]">Evokaa</p>
 
       {exemplo && <span className="absolute right-3 top-3 rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#0c2340]">Exemplo</span>}
     </figure>
