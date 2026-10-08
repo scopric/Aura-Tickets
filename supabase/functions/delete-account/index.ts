@@ -115,6 +115,15 @@ Deno.serve(async (req) => {
       if (error) return { error }
       return removerEmLotes('capas-eventos', (data ?? []) as string[])
     }],
+    // Logos do produtor (bucket logos-produtor, pasta <uid>/, docs/sql/20261031_produtor_logo.sql). Não depende do SQL estar
+    // aplicado: sem o bucket (list falha) ou sem a coluna (42703) o passo segue, para não travar a exclusão da conta.
+    ['logo_produtor', async () => {
+      const { error: coluna } = await admin.from('producer_profiles').update({ logo_url: null }).eq('id', uid)
+      if (coluna && coluna.code !== '42703') return { error: coluna }
+      const { data, error } = await admin.storage.from('logos-produtor').list(uid, { limit: 1000 })
+      if (error) return { error: null } // bucket ainda não existe
+      return removerEmLotes('logos-produtor', (data ?? []).map((f) => `${uid}/${f.name}`))
+    }],
     ['conversation_messages', () => admin.from('conversation_messages').delete().eq('sender_id', uid).eq('sender_role', 'customer')],
     ['conversations', () => admin.from('conversations').update({ last_message_preview: null }).eq('user_id', uid)],
     ['chat_contacts', () => admin.from('chat_contacts').update({
