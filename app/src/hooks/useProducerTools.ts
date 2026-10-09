@@ -73,7 +73,8 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<CamposTarefa>) => {
+    // event_id fora: o UPDATE de producer_tasks não tem permissão nessa coluna (SQL 20261103); a tarefa muda de evento pelo quadro
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<Omit<CamposTarefa, 'event_id'>>) => {
       const { data, error } = await supabase
         .from('producer_tasks')
         .update(updates)
@@ -159,13 +160,18 @@ export function useMoverTarefa() {
   const chave = ['producer-tasks', user?.id]
 
   return useMutation({
+    // um movimento por vez: o seguinte usa o updated_at que o anterior gravou (senão dois movimentos seguidos dariam conflito falso)
+    scope: { id: 'mover-tarefa' },
     mutationFn: async ({ tarefa, mudanca }: { tarefa: DbTask; mudanca: Partial<Pick<DbTask, 'column_id' | 'position' | 'status'>> }) => {
+      const lido = queryClient.getQueryData<DbTask[]>(chave)?.find(t => t.id === tarefa.id)?.updated_at ?? tarefa.updated_at
       let q = supabase.from('producer_tasks').update(mudanca as never).eq('id', tarefa.id).eq('producer_id', tarefa.producer_id)
       // duas pessoas no mesmo cartão: só grava se ninguém mexeu desde que a tela leu (0 linhas = alguém mexeu)
-      if (tarefa.updated_at) q = q.eq('updated_at', tarefa.updated_at)
-      const { data, error } = await q.select('id')
+      if (lido) q = q.eq('updated_at', lido)
+      const { data, error } = await q.select('*') // '*' e não 'id, updated_at': no modo antigo a coluna ainda não existe
       if (error) throw error
       if (!data?.length) throw new ConflitoCartao('Outra pessoa mexeu neste cartão')
+      const gravado = (data[0] as { updated_at?: string }).updated_at
+      if (gravado) queryClient.setQueryData<DbTask[]>(chave, old => old?.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)))
     },
     onMutate: async ({ tarefa, mudanca }) => {
       await queryClient.cancelQueries({ queryKey: chave })
