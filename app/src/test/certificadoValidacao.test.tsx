@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
+import { camposPadrao } from '../lib/certificados'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CertificadoValidacao from '../pages/CertificadoValidacao'
@@ -30,7 +31,7 @@ describe('lib: certificadoValidar', () => {
   it('devolve só os campos conhecidos e do tipo certo; resposta fora do formato vira inválido', async () => {
     rpc.mockResolvedValueOnce({ data: { ...VALIDO, email: 'x@y.z', cpf: '1', extra: 1 }, error: null })
     const r = await validarCertificado(COD)
-    expect(r).toEqual(VALIDO) // sem email/cpf/extra
+    expect(r).toEqual({ ...VALIDO, modelo: null }) // sem email/cpf/extra
     rpc.mockResolvedValueOnce({ data: { valido: true, evento: '', data_evento: '2026-06-15', emitido_em: '2026-06-16' }, error: null })
     expect(await validarCertificado(COD)).toEqual({ valido: false })
     rpc.mockResolvedValueOnce({ data: { valido: true, evento: 'X', data_evento: 'ontem', emitido_em: '2026-06-16' }, error: null })
@@ -54,7 +55,7 @@ describe('página /certificado/<código>', () => {
     rpc.mockResolvedValue({ data: VALIDO, error: null })
     montar(COD)
     expect(await screen.findByRole('heading', { name: 'Certificado válido' })).toBeInTheDocument()
-    expect(rpc).toHaveBeenCalledWith('certificado_validar', { p_code: COD })
+    expect(rpc).toHaveBeenCalledWith('certificado_ver', { p_code: COD })
     for (const t of ['Ana Beatriz Silva', 'Workshop de Design', 'Produtora X', '8 h', '15 de junho de 2026', '16 de junho de 2026']) expect(screen.getByText(t)).toBeInTheDocument()
     expect(screen.getByText(COD)).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/@|cpf:/i)
@@ -92,5 +93,54 @@ describe('página /certificado/<código>', () => {
     await screen.findByRole('heading', { name: 'Certificado válido' })
     expect(document.querySelector('img[src="x"]')).toBeNull()
     expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument()
+  })
+
+  describe('o certificado na página', () => {
+    const MODELO = { selectedTemplate: 'classic', accentColor: '#1d68c4', fields: camposPadrao(), logoUrl: null, sigUrl: null, horas: '8' }
+    beforeEach(() => { vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co') })
+    afterEach(() => { vi.unstubAllEnvs(); document.body.classList.remove('imprimindo-cert') })
+
+    it('com modelo: desenha o certificado com o nome, o evento e o código do titular', async () => {
+      rpc.mockResolvedValue({ data: { ...VALIDO, codigo: COD, modelo: MODELO }, error: null })
+      montar(COD)
+      expect(await screen.findByRole('heading', { name: 'Seu certificado' })).toBeInTheDocument()
+      const secao = screen.getByRole('heading', { name: 'Seu certificado' }).closest('section')!
+      expect(secao).toHaveTextContent('Ana Beatriz Silva')
+      expect(secao).toHaveTextContent('Workshop de Design')
+      expect(secao).toHaveTextContent(COD)
+      expect(screen.getByRole('button', { name: 'Baixar PDF' })).toBeInTheDocument()
+    })
+    it('Baixar PDF monta a folha de impressão com o certificado e abre a impressão', async () => {
+      const imprimir = vi.fn(); window.print = imprimir
+      rpc.mockResolvedValue({ data: { ...VALIDO, codigo: COD, modelo: MODELO }, error: null })
+      montar(COD)
+      fireEvent.click(await screen.findByRole('button', { name: 'Baixar PDF' }))
+      await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
+      const folha = document.querySelector('#cert-print .cert-folha')!
+      expect(folha).toHaveTextContent('Ana Beatriz Silva')
+      expect(folha).toHaveTextContent('Workshop de Design')
+      window.dispatchEvent(new Event('afterprint'))
+      await waitFor(() => expect(document.getElementById('cert-print')).toBeNull())
+    })
+    it('sem modelo (grande demais ou ausente): só a validação, sem desenho nem botão de PDF', async () => {
+      rpc.mockResolvedValue({ data: { ...VALIDO, codigo: COD, modelo: null }, error: null })
+      montar(COD)
+      await screen.findByRole('heading', { name: 'Certificado válido' })
+      expect(screen.queryByRole('heading', { name: 'Seu certificado' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Baixar PDF' })).toBeNull()
+    })
+    it('imagem do modelo fora do padrão (outro site, javascript:) não é renderizada', async () => {
+      rpc.mockResolvedValue({ data: { ...VALIDO, codigo: COD, modelo: { ...MODELO, logoUrl: 'https://evil.example/logo.png', sigUrl: 'javascript:alert(1)' } }, error: null })
+      montar(COD)
+      await screen.findByRole('heading', { name: 'Seu certificado' })
+      expect(document.querySelector('img[src*="evil.example"]')).toBeNull()
+      expect(document.querySelector('img[src^="javascript:"]')).toBeNull()
+    })
+    it('imagem embutida válida (png em base64) aparece no certificado', async () => {
+      rpc.mockResolvedValue({ data: { ...VALIDO, codigo: COD, modelo: { ...MODELO, logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' } }, error: null })
+      montar(COD)
+      await screen.findByRole('heading', { name: 'Seu certificado' })
+      expect(document.querySelector('img[src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="]')).not.toBeNull()
+    })
   })
 })

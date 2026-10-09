@@ -120,10 +120,47 @@ const txt = (v: unknown, max: number, padrao = '') => (typeof v === 'string' ? v
 /** Endereço público do bucket das logos (logos-produtor) no Supabase do projeto; sem VITE_SUPABASE_URL nenhum https vale. */
 const baseLogos = () => `${import.meta.env.VITE_SUPABASE_URL ?? '\u0000'}/storage/v1/object/public/logos-produtor/`
 
-/** Imagem do certificado: data URL png/jpeg/webp em base64 (nunca SVG) ou https do storage de logos do próprio projeto. */
+/** Pixels máximos de uma imagem embutida (25 MP: cabe foto de 6000x4000). PNG pequeno que declara dezenas de milhares de pixels
+ *  ("bomba de descompressão") abre em gigabytes e mata a aba de quem abre o certificado. */
+export const IMAGEM_MAX_PIXELS = 25_000_000
+
+/** Largura e altura lidas do cabeçalho de uma imagem em data URL (png, jpeg ou webp), sem decodificar a imagem. null se não achar. */
+export function medidasDaImagem(dataUrl: string): { w: number; h: number } | null {
+  const virgula = dataUrl.indexOf(',')
+  if (virgula < 0) return null
+  let b: Uint8Array
+  try { // só o começo: o cabeçalho cabe nos primeiros 96 KB (múltiplo de 4 caracteres base64)
+    const bin = atob(dataUrl.slice(virgula + 1, virgula + 1 + 131072))
+    b = Uint8Array.from(bin, c => c.charCodeAt(0))
+  } catch { return null }
+  const u32 = (i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0
+  const le24 = (i: number) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16)
+  const tag = (i: number, t: string) => t.split('').every((c, k) => b[i + k] === c.charCodeAt(0))
+  if (b.length >= 24 && b[0] === 0x89 && tag(1, 'PNG')) return { w: u32(16), h: u32(20) }
+  if (b.length >= 30 && tag(0, 'RIFF') && tag(8, 'WEBP')) {
+    if (tag(12, 'VP8X')) return { w: le24(24) + 1, h: le24(27) + 1 }
+    if (tag(12, 'VP8 ')) return { w: (b[26] | (b[27] << 8)) & 0x3fff, h: (b[28] | (b[29] << 8)) & 0x3fff }
+    if (tag(12, 'VP8L')) { const bits = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24); return { w: (bits & 0x3fff) + 1, h: ((bits >>> 14) & 0x3fff) + 1 } }
+    return null
+  }
+  if (b.length > 4 && b[0] === 0xff && b[1] === 0xd8) {
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff) { i++; continue }
+      const m = b[i + 1]
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: (b[i + 7] << 8) | b[i + 8], h: (b[i + 5] << 8) | b[i + 6] }
+      i += 2 + ((b[i + 2] << 8) | b[i + 3])
+    }
+  }
+  return null
+}
+
+/** Imagem do certificado: data URL png/jpeg/webp em base64 (nunca SVG, no máximo 25 MP, medidas legíveis) ou https do storage de logos do próprio projeto. */
 export function imagemSegura(v: unknown): string | null {
   if (typeof v !== 'string' || v.length > LIMITES.imagemChars) return null
-  if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(v)) return v
+  if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(v)) {
+    const m = medidasDaImagem(v)
+    return m && m.w > 0 && m.h > 0 && m.w * m.h <= IMAGEM_MAX_PIXELS ? v : null
+  }
   if (v.length <= 500 && v.startsWith(baseLogos()) && /^https:\/\/[^\s"'<>()\\]+$/.test(v)) return v
   return null
 }
