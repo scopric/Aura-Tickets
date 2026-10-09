@@ -3,12 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { toast } from 'sonner'
 import ProducerIngressos from '../pages/producer/Ingressos'
 
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
 const m = vi.hoisted(() => ({
   eventos: { current: {} as Record<string, unknown> }, vendidos: { current: {} as Record<string, unknown> }, receita: { current: {} as Record<string, unknown> },
-  reordenar: vi.fn(), pendente: { current: false }, alternar: vi.fn(), gravar: vi.fn(), fator: vi.fn(),
+  reordenar: vi.fn(), pendente: { current: false }, alternar: vi.fn(), alternarAsync: vi.fn(), gravar: vi.fn(), fator: vi.fn(),
 }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../hooks/useEvents', () => ({
@@ -19,7 +20,7 @@ vi.mock('../hooks/useIngressos', () => ({
   useVendidosPorTipo: () => m.vendidos.current,
   useReceitaDoEvento: () => m.receita.current,
   useReordenarIngressos: () => ({ mutate: m.reordenar, isPending: m.pendente.current }),
-  useAlternarIngresso: () => ({ mutate: m.alternar, isPending: false }),
+  useAlternarIngresso: () => ({ mutate: m.alternar, mutateAsync: m.alternarAsync, isPending: false }),
 }))
 vi.mock('../lib/vendasPagas', () => ({ faltaSegundoFator: m.fator }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
@@ -37,6 +38,7 @@ const tres = [tt('Pista', { sort_order: 1 }), tt('VIP', { sort_order: 2, type: '
 describe('tela Ingressos', () => {
   beforeEach(() => {
     Object.values(m).forEach(v => typeof v === 'function' && 'mockReset' in v && v.mockReset())
+    vi.mocked(toast.success).mockClear(); vi.mocked(toast.error).mockClear()
     m.pendente.current = false; m.gravar.mockResolvedValue(null); m.fator.mockResolvedValue(false)
     m.eventos.current = q([evento(tres)]); m.vendidos.current = q({ Pista: 30, VIP: 5 }); m.receita.current = q(1500)
   })
@@ -89,13 +91,44 @@ describe('tela Ingressos', () => {
     expect(screen.getByRole('button', { name: 'Subir VIP' })).toBeDisabled()
   })
 
-  it('Visível pede confirmação antes de ocultar', async () => {
+  it('Ocultar pede confirmação (derruba compras em andamento) e depois oferece Desfazer que volta à venda', async () => {
+    m.alternar.mockImplementation((_v: unknown, o: { onSuccess: () => void }) => o.onSuccess())
+    m.alternarAsync.mockResolvedValue(null)
     montar()
     await userEvent.click(screen.getByRole('switch', { name: 'Visível: Pista' }))
-    expect(m.alternar).not.toHaveBeenCalled()
+    expect(m.alternar).not.toHaveBeenCalled() // ainda não gravou
     expect(screen.getByText('Ocultar este ingresso?')).toBeInTheDocument()
+    expect(screen.getByText(/Quem está pagando agora pode não conseguir concluir a compra/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Ocultar' }))
     expect(m.alternar).toHaveBeenCalledWith({ eventId: 'e1', id: 'Pista', ativo: false }, expect.anything())
+    const [msg, opts] = vi.mocked(toast.success).mock.calls.at(-1) as [string, { id: string; duration: number; action: { label: string; onClick: () => void } }]
+    expect(msg).toMatch(/"Pista" oculto.*Quem já comprou continua com o ingresso/)
+    expect(opts.action.label).toBe('Desfazer'); expect(opts.duration).toBe(8000); expect(opts.id).toBe('desfazer-ingresso-Pista') // o aviso novo substitui o velho
+    opts.action.onClick()
+    await waitFor(() => expect(m.alternarAsync).toHaveBeenCalledWith({ eventId: 'e1', id: 'Pista', ativo: true }))
+  })
+
+  it('Mostrar (voltar à venda) grava direto, sem diálogo, e oferece Desfazer que oculta de novo', async () => {
+    m.eventos.current = q([evento([tt('Pista', { sort_order: 1, is_active: false })])])
+    m.alternar.mockImplementation((_v: unknown, o: { onSuccess: () => void }) => o.onSuccess())
+    m.alternarAsync.mockResolvedValue(null)
+    montar()
+    await userEvent.click(screen.getByRole('switch', { name: 'Visível: Pista' }))
+    expect(screen.queryByText('Ocultar este ingresso?')).toBeNull()
+    expect(m.alternar).toHaveBeenCalledWith({ eventId: 'e1', id: 'Pista', ativo: true }, expect.anything())
+    const [msg, opts] = vi.mocked(toast.success).mock.calls.at(-1) as [string, { action: { onClick: () => void } }]
+    expect(msg).toBe('"Pista" voltou à venda.')
+    opts.action.onClick()
+    await waitFor(() => expect(m.alternarAsync).toHaveBeenCalledWith({ eventId: 'e1', id: 'Pista', ativo: false }))
+  })
+
+  it('erro ao mudar: avisa e não oferece Desfazer', async () => {
+    m.eventos.current = q([evento([tt('Pista', { sort_order: 1, is_active: false })])])
+    m.alternar.mockImplementation((_v: unknown, o: { onError: () => void }) => o.onError())
+    montar()
+    await userEvent.click(screen.getByRole('switch', { name: 'Visível: Pista' }))
+    expect(toast.error).toHaveBeenCalledWith('Não foi possível mudar o ingresso. Tente de novo.')
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('editar ingresso com vendas: quantidade abaixo do vendido não grava', async () => {

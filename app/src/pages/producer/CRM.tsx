@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { iniciais } from '../../hooks/useConversas'
 import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
+import BotaoInativo from '@/components/producer/BotaoInativo'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -456,12 +457,12 @@ export default function ProducerCRM() {
                     setNovo({ name: selected.full_name, email: selected.email ?? '', phone: selected.phone ?? '', source: selected.source ?? 'Instagram', value: selected.potential_value ? String(selected.potential_value).replace('.', ',') : '', interest: selected.event_interest ?? '', notes: selected.notes ?? '' })
                     setIsAddModalOpen(true)
                   }}>Editar</Button>
-                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
+                  <BotaoInativo variant="outline" size="sm" className="flex-1" disabled={!selected.email} motivo="Este lead não tem e-mail cadastrado." onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
                     <I.Copiar aria-hidden="true" />Copiar e-mail
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/${numeroWhatsApp(selected.phone)}`, '_blank', 'noopener')}>
+                  </BotaoInativo>
+                  <BotaoInativo variant="outline" size="sm" className="flex-1" disabled={!selected.phone} motivo="Este lead não tem telefone cadastrado." onClick={() => window.open(`https://wa.me/${numeroWhatsApp(selected.phone)}`, '_blank', 'noopener')}>
                     <I.Conversa aria-hidden="true" />WhatsApp
-                  </Button>
+                  </BotaoInativo>
                 </div>
 
                 <form onSubmit={handleAddInteraction} className="grid gap-3 rounded-md border border-border p-3">

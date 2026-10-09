@@ -25,6 +25,7 @@ import { CabecalhoEvento, EmBreve, KpiCard } from '@/components/producer/ui-even
 import { ImpressaoCertificados } from '@/components/producer/CertificadoDesenho'
 import { EmptyState, Erro, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
+import BotaoInativo from '@/components/producer/BotaoInativo'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -263,9 +264,9 @@ export default function Certificates() {
 
               <div className="mb-3 mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <SectionTitle>Participantes</SectionTitle>
-                <Button className="min-h-11" onClick={emitirTodos} disabled={pendentes.length === 0} loading={emitir.isPending}>
+                <BotaoInativo className="min-h-11" onClick={emitirTodos} disabled={pendentes.length === 0} motivo="Ainda não há participantes aguardando certificado." loading={emitir.isPending}>
                   Emitir para todos ({pendentes.length})
-                </Button>
+                </BotaoInativo>
               </div>
 
               {elegiveis.length === 0 ? (
@@ -309,7 +310,7 @@ export default function Certificates() {
               <div className="mb-3 mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <SectionTitle>Certificados emitidos</SectionTitle>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0}><I.Baixar aria-hidden="true" />Exportar CSV</Button>
+                  <BotaoInativo variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0} motivo="Nenhum certificado emitido ainda para exportar."><I.Baixar aria-hidden="true" />Exportar CSV</BotaoInativo>
                   <Button variant="outline" className="min-h-11" onClick={enviarEmailTodos} disabled={comNome.length === 0 || enviandoEmail !== null} loading={enviandoEmail === 'lote'}>
                     <I.Enviar aria-hidden="true" />Enviar por e-mail a todos ({comNome.length})
                   </Button>
@@ -334,7 +335,7 @@ export default function Certificates() {
                         <p className="truncate font-mono text-xs text-muted-foreground">Código {c.code} · emitido em {dataDe(c.issued_at)}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id) || esperandoLogo} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</Button>
+                        <BotaoInativo variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id) || esperandoLogo} motivo={!nomeDe.has(c.user_id) ? 'Este participante não tem nome cadastrado; sem nome não dá para gerar o PDF.' : undefined} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</BotaoInativo>
                         <Button variant="outline" size="sm" className="min-h-11" onClick={() => enviarEmail(c)} disabled={!nomeDe.has(c.user_id) || enviandoEmail !== null} loading={enviandoEmail === c.id} aria-label={`Enviar o certificado de ${nomeEmitido(c)} por e-mail`}><I.Enviar aria-hidden="true" />E-mail</Button>
                         <Button variant="ghost" size="sm" className={`min-h-11 ${icone}`} onClick={() => setRevogando({ id: c.id, nome: nomeEmitido(c) })} disabled={revogar.isPending} aria-label={`Revogar o certificado de ${nomeEmitido(c)}`}>Revogar</Button>
                       </div>

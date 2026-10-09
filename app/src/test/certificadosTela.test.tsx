@@ -64,6 +64,14 @@ describe('tela Certificados', () => {
     expect(banco.emitir).toHaveBeenCalledWith({ certificateId: 'c1', userIds: ['p2'] })
   })
 
+  it('sem pendentes o "Emitir para todos" fica inativo e diz por quê; sem emitidos o "Exportar CSV" também', async () => {
+    comDados([emi('i1', 'p1', 'cod-ana'), emi('i2', 'p2', 'cod-bia')]); montar()
+    const emitirTodos = screen.getByRole('button', { name: /Emitir para todos/ })
+    expect(emitirTodos).toHaveAttribute('aria-disabled', 'true')
+    expect(emitirTodos).toHaveAccessibleDescription('Ainda não há participantes aguardando certificado.')
+    await userEvent.click(emitirTodos); expect(banco.emitir).not.toHaveBeenCalled()
+  })
+
   it('a aba Modelo leva ao editor do mesmo evento', async () => {
     comDados(); montar()
     await userEvent.click(screen.getByRole('tab', { name: /Modelo/ }))
@@ -217,7 +225,10 @@ describe('tela Certificados', () => {
     it('quem não tem nome na lista fica fora do lote, não tem PDF individual e a tela diz quantos', async () => {
       comDados([emi('i1', 'p1', 'cod-ana'), emi('i9', 'sumiu', 'cod-x')]); montar('/producer/certificados?eventId=e1&aba=emitidos')
       expect(screen.getByRole('status')).toHaveTextContent('1 certificado ficou fora do PDF')
-      expect(screen.getByRole('button', { name: 'Baixar PDF de Nome indisponível' })).toBeDisabled()
+      const pdfSemNome = screen.getByRole('button', { name: 'Baixar PDF de Nome indisponível' })
+      expect(pdfSemNome).toHaveAttribute('aria-disabled', 'true') // inativo, mas focável e com o motivo para o leitor de tela
+      expect(pdfSemNome).toHaveAccessibleDescription(/não tem nome cadastrado/)
+      await userEvent.click(pdfSemNome); expect(imprimir).not.toHaveBeenCalled() // clicar não faz nada
       await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de todos (1)' }))
       await waitFor(() => expect(imprimir).toHaveBeenCalled())
       expect(document.querySelectorAll('#cert-print .cert-folha')).toHaveLength(1)
