@@ -133,6 +133,7 @@ export function useCreateOrder() {
         taxa: Number(res.taxa) || 0,
         // prazo pelo relógio do servidor: a diferença vale no relógio deste aparelho
         venceEm: Date.now() + (new Date(res.reservado_ate!).getTime() - new Date(res.agora!).getTime()),
+        deltaMs: Number.isFinite(new Date(res.agora!).getTime()) ? new Date(res.agora!).getTime() - Date.now() : 0, // servidor menos aparelho: o Pix também vence pela hora do servidor
         customer_name: user.name || user.full_name || null,
         customer_email: user.email,
       }
