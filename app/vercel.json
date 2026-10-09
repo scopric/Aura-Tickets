@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/|images/|videos/|evo/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|images/|videos/|evo/|quadro-modelo/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "source": "/((?!assets/|images/|videos/|evo/).*)",
+      "source": "/((?!assets/|images/|videos/|evo/|quadro-modelo/).*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
