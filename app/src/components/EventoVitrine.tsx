@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { brl } from '../lib/taxa'
 import './EventoVitrine.css'
 
@@ -48,17 +48,19 @@ export function CapaInclinada({ children, selo }: { children: ReactNode; selo?: 
 }
 
 // Carimbo de borracha (decorativo): dia e mês do evento e, em arco, o local e a cidade. Só dados do evento, nenhum texto fixo.
+const cortar = (t: string, n: number) => Array.from(t.trim().toUpperCase()).slice(0, n).join('') // por ponto de código, não quebra emoji
 export function Carimbo({ dia, mes, local, cidade }: { dia: number; mes: string; local: string; cidade?: string | null }) {
-  const arco = [local.trim().toUpperCase().slice(0, 20), cidade?.trim().toUpperCase().slice(0, 12)].filter(Boolean).join(' · ')
+  const arco = [cortar(local, 20), cidade ? cortar(cidade, 12) : ''].filter(Boolean).join(' · ')
+  const id = `evv-arco-${useId().replace(/:/g, '')}`
   return (
     <div className="evv-carimbo" aria-hidden="true">
       <svg viewBox="0 0 100 100">
-        <defs><path id="evv-arco" d="M50,50 m-35,0 a35,35 0 1,1 70,0 a35,35 0 1,1 -70,0" /></defs>
+        <defs><path id={id} d="M50,50 m-35,0 a35,35 0 1,1 70,0 a35,35 0 1,1 -70,0" /></defs>
         <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="2" />
         <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="0.8" />
         {arco && (
           <text fontFamily="ui-monospace,Menlo,monospace" fontSize="8.6" letterSpacing="1.4" fill="currentColor">
-            <textPath href="#evv-arco" textLength={arco.length > 21 ? 212 : undefined} lengthAdjust="spacingAndGlyphs">{`${arco} ·`}</textPath>
+            <textPath href={`#${id}`} textLength={arco.length > 21 ? 212 : undefined} lengthAdjust="spacingAndGlyphs">{`${arco} ·`}</textPath>
           </text>
         )}
         <text x="50" y="57" textAnchor="middle" fontFamily="Archivo,sans-serif" fontWeight="800" fontSize="27" fill="currentColor">{dia}</text>

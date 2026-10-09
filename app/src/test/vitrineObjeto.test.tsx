@@ -3,6 +3,8 @@ import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import EventoConteudo from '../components/EventoConteudo'
 import { CapaInclinada } from '../components/EventoVitrine'
 
@@ -78,5 +80,18 @@ describe('vitrine: ingresso como objeto', () => {
     media(false, true); expect(mover()).toEqual([true, '50'])
     media(false, false); expect(mover()).toEqual([false, ''])
     media(true, true); expect(mover()).toEqual([false, ''])
+  })
+
+  it('o recuo da lista de ingressos fica na área que rola (>= 8 px) e não há rolagem horizontal', () => {
+    const css = readFileSync(resolve(__dirname, '../components/EventoVitrine.css'), 'utf8')
+    const regra = css.match(/\.evv-lista \{([^}]*)\}/)![1]
+    expect(+regra.match(/padding-inline:\s*(\d+)px/)![1]).toBeGreaterThanOrEqual(8)
+    expect(regra).not.toMatch(/overflow-x:\s*auto/)
+    expect(regra).toMatch(/overflow-x:\s*hidden/)
+  })
+
+  it('o canhoto é aria-hidden (o total já é lido na barra de compra)', () => {
+    const { container } = montar(evento())
+    expect(container.querySelector('.evv-canhoto')?.getAttribute('aria-hidden')).toBe('true')
   })
 })

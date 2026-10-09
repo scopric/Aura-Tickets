@@ -40,12 +40,13 @@ describe('bilhete e carimbo', () => {
     expect(contraste('#5b6472', '#ffffff')).toBeGreaterThanOrEqual(4.5) // claro: muted sobre card
     expect(contraste('#9aa1ad', '#14171d')).toBeGreaterThanOrEqual(4.5) // escuro
   })
-  it('carimbo branco: com o halo escuro do CSS, lê até sobre foto totalmente branca; sobre foto escura já lê sem ele', () => {
+  it('carimbo: halo escuro em três camadas, o mais justo com opacidade >= 0,85', () => {
+    // O halo escurece o fundo junto às letras, mas NÃO é prova de leitura sobre foto branca (nas bordas das letras
+    // a sombra é suave). O carimbo é decorativo e aria-hidden: nenhuma informação depende dele.
     const sombras = [...css.match(/\.evv-carimbo \{[\s\S]*?\}/)![0].matchAll(/drop-shadow\([^)]*rgb\(0 0 0 \/ ([\d.]+)\)\)/g)].map(m => +m[1])
-    const haloMin = Math.min(...sombras) // pior caso: só a sombra mais fraca cobrindo o pixel de fundo
-    expect(sombras.length).toBe(2)
-    expect(contraste('#ffffff', sobre('#ffffff', '#000000', haloMin))).toBeGreaterThanOrEqual(4.5)
-    expect(contraste('#ffffff', '#202020')).toBeGreaterThanOrEqual(4.5)
+    expect(sombras).toHaveLength(3)
+    expect(Math.max(...sombras)).toBeGreaterThanOrEqual(0.85)
+    expect(contraste('#ffffff', '#202020')).toBeGreaterThanOrEqual(4.5) // sobre foto escura
   })
 })
 

@@ -257,7 +257,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <div className="evv-gr" />
             <div className="evv-esc" />
           </div>
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[max(480px,70vh)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:min-h-[max(560px,80vh)] lg:gap-12">
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[clamp(520px,70vh,720px)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:gap-12">
             <div className="relative mx-auto aspect-[4/5] w-full max-w-[320px] md:order-last md:mx-0 md:max-w-none">
               <CapaInclinada selo={dataEvento ? <Carimbo dia={dataEvento.getDate()} mes={mesCurto} local={event.venue_name || event.location || ''} cidade={event.venue_city} /> : null}><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
             </div>
@@ -271,7 +271,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
                 )}
                 <p className="text-[15px] font-semibold leading-5">{dataEvento ? `${semana}${hora ? ` · ${hora}` : ''}` : 'Data a definir'}</p>
               </div>
-              <h1 className="font-display wide mt-6 break-words text-[clamp(2.25rem,9vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.04em] [text-wrap:balance] lg:text-[clamp(3rem,6.2vw,6rem)]">{event.title}</h1>
+              <h1 className="font-display wide mt-6 break-words text-[clamp(2.25rem,9vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.04em] [text-wrap:balance] [hyphens:auto] lg:text-[clamp(3rem,6.2vw,6rem)]">{event.title}</h1>
               {subtituloUtil && <p className="mt-3 max-w-xl text-base leading-6 text-[color:var(--h-fg2)]">{event.subtitle}</p>}
               <p className="mt-4 flex items-center gap-2 text-[15px] leading-5 text-[color:var(--h-fg2)]">
                 <I.Local size={16} className="shrink-0" />
@@ -327,9 +327,9 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
-          <div className={!previa ? 'evv-bilhete-in lg:px-5 lg:pt-5' : undefined}>
+          <div className={!previa ? 'evv-bilhete-in lg:pt-5' : undefined}>
           {/* Cabeçalho do bilhete: o h2 continua sendo o título acessível; o número é só enfeite */}
-          <div className={cn('flex items-baseline justify-between gap-3', !previa && 'lg:border-b lg:border-border lg:pb-3')}>
+          <div className={cn('flex items-baseline justify-between gap-3', !previa && 'lg:mx-5 lg:border-b lg:border-border lg:pb-3')}>
             <h2 id="h-ingressos" className={cn(titulo, 'min-w-0 flex-1', !previa && 'lg:font-[ui-monospace,SF_Mono,Menlo,Consolas,monospace] lg:text-[10.5px] lg:font-medium lg:tracking-[0.14em] lg:after:hidden')}>Ingressos</h2>
             {!previa && <span aria-hidden="true" className="evv-mono hidden text-muted-foreground lg:block">Nº {event.id.slice(0, 6).toUpperCase()}</span>}
           </div>
@@ -441,7 +441,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           })}
           </div>
           {!previa && (
-            <div className="evv-canhoto">
+            <div className="evv-canhoto" aria-hidden="true">
               <span className="evv-mono text-muted-foreground">Total</span>
               <span className="evv-total"><TotalAnimado valor={cartResumo.total} /></span>
             </div>
