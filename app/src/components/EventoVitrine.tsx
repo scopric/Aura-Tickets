@@ -33,7 +33,7 @@ export function CapaInclinada({ children }: { children: ReactNode }) {
   }
   return (
     <div className="evv-capa absolute inset-0" onPointerMove={mexe} onPointerLeave={sai}>
-      <div ref={dentro} className="evv-capa-in absolute inset-0 overflow-hidden lg:rounded-ev-2xl">
+      <div ref={dentro} className="evv-capa-in absolute inset-0 overflow-hidden rounded-[24px]">
         {children}
         <div aria-hidden="true" className="evv-luz" />
       </div>

@@ -19,11 +19,11 @@ import { publicoDoPapel } from '../hooks/useConversas'
 import { ASSUNTO_DENUNCIA } from '../lib/ingresso'
 import type { DbEvent } from '../hooks/useEvents'
 import { useOrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
-import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
+import { corSorteada, ehHex, temFoto, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
 import { esgotado, lotacao, noLimite, tetoPorPedido } from '../lib/lotacao'
-import { CLASSIFICACOES } from '../lib/tipoEvento'
+import { CLASSIFICACOES, ESTILOS, TEMAS } from '../lib/tipoEvento'
 import { fimDe } from '../lib/eventoProdutor'
 import { fimDasVendas } from '../lib/interesse'
 
@@ -36,7 +36,7 @@ function horaCurta(time: string | null) {
 }
 
 // Linha de informação (ícone de 20 px, sem caixa; contrato 8.1, item 4)
-function Linha({ icone, titulo, sub, href, rotulo, cartao }: { icone: ReactNode; titulo: string; sub?: string; href?: string; rotulo?: string; cartao?: boolean }) {
+function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo: string; sub?: string; href?: string; rotulo?: string }) {
   const corpo = (
     <>
       <span className="shrink-0 text-muted-foreground">{icone}</span>
@@ -47,9 +47,29 @@ function Linha({ icone, titulo, sub, href, rotulo, cartao }: { icone: ReactNode;
       {href && <I.AbrirExterno size={16} className="shrink-0 text-muted-foreground" />}
     </>
   )
-  const classe = cn('flex min-h-14 w-full items-center gap-4 border-t border-border px-5 py-2 text-left first:border-t-0', cartao && 'lg:rounded-ev-xl lg:border lg:bg-card lg:px-4 lg:py-3 lg:first:border-t')
+  const classe = 'flex min-h-14 w-full items-center gap-4 border-t border-border px-5 py-2 text-left first:border-t-0'
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" aria-label={rotulo} className={cn(classe, 'hover:bg-[var(--ev-tint-hover)] focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))] focus-visible:outline-none')}>{corpo}</a>
+  ) : (
+    <div className={classe}>{corpo}</div>
+  )
+}
+
+// Linha fina da vitrine (computador e celular): rótulo pequeno em maiúsculas + valor, fio de 1px entre linhas
+function LinhaFina({ rotulo, titulo, sub, href, aria }: { rotulo: string; titulo: string; sub?: string; href?: string; aria?: string }) {
+  const corpo = (
+    <>
+      <span className="text-[11px] font-semibold uppercase leading-6 tracking-[0.08em] text-muted-foreground">{rotulo}</span>
+      <span className="min-w-0">
+        <span className="block break-words text-base leading-6">{titulo}</span>
+        {sub && <span className="block break-words text-[13px] leading-5 text-muted-foreground">{sub}</span>}
+      </span>
+      {href && <I.AbrirExterno size={16} className="mt-1 shrink-0 text-muted-foreground" />}
+    </>
+  )
+  const classe = cn('grid min-h-14 grid-cols-[6.5rem_minmax(0,1fr)] items-start gap-x-4 border-t border-border px-5 py-3 first:border-t-0 lg:px-0', href && 'grid-cols-[6.5rem_minmax(0,1fr)_auto]')
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={aria} className={cn(classe, 'transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none')}>{corpo}</a>
   ) : (
     <div className={classe}>{corpo}</div>
   )
@@ -162,9 +182,19 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
       }))
     : 'Data a definir'
   const hora = horaCurta(event.time)
+  const semana = dataEvento ? maiuscula(dataEvento.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')) : ''
+  const mesCurto = dataEvento ? dataEvento.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : ''
+  // Chips do hero: estilos, temas e tags do evento (só se houver), sem repetir
+  const chips = [...new Map([
+    ...(event.estilos ?? []).map((v) => ESTILOS.find((x) => x.valor === v)?.rotulo),
+    ...(event.temas ?? []).map((v) => TEMAS.find((x) => x.valor === v)?.rotulo),
+    ...(event.tags ?? []),
+  ].filter((c): c is string => !!c?.trim()).map((c) => [c.toLowerCase(), c] as const)).values()].slice(0, 6)
+  const fotoFundo = [event.cover_image, event.image_url].find(temFoto)
   const local = event.venue_name || event.location || 'Local a definir'
   const endereco = [event.venue_address, [event.venue_city, event.venue_state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
   const mapaUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local)}`
+  const classificacaoTexto = event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'
   const descricao = event.description?.trim()
   const descricaoLonga = (descricao?.length ?? 0) > 240
 
@@ -179,12 +209,18 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   )
   // Compra em destaque: botão invertido (contraste máximo) com relevo de tecla; só "Comprar" e "Finalizar"
   const cta = 'shrink-0 rounded-full bg-foreground text-background shadow-[inset_0_-2px_0_hsl(var(--background)/0.28)] hover:bg-foreground/90 active:translate-y-px motion-reduce:active:translate-y-0'
+  // Título de seção: no computador e no celular da vitrine, rótulo pequeno em maiúsculas com fio que se estende
+  const titulo = previa ? 'text-[15px] font-semibold leading-5' : 'flex items-center gap-4 text-[11px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground after:h-px after:flex-1 after:bg-border'
+  const irIngressos = () => {
+    const el = document.getElementById('ingressos')
+    el?.scrollIntoView({ behavior: podeMover() ? 'smooth' : 'auto' })
+    el?.focus({ preventScroll: true })
+  }
+  const textoHero = aVenda.length === 0 ? motivoSemVenda ?? 'Ingressos indisponíveis' : menorTotal === 0 ? 'Entrada gratuita' : `Ingressos desde ${brl(menorTotal)}, já com a taxa`
   const circuloFundo = rolou ? '' : solido ? 'bg-card text-foreground shadow-ev-2' : 'vidro'
 
   return (
     <div ref={raiz} className={cn('evento-cor bg-background text-foreground', !previa && 'relative isolate min-h-screen overflow-x-clip')} style={varsDoEvento(corEv, false, event.accent_intensity ?? 100)}>
-      {/* Luz ambiente na cor do evento, atrás do topo (computador) */}
-      {!previa && <div aria-hidden="true" className="evv-ambiente -z-10 hidden lg:block" />}
       {/* Barra de topo: círculos de vidro sobre a capa; depois de rolar, a barra inteira ganha vidro */}
       {!previa && <header
         className={cn(
@@ -211,36 +247,82 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         </div>
       </header>}
 
-      <div className={cn('mx-auto max-w-xl', !previa && 'min-h-screen md:border-x md:border-border lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[repeat(7,auto)_1fr] lg:gap-x-10 lg:border-x-0 lg:px-8 lg:pt-20 lg:[&>*:not(#ingressos)]:col-start-1')}>
-        {/* Capa sem texto por cima: foto em duotone na cor do evento ou cartaz (o nome fica no bloco abaixo) */}
-        <div ref={heroRef} className={cn('relative aspect-[390/460] w-full overflow-hidden', !previa && 'lg:aspect-[16/10] lg:overflow-visible')}>
-          {previa ? <EventoCapa evento={event} tamanho="faixa" prioridade /> : <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>}
-        </div>
-
-        {/* Bloco de título na cor do evento: o nome aparece uma vez só */}
-        <section className={cn('bg-[var(--evento-fundo)] px-5 pb-5 pt-[22px]', !previa && 'lg:mt-4 lg:rounded-ev-2xl lg:p-8')}>
-          <p className="text-[15px] font-semibold leading-5 text-[var(--evento-texto)]">{dataLonga}{hora && ` · ${hora}`}</p>
-          <h1 className={cn('font-display wide mt-1.5 break-words text-[34px] font-extrabold leading-9 tracking-[-0.02em]', !previa && 'lg:text-5xl lg:leading-[1.02] lg:tracking-[-0.03em]')}>{event.title}</h1>
-          {event.subtitle && <p className="mt-2 text-base leading-6">{event.subtitle}</p>}
-          <p className="mt-2 text-sm leading-5">{local}</p>
+      {!previa && (
+        <section ref={heroRef} className="evv-hero">
+          <div aria-hidden="true" className="evv-hero-fundo">
+            <div className="evv-lav" />
+            {fotoFundo && <img className="evv-fundo-img" src={fotoFundo} alt="" loading="lazy" decoding="async" />}
+            <div className="evv-gr" />
+            <div className="evv-esc" />
+          </div>
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 lg:min-h-[max(560px,80vh)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-12 lg:px-8 lg:pb-16 lg:pt-28">
+            <div className="relative mx-auto aspect-[4/5] w-[78%] max-w-[420px] lg:order-last lg:mx-0 lg:w-full lg:max-w-[440px] lg:justify-self-end">
+              <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-4">
+                {dataEvento && (
+                  <span className="evv-data" aria-hidden="true"><b>{dataEvento.getDate()}</b><span>{mesCurto}</span></span>
+                )}
+                <p className="text-[15px] font-semibold leading-5">{dataEvento ? `${semana}${hora ? ` · ${hora}` : ''}` : 'Data a definir'}</p>
+              </div>
+              <h1 className="font-display wide mt-6 break-words text-[clamp(2.25rem,9vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.04em] [text-wrap:balance] lg:text-[clamp(3rem,6.2vw,6rem)]">{event.title}</h1>
+              {event.subtitle && <p className="mt-3 max-w-xl text-base leading-6 text-[color:var(--h-fg2)]">{event.subtitle}</p>}
+              <p className="mt-4 flex items-center gap-2 text-[15px] leading-5 text-[color:var(--h-fg2)]">
+                <I.Local size={16} className="shrink-0" />
+                <span className="min-w-0 break-words">{local}</span>
+              </p>
+              {chips.length > 0 && (
+                <ul className="mt-4 flex flex-wrap gap-2" aria-label="Estilos e temas">
+                  {chips.map((c) => <li key={c} className="evv-chip">{c}</li>)}
+                </ul>
+              )}
+              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+                <Button size="lg" className={cta} onClick={irIngressos}>Ver ingressos <I.ChevronDireita size={16} /></Button>
+                <p className="text-sm leading-5 text-[color:var(--h-fg2)]">{textoHero}</p>
+              </div>
+            </div>
+          </div>
         </section>
+      )}
 
-        <div data-entra={previa ? undefined : ''} className={cn('py-2', !previa && 'lg:grid lg:grid-cols-3 lg:gap-3 lg:py-4')}>
-          <Linha
-            icone={<I.Horario size={20} />}
-            titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
-            sub={hora || undefined}
-            cartao={!previa}
-          />
-          <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} cartao={!previa} />
-          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} cartao={!previa} />
-        </div>
+      <div className={cn('mx-auto max-w-xl', !previa && 'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[repeat(7,auto)_1fr] lg:gap-x-10 lg:px-8 lg:pt-10 lg:[&>*:not(#ingressos)]:col-start-1')}>
+        {previa ? (
+          <>
+            <div className="relative aspect-[390/460] w-full overflow-hidden">
+              <EventoCapa evento={event} tamanho="faixa" prioridade />
+            </div>
+            {/* Bloco de título na cor do evento: o nome aparece uma vez só */}
+            <section className="bg-[var(--evento-fundo)] px-5 pb-5 pt-[22px]">
+              <p className="text-[15px] font-semibold leading-5 text-[var(--evento-texto)]">{dataLonga}{hora && ` · ${hora}`}</p>
+              <h1 className="font-display wide mt-1.5 break-words text-[34px] font-extrabold leading-9 tracking-[-0.02em]">{event.title}</h1>
+              {event.subtitle && <p className="mt-2 text-base leading-6">{event.subtitle}</p>}
+              <p className="mt-2 text-sm leading-5">{local}</p>
+            </section>
+            <div className="py-2">
+              <Linha
+                icone={<I.Horario size={20} />}
+                titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
+                sub={hora || undefined}
+              />
+              <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} />
+              <Linha icone={<I.Info size={20} />} titulo={classificacaoTexto} />
+            </div>
+          </>
+        ) : (
+          <div data-entra="" className="py-2 lg:pb-6 lg:pt-0">
+            <LinhaFina rotulo="Data" titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'} />
+            {hora && <LinhaFina rotulo="Horário" titulo={hora} />}
+            <LinhaFina rotulo="Local" titulo={local} sub={endereco || undefined} href={mapaUrl} aria={`Como chegar: ${local} (abre o mapa)`} />
+            <LinhaFina rotulo="Classificação" titulo={classificacaoTexto} />
+          </div>
+        )}
 
         <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" aria-labelledby="h-ingressos" className={cn('scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
-          <h2 id="h-ingressos" className="text-[15px] font-semibold leading-5">Ingressos</h2>
+        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
+          <h2 id="h-ingressos" className={titulo}>Ingressos</h2>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
 
           {semVendaAinda && <AviseMe eventId={event.id} />}
@@ -288,7 +370,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             const { taxa, total } = calcularTaxa(ticket.price)
             const perks = ticket.perks || []
             return (
-              <div key={ticket.id} className="flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0">
+              <div key={ticket.id} className={cn('flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0', !previa && 'transition-[background-color,box-shadow] duration-200 motion-reduce:transition-none', !previa && (cart[ticket.id] || 0) > 0 && '-mx-2 rounded-ev-md bg-[color-mix(in_srgb,var(--evento)_9%,transparent)] px-2 shadow-[inset_2px_0_0_var(--evento)]')}>
                 <div className="min-w-0 flex-1">
                   <div className={cn('text-base font-medium leading-6', acabou && 'text-muted-foreground')}>{ticket.name}</div>
                   {ticket.description && <p className="text-[13px] leading-5 text-muted-foreground">{ticket.description}</p>}
@@ -350,7 +432,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
 
         {descricao && (
           <section aria-labelledby="h-sobre" data-entra={previa ? undefined : ''} className="border-t border-border px-5 py-6">
-            <h2 id="h-sobre" className="mb-2 text-[15px] font-semibold leading-5">Sobre</h2>
+            <h2 id="h-sobre" className={cn(titulo, 'mb-2')}>Sobre</h2>
             <p id="sobre-txt" className={cn('whitespace-pre-line text-base leading-6', descricaoLonga && !sobreAberto && 'line-clamp-5')}>{descricao}</p>
             {descricaoLonga && (
               <button
@@ -368,7 +450,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
 
         {gallery.length > 0 && (
           <section aria-labelledby="h-galeria" data-entra={previa ? undefined : ''} className="border-t border-border px-5 py-6">
-            <h2 id="h-galeria" className="mb-3 text-[15px] font-semibold leading-5">Galeria</h2>
+            <h2 id="h-galeria" className={cn(titulo, 'mb-3')}>Galeria</h2>
             <div className="grid grid-cols-2 gap-2">
               {gallery.map((img, i) => (
                 <img key={i} src={img} alt={`${event.title} - ${i + 1}`} loading="lazy" decoding="async" className="aspect-[3/4] w-full rounded-ev-xl object-cover" />

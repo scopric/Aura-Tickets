@@ -1,27 +1,68 @@
-/* Vitrine do evento (computador): luz ambiente na cor do evento, capa que inclina e entrada ao rolar.
-   Tudo desligado com "reduzir movimento"; a inclinação só existe onde há mouse (hover: hover). */
+/* Vitrine do evento: hero imersivo na cor do evento, capa que inclina, "pop" do contador e entrada ao rolar.
+   Tudo desligado com "reduzir movimento"; a inclinação só existe onde há mouse (hover: hover). Sem vidro aqui. */
 
-/* Luz atrás do topo: sempre a cor do evento (--evento), nunca uma cor fixa */
-.evv-ambiente {
-  position: absolute; inset: 0 0 auto 0; height: 560px; pointer-events: none;
-  background: radial-gradient(60% 100% at 50% 0%, color-mix(in oklab, var(--evento) 26%, transparent), transparent 72%);
+/* ---- Hero ------------------------------------------------------------------------------------------------------
+   Camadas, de baixo para cima: fundo do evento (--evento-fundo, já contrastado com o texto) > lavagem da cor
+   > capa desfocada (só no computador) > granulação > escurecimento (só no tema escuro) > esmaecer para a página.
+   Contraste do texto sobre o pior caso destas camadas: test/heroContraste.test.ts (lê os números daqui). */
+.evv-hero {
+  --h-fg: #0b0d12; --h-fg2: #1e293b;   /* texto e texto secundário do hero, tema claro */
+  --h-lav-a: 0.12; --h-lav-b: 0.08;    /* força da lavagem (cor do evento) */
+  --h-img: 0.08;                       /* opacidade da capa desfocada */
+  --h-esc: 0;                          /* escurecimento (0 no claro) */
+  --giro: 2deg;
+  position: relative; isolation: isolate; overflow: hidden;
+  background-color: var(--evento-fundo); color: var(--h-fg);
 }
+.dark .evv-hero { --h-fg: #ffffff; --h-fg2: #e6e8ec; --h-lav-a: 0.22; --h-lav-b: 0.14; --h-img: 0.14; --h-esc: 0.5; }
+@media (min-width: 1024px) { .evv-hero { --giro: 3deg; } }
+.evv-hero-fundo { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.evv-lav {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(70% 90% at 85% 8%, color-mix(in srgb, var(--evento) calc(var(--h-lav-a) * 100%), transparent), transparent 70%),
+    radial-gradient(60% 80% at 4% 100%, color-mix(in srgb, var(--evento) calc(var(--h-lav-b) * 100%), transparent), transparent 70%);
+}
+.evv-fundo-img { position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover; opacity: var(--h-img); filter: blur(48px) saturate(1.2); display: none; }
+@media (min-width: 1024px) { .evv-fundo-img { display: block; } }
+.evv-gr {
+  position: absolute; inset: 0; opacity: 0.04; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.evv-esc { position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(11 13 18 / var(--h-esc)) 0%, rgb(11 13 18 / var(--h-esc)) 62%, hsl(var(--background)) 100%); }
 
-/* Luz que segue o ponteiro, por cima da capa */
+/* Bloquinho da data: dia grande em Archivo tabular, mês pequeno em maiúsculas espaçadas */
+.evv-data { display: inline-grid; justify-items: center; min-width: 3.5rem; padding: 0.5rem 0.75rem; border: 1px solid color-mix(in srgb, var(--h-fg) 28%, transparent); border-radius: 12px; }
+.evv-data b { font: 800 1.75rem/1 'Archivo', 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; }
+.evv-data span { margin-top: 0.25rem; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* Chip fino: borda de 1px, sem preenchimento */
+.evv-chip { display: inline-flex; align-items: center; padding: 0.2rem 0.7rem; border: 1px solid color-mix(in srgb, var(--h-fg) 32%, transparent); border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--h-fg2); }
+
+/* ---- Capa em cartão: giro leve, sombra com brilho na cor do evento ------------------------------------------- */
+.evv-capa-in {
+  transform: rotate(var(--giro, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  box-shadow: 0 30px 60px -24px color-mix(in srgb, var(--evento) 60%, transparent), 0 0 0 1px rgb(255 255 255 / 0.1);
+}
 .evv-luz {
   position: absolute; inset: 0; pointer-events: none; opacity: 0;
   background: radial-gradient(320px circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 0.18), transparent 60%);
 }
-
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .evv-capa { perspective: 1100px; }
-  .evv-capa-in { transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 400ms var(--curva-sai, ease-out); will-change: transform; }
+  .evv-capa-in { transition: transform 400ms var(--curva-sai, ease-out); will-change: transform; }
   .evv-capa-in[data-inclina] { transition: transform 80ms linear; }
   .evv-capa-in .evv-luz { transition: opacity 240ms; }
   .evv-capa-in[data-inclina] .evv-luz { opacity: 1; }
 }
 
-/* Entrada ao rolar: o JS liga data-evv só quando há IntersectionObserver e movimento permitido */
+/* ---- Contador: o número dá um "pop" curto quando muda; a linha do ingresso ganha fio na cor do evento ------------ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes evv-pop { 50% { transform: scale(1.12); } }
+  .evv-pop { display: inline-block; animation: evv-pop 140ms var(--curva-sai, ease-out); }
+}
+
+/* ---- Entrada ao rolar: o JS liga data-evv só quando há IntersectionObserver e movimento permitido -------------- */
 @media (prefers-reduced-motion: no-preference) {
   [data-evv] [data-entra] { transition: opacity 400ms var(--curva-entra, ease-out), transform 400ms var(--curva-entra, ease-out); }
   [data-evv] [data-entra]:not([data-vista]) { opacity: 0; transform: translateY(12px); }

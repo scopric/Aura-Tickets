@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import EventoCapa from './EventoCapa'
 import { supabase } from '../lib/supabase'
 import { diaBR } from '../lib/visaoEvento'
 import { categoriasDoCatalogo, cidadesDoCatalogo, ordenarPorData, rotuloDia, QUANDO_SLUG, type EventoCatalogo } from '../lib/explorar'
@@ -40,10 +41,12 @@ export default function PainelEventos({ aoNavegar }: { aoNavegar: () => void }) 
     <div className="grid gap-4 p-4 text-foreground md:grid-cols-[1.1fr_1fr_1fr]">
       <div className="flex flex-col gap-2">
         {proximo ? (
-          <Link to={`/event/${proximo.id}`} onClick={aoNavegar} className="alvo-44 flex min-h-[160px] flex-1 flex-col justify-end rounded-ev-xl border border-border bg-background p-4 transition-colors duration-micro hover:bg-accent focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Próximo evento</span>
-            <span className="font-display mt-1 text-lg font-extrabold leading-tight tracking-tight">{proximo.title}</span>
-            <span className="mt-1 text-[13px] text-muted-foreground">{[rotuloDia(proximo.date!, hoje).curto, proximo.venue_city].filter(Boolean).join(' · ')}</span>
+          <Link to={`/event/${proximo.id}`} onClick={aoNavegar} className="alvo-44 group relative flex min-h-[200px] flex-1 flex-col justify-end overflow-hidden rounded-ev-xl border border-border bg-background p-4 text-white transition-transform duration-rapido hover:-translate-y-px focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+            <EventoCapa evento={proximo} tamanho="faixa" />
+            <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+            <span className="relative text-[11px] font-semibold uppercase tracking-widest text-white/80">Próximo evento</span>
+            <span className="font-display relative mt-1 text-lg font-extrabold leading-tight tracking-tight">{proximo.title}</span>
+            <span className="relative mt-1 text-[13px] text-white/85">{[rotuloDia(proximo.date!, hoje).curto, proximo.venue_city].filter(Boolean).join(' · ')}</span>
           </Link>
         ) : (
           <div className="flex min-h-[160px] flex-1 items-end rounded-ev-xl border border-border bg-background p-4 text-sm text-muted-foreground">

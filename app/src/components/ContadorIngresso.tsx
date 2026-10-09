@@ -20,7 +20,7 @@ export default function ContadorIngresso({ nome, qtd, onMenos, onMais, maisDesli
         <I.Menos size={16} aria-hidden="true" />
       </Button>
       <span className={`cont-n${qtd ? '' : ' zero'}`}>
-        <span aria-hidden="true">{qtd}</span>
+        <span key={qtd} aria-hidden="true" className={qtd ? 'evv-pop' : undefined}>{qtd}</span>
         <span className="sr-only" aria-live="polite" aria-atomic="true">{qtd} {nome}</span>
       </span>
       <Button type="button" variant="outline" size="icon" className={`rounded-full ${desligado}`} onClick={() => !maisDesligado && onMais()} aria-disabled={maisDesligado} aria-label={`Adicionar um ${nome}`}>
