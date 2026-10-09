@@ -517,7 +517,7 @@ function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtros
                     return (
                       <tr key={chave} className={chave === escolhido ? 'bg-primary/10' : 'hover:bg-[var(--ev-tint-hover)]'}>
                         <td className="px-4 py-3 text-sm">
-                          <button type="button" aria-pressed={chave === escolhido} onClick={() => setEscolhido(chave === escolhido ? null : chave)} className="flex items-center gap-2 rounded-xs text-left text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <button type="button" aria-pressed={chave === escolhido} onClick={() => setEscolhido(chave === escolhido ? null : chave)} className="flex items-center gap-2 rounded-xs text-left text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <I.Ingressos size={16} className="shrink-0 text-muted-foreground" aria-hidden />
                             <span className={l.id ? '' : 'font-mono text-xs text-muted-foreground'}>{l.titulo}</span>
                           </button>

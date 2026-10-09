@@ -16,7 +16,7 @@
     --card-foreground: 222.9 24.1% 5.7%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.9 24.1% 5.7%;
-    --primary: 213.1 74.2% 44.1%;         /* #1d68c4 (marca); branco por cima 5,48:1 */
+    --primary: 213.5 68.4% 14.9%;         /* #0c2340 (marinho, Decisão 226); branco por cima 15,79:1 */
     --primary-foreground: 0 0% 100%;
     --secondary: 220 15.8% 96.3%;         /* #f4f5f7 (superfície 2) */
     --secondary-foreground: 222.9 24.1% 5.7%;
@@ -27,7 +27,7 @@
     --destructive: 2.7 64.6% 47.6%;       /* #c8322b; branco por cima 5,32:1 */
     --destructive-foreground: 0 0% 100%;
     /* Cor de TEXTO azul/vermelho (classes text-primary e text-destructive); no claro é a mesma do preenchimento */
-    --primary-text: 213.1 74.2% 44.1%;      /* #1d68c4 */
+    --primary-text: 213.5 68.4% 14.9%;      /* #0c2340 */
     --destructive-text: 2.7 64.6% 47.6%;    /* #c8322b */
     --border: 214.3 14.3% 90.4%;          /* #e3e6ea (linha decorativa) */
     --input: 216.5 10.2% 55.9%;           /* #838c9a (borda de campo, >= 3:1) */
@@ -35,16 +35,16 @@
     --radius: 0.75rem;
 
     /* Evokaa: só o que o shadcn não tem (valores do contrato §2.1, §2.4 e §2.8.2) */
-    --ev-brand-hover: #1b60b4;
-    --ev-brand-press: #1857a5;
-    --ev-brand-soft: #e8f0f9;
+    --ev-brand-hover: #1b3f6b;
+    --ev-brand-press: #08172b;
+    --ev-brand-soft: #e8edf4;
     --ev-indigo: #0c2340;
     --ev-warm: #f2994a;         /* só festa e conquista; texto por cima #0b0d12 (branco reprova) */
     --ev-warm-text: #a5520f;
     --ev-success: #17784a;
     --ev-warning: #a35a00;
     --ev-sidebar: #f7f8fa;
-    --ev-focus-field: #1d68c4;  /* borda do campo em foco */
+    --ev-focus-field: #0c2340;  /* borda do campo em foco */
     --ev-disabled-bg: #eef0f3;
     --ev-disabled-fg: #9aa1ad;
     --ev-tint-hover: rgb(0 0 0 / 0.04);
@@ -114,7 +114,7 @@
     --card-foreground: 220 13.6% 91.4%;
     --popover: 220 18.4% 9.6%;
     --popover-foreground: 220 13.6% 91.4%;
-    --primary: 213.1 74.2% 44.1%;         /* #1d68c4: a marca não muda no preenchimento */
+    --primary: 210.7 56.3% 42.2%;         /* #2f6aa8: o marinho #0c2340 some no fundo escuro (1,23:1); branco por cima 5,60:1, fundo 3,47:1 */
     --primary-foreground: 0 0% 100%;
     --secondary: 220 18.2% 12.9%;         /* #1b1f27 (superfície 2) */
     --secondary-foreground: 220 13.6% 91.4%;
@@ -124,21 +124,21 @@
     --accent-foreground: 220 13.6% 91.4%;
     --destructive: 2.7 64.6% 47.6%;       /* #c8322b */
     --destructive-foreground: 0 0% 100%;
-    /* Cor de TEXTO azul/vermelho (classes text-primary e text-destructive): no escuro o preenchimento #1d68c4 dá 3,5:1 como texto */
-    --primary-text: 214.2 83.2% 64.9%;      /* #5b9bf0 */
+    /* Cor de TEXTO azul/vermelho (classes text-primary e text-destructive): no escuro o preenchimento #2f6aa8 dá 3,2:1 como texto */
+    --primary-text: 213.5 62.2% 67.8%;      /* #7aa7e0 */
     --destructive-text: 3.1 83.1% 62.9%;    /* #ef5a52 */
     --border: 230 8.8% 13.3%;             /* #1f2025 = branco 8% sobre #0b0d12, já resolvido (opaco) */
     --input: 216.5 10.3% 43.7%;           /* #646d7b */
     --ring: 220 13.6% 91.4%;              /* foco neutro #e6e8ec */
 
-    --ev-brand-hover: #2f72c8;
-    --ev-brand-press: #1b60b4;
+    --ev-brand-hover: #3a77b8;
+    --ev-brand-press: #2a5f9c;
     --ev-brand-soft: #13243b;
     --ev-warm-text: #f2994a;
     --ev-success: #4cc38a;
     --ev-warning: #f0b44c;
     --ev-sidebar: #0e1116;
-    --ev-focus-field: #5b9bf0;
+    --ev-focus-field: #8fb4e6;
     --ev-disabled-bg: #1b1f27;
     --ev-disabled-fg: #5b6472;
     --ev-tint-hover: rgb(255 255 255 / 0.06);
@@ -1261,8 +1261,8 @@ body {
     --vidro-base: rgb(0 0 0 / 0.50);
   }
   /* Item ativo: pílula opaca, para o contraste não depender do que passa atrás (5,48:1 e 4,67:1) */
-  .vidro :is([aria-current="page"], [data-state="active"]) { background: #ffffff; color: #1d68c4; border-radius: 999px; }
-  .dark .vidro :is([aria-current="page"], [data-state="active"]) { background: #2a303b; color: #5b9bf0; }
+  .vidro :is([aria-current="page"], [data-state="active"]) { background: #ffffff; color: #0c2340; border-radius: 999px; }
+  .dark .vidro :is([aria-current="page"], [data-state="active"]) { background: #2a303b; color: #7aa7e0; }
   /* Sem transparência (preferência do sistema ou navegador sem backdrop-filter): fundo opaco, sem blur */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .glass-bar { background: #f7f7f7; }

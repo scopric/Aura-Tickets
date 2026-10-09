@@ -398,7 +398,7 @@ export default function ParticipantProfile() {
 
       {/* Eventos salvos (VF): sem item na barra do celular (a prancha tem só Explorar, Ingressos e Conta) */}
       <div className="mt-6 border-t border-border">
-        <Link to="/app/salvos" className="flex items-center justify-between rounded-ev-md px-1 py-4 text-[15px] font-semibold transition-colors hover:text-primary focus-visible:outline-none focus-visible:shadow-ev-foco">
+        <Link to="/app/salvos" className="flex items-center justify-between rounded-ev-md px-1 py-4 text-[15px] font-semibold transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco">
           Eventos salvos <I.ChevronDireita size={16} aria-hidden="true" />
         </Link>
       </div>

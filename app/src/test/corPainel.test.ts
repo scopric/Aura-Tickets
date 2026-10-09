@@ -50,8 +50,10 @@ describe('cor do painel do produtor: violeta da logo', () => {
     expect(razao(e!, '#2a303b')).toBeGreaterThanOrEqual(4.5) // pílula escura: fundo #2a303b
   })
 
-  it('o azul global do contrato (participante, admin) não mudou', () => {
-    expect(globalClaro.primary).toBe('213.1 74.2% 44.1%'); expect(globalEscuro['primary-text']).toBe('214.2 83.2% 64.9%')
+  it('a marca global (participante, admin) é o marinho da Decisão 226 e não vazou violeta', () => {
+    expect(rgb(globalClaro.primary).map(Math.round)).toEqual([12, 35, 64]) // #0c2340
+    expect(rgb(globalEscuro.primary).map(Math.round)).toEqual([47, 106, 168]) // #2f6aa8, marinho clareado para o fundo escuro
+    expect(globalEscuro['primary-text']).toBe('213.5 62.2% 67.8%') // #7aa7e0
   })
   it('nenhum #1d68c4 fixo nas telas do produtor (só o ingresso, que é outro visual)', () => {
     const achados: string[] = []
