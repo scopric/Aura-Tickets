@@ -3,7 +3,7 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var LIMITE = 30, CORES = ['#6b7a93', '#8f33f5', '#c98a1e', '#2e9a76', '#d0527a'];
-  var PASTAS = ['#8f33f5', '#2e9a76', '#c98a1e', '#3f7fe0', '#d0527a', '#0c2340'];
+  var PASTAS = ['#8f33f5', '#1f9d8f', '#3f7fe0', '#0c2340', '#8f33f5', '#1f9d8f']; // 4 tons suaves das capas
   var TIPOS = { pessoal: 'Pessoal', equipe: 'Equipe e empresa', evento: 'Evento' };
   var SECOES = [['pessoal', 'Pessoais'], ['equipe', 'Equipe e empresa'], ['evento', 'Por evento']];
   var VIS = { eu: 'Só eu', equipe: 'Equipe toda', escolhidas: 'Pessoas escolhidas' };
@@ -24,21 +24,21 @@
   ];
   function c(t, p, d) { return { t: t, p: p, d: d }; }
   var MODELOS = [
-    { id: 'm1', cat: 'eventos', nome: 'Evento completo', desc: 'Do alvará ao encerramento, com os cartões que todo evento precisa.', col: ['A fazer', 'Em andamento', 'Em revisão', 'Feito'],
+    { id: 'm1', cat: 'eventos', nome: 'Evento completo', ic: 'estrela', desc: 'Do alvará ao fechamento do caixa.', col: ['A fazer', 'Em andamento', 'Em revisão', 'Feito'],
       cartoes: [c('Confirmar local e contrato', 'Produção', 60), c('Pedir alvará e vistoria', 'Operação', 45), c('Fechar line-up e cachês', 'Produção', 40), c('Abrir venda de ingressos', 'Comunicação', 35), c('Contratar som e iluminação', 'Operação', 30), c('Plano de segurança e acessos', 'Operação', 20), c('Credenciar equipe e fornecedores', 'Atendimento', 7), c('Passagem de som e checagem final', 'Produção', 1), c('Conferir caixa e fechamento', 'Financeiro', -2)] },
-    { id: 'm2', cat: 'pessoal', nome: 'Dia a dia do produtor', desc: 'Para organizar o que é de hoje e o que está esperando resposta.', col: ['Hoje', 'Esta semana', 'Aguardando', 'Feito'],
+    { id: 'm2', cat: 'pessoal', nome: 'Dia a dia do produtor', ic: 'sol', desc: 'Hoje, esta semana e o que espera resposta.', col: ['Hoje', 'Esta semana', 'Aguardando', 'Feito'],
       cartoes: [c('Responder fornecedores', 'Produção'), c('Revisar agenda da semana', 'Produção'), c('Cobrar retorno pendente', 'Produção')] },
-    { id: 'm3', cat: 'eventos', nome: 'Fornecedores e contratos', desc: 'Acompanhe cotações até o contrato assinado.', col: ['Cotando', 'Negociando', 'Contratado', 'Pago'],
+    { id: 'm3', cat: 'eventos', nome: 'Fornecedores e contratos', ic: 'caminhao', desc: 'Da cotação ao contrato assinado.', col: ['Cotando', 'Negociando', 'Contratado', 'Pago'],
       cartoes: [c('Cotar buffet e bebidas', 'Produção', 50), c('Cotar segurança', 'Operação', 45), c('Assinar contrato de som', 'Produção', 30), c('Acompanhar pagamento do palco', 'Financeiro', 14)] },
-    { id: 'm4', cat: 'eventos', nome: 'Divulgação', desc: 'Ideias, produção e calendário de publicações.', col: ['Ideias', 'Produzindo', 'Agendado', 'Publicado'],
+    { id: 'm4', cat: 'eventos', nome: 'Divulgação', ic: 'megafone', desc: 'Ideias, produção e calendário de posts.', col: ['Ideias', 'Produzindo', 'Agendado', 'Publicado'],
       cartoes: [c('Teaser de anúncio', 'Comunicação', 40), c('Arte do cartaz', 'Comunicação', 38), c('Série de bastidores', 'Comunicação', 20), c('Lembrete de última semana', 'Comunicação', 7)] },
-    { id: 'm5', cat: 'eventos', nome: 'Pós-evento', desc: 'Tudo o que fecha o evento depois que as portas fecham.', col: ['Relatório', 'Certificados', 'Agradecimentos', 'Pesquisa', 'Feito'],
+    { id: 'm5', cat: 'eventos', nome: 'Pós-evento', ic: 'bandeira', desc: 'Relatório, certificados e agradecimentos.', col: ['Relatório', 'Certificados', 'Agradecimentos', 'Pesquisa', 'Feito'],
       cartoes: [c('Relatório de público', 'Produção', -3), c('Emitir certificados', 'Atendimento', -5), c('Agradecer parceiros', 'Comunicação', -2), c('Enviar pesquisa de satisfação', 'Atendimento', -4)] },
-    { id: 'm6', cat: 'equipe', nome: 'Reunião de equipe', desc: 'Pauta, discussão e ações combinadas com responsável.', col: ['Pauta', 'Em discussão', 'Decisões', 'Ações'],
+    { id: 'm6', cat: 'equipe', nome: 'Reunião de equipe', ic: 'balao', desc: 'Pauta, decisões e ações com responsável.', col: ['Pauta', 'Em discussão', 'Decisões', 'Ações'],
       cartoes: [c('Resultados da semana', 'Gestão'), c('Pontos de atenção', 'Gestão'), c('Próximos passos', 'Gestão')] },
-    { id: 'm7', cat: 'equipe', nome: 'Financeiro da equipe', desc: 'Só acompanhamento: o sistema nunca paga nada.', col: ['A pagar', 'Em aprovação', 'Pago', 'Conciliado'],
+    { id: 'm7', cat: 'equipe', nome: 'Financeiro da equipe', ic: 'carteira', desc: 'Só acompanhamento: o sistema nunca paga.', col: ['A pagar', 'Em aprovação', 'Pago', 'Conciliado'],
       cartoes: [c('Acompanhar nota do fornecedor de som', 'Financeiro'), c('Acompanhar repasse da bilheteria', 'Financeiro'), c('Conferir conciliação do mês', 'Financeiro')] },
-    { id: 'm8', cat: 'eventos', nome: 'Lançamento de vendas', desc: 'Prepare a pré-venda e acompanhe a abertura dos lotes.', col: ['Preparar', 'Pré-venda', 'Vendas abertas', 'Encerrado'],
+    { id: 'm8', cat: 'eventos', nome: 'Lançamento de vendas', ic: 'foguete', desc: 'Pré-venda, abertura de lotes e encerramento.', col: ['Preparar', 'Pré-venda', 'Vendas abertas', 'Encerrado'],
       cartoes: [c('Definir lotes e preços', 'Produção', 45), c('Montar lista de pré-venda', 'Comunicação', 38), c('Testar compra de ponta a ponta', 'Atendimento', 36), c('Abrir lote 1', 'Produção', 35), c('Encerrar lote 1', 'Produção', 21)] }
   ];
   var CATS = [['todos', 'Todos'], ['eventos', 'Eventos'], ['equipe', 'Equipe e empresa'], ['pessoal', 'Pessoal']];
@@ -60,6 +60,7 @@
   ];
   var seq = 10, pessoa = function (id) { return PESSOAS.filter(function (p) { return p.id === id; })[0]; };
   var evento = function (id) { return EVENTOS.filter(function (e) { return e.id === id; })[0]; };
+  var TIPO_IC = { evento: 'calendario', equipe: 'pessoas', pessoal: 'usuario' };
   var CAT_TIPO = { eventos: 'evento', equipe: 'equipe', pessoal: 'pessoal' }, TIPO_CAT = { evento: 'eventos', equipe: 'equipe', pessoal: 'pessoal' };
 
   /* ---------- funções puras ---------- */
@@ -115,6 +116,18 @@
     eu: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     equipe: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5a3 3 0 0 1 0 6M18 14a6 6 0 0 1 3 6"/>',
     escolhidas: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+    calendario: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+    pessoas: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5a3 3 0 0 1 0 6M18 14a6 6 0 0 1 3 6"/>',
+    usuario: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+    estrela: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
+    caminhao: '<path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',
+    megafone: '<path d="M4 10v4h3l8 4V6L7 10zM18 9a4 4 0 0 1 0 6"/>',
+    bandeira: '<path d="M6 21V4M6 5h11l-2 4 2 4H6"/>',
+    balao: '<path d="M4 5h11v8H9l-3 3v-3H4zM18 9h2v8h-2v3l-3-3h-5v-2"/>',
+    carteira: '<path d="M4 7h15a1 1 0 0 1 1 1v10H5a1 1 0 0 1-1-1zM4 7l12-3v3M16 13h2"/>',
+    foguete: '<path d="M12 3c4 2 6 6 5 11l-3 2h-4l-3-2C6 9 8 5 12 3zM9 17l-2 4M15 17l2 4"/><circle cx="12" cy="10" r="1.6"/>',
+    mais: '<path d="M12 5v14M5 12h14"/>',
     tres: '<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>'
   };
   function icone(n) {
@@ -204,99 +217,89 @@
   var est = { busca: '', ordem: 'recentes', filtro: 'todos', aba: 'ativos', novo: null };
   var FILTROS = [['todos', 'Todos'], ['pessoal', 'Pessoais'], ['equipe', 'Equipe e empresa'], ['evento', 'Por evento']];
 
-  function cartaoPasta(b) {
-    var dono = b.dono === 'eu', vis = visiveis(b), ev = b.evento ? evento(b.evento) : null;
+  function capa(ic, tom) { return el('span', { className: 'capa', style: '--t:' + tom, attrs: { 'aria-hidden': 'true' } }, [icone(ic)]); }
+  function apoio(b, ev) {
+    var q = b.vis === 'eu' ? 'Só você' : b.vis === 'equipe' ? 'Equipe toda · ' + PESSOAS.length + ' pessoas' : visiveis(b).length + ' pessoas';
+    if (ev) { var d = infoData(ev.data); return d.dia + ' ' + d.mes.toLowerCase() + ' · ' + q; }
+    return q;
+  }
+  function cartaoPasta(b, grande) {
+    var vis = visiveis(b), ev = b.evento ? evento(b.evento) : null;
     var pilha = el('div', { className: 'pilha', attrs: { role: 'group', 'aria-label': 'Quem vê: ' + vis.map(function (i) { return pessoa(i).nome; }).join(', ') } },
       vis.slice(0, 3).map(avatar));
     if (vis.length > 3) pilha.append(el('span', { className: 'av mais', textContent: '+' + (vis.length - 3) }));
     var tres = el('button', { type: 'button', className: 'tres', attrs: { 'aria-label': 'Ações do quadro ' + b.nome, 'aria-haspopup': 'menu' } }, [icone('tres')]);
     tres.addEventListener('click', function () { abrirMenu(b, tres); });
-    var pct = b.n ? Math.round(b.ok / b.n * 100) : 0, cn;
+    var dt, st = '';
     if (ev) {
       var d = infoData(ev.data);
-      cn = [el('div', { className: 'data' }, [el('b', { textContent: d.dia }), el('span', { textContent: d.mes + ' · ' + d.sem }),
-        el('small', { textContent: d.falta < 0 ? 'HÁ ' + (-d.falta) + ' D' : 'EM ' + d.falta + ' D' })])];
-      var st = d.falta < 0 ? 'feito' : d.falta <= 14 ? 'logo' : '';
+      st = d.falta < 0 ? 'feito' : d.falta <= 14 ? 'logo' : '';
+      dt = [el('b', { textContent: d.dia }), el('span', { textContent: d.mes }), el('small', { textContent: d.falta < 0 ? 'HÁ ' + (-d.falta) + ' D' : 'EM ' + d.falta + ' D' })];
     } else {
-      cn = [el('div', { className: 'data' }, [el('b', { textContent: b.n }), el('span', { textContent: 'CARTÕES' }),
-        el('small', { textContent: b.atr ? b.atr + (b.atr === 1 ? ' ATRASADO' : ' ATRASADOS') : 'EM DIA' })])];
-      st = b.atr ? 'vence' : 'feito';
+      st = b.atr ? 'vence' : '';
+      dt = [el('b', { textContent: b.n - b.ok }), el('span', { textContent: 'abertos' })];
     }
-    var ind = [el('span', { className: 'selo', textContent: TIPOS[b.tipo] }),
-      el('span', {}, [icone(b.vis), document.createTextNode(VIS[b.vis])]),
-      el('span', { textContent: b.n + ' cartões' + (b.atr ? ' · ' + b.atr + (b.atr === 1 ? ' atrasado' : ' atrasados') : '') })];
-    var sub = ev ? 'Evento em ' + dataBR(ev.data) : dono ? 'Dono: você' : 'Dono: ' + pessoa(b.dono).nome;
-    return el('article', { className: 'cartao' + (b.arq ? ' arq' : '') + (est.novo === b.id ? ' novo-auto' : '') }, [
+    if (b.atr) dt.push(el('small', { className: 'atr', textContent: b.atr + (b.atr === 1 ? ' atrasado' : ' atrasados') }));
+    return el('article', { className: 'cartao' + (grande ? ' grande' : '') + (b.arq ? ' arq' : '') + (est.novo === b.id ? ' novo-auto' : '') }, [
       el('div', { className: 'bilhete' }, [
         el('div', { className: 'principal' }, [
-          el('div', { className: 'rotulos' }, b.col.map(function (n, i) { return el('i', { style: '--t:' + (b.arq ? 'var(--line2)' : CORES[i % 5]) }); })),
-          el('h3', {}, [el('a', { href: './index.html', textContent: b.nome })]),
-          el('div', { className: 'ind', textContent: sub }),
-          el('div', { className: 'ind' }, ind),
-          el('div', { className: 'fino', attrs: { role: 'img', 'aria-label': pct + '% concluído' }, style: '--w:' + pct + '%' }, [el('u')])
+          el('div', { className: 'cab-c' }, [capa(TIPO_IC[b.tipo], b.cor), el('div', {}, [el('h3', {}, [el('a', { href: './index.html', textContent: b.nome, title: b.nome })]), el('div', { className: 'apoio', textContent: apoio(b, ev) })])]),
+          pilha
         ]),
-        el('div', { className: 'canhoto ' + (b.arq ? '' : st) }, cn.concat([pilha]))
+        el('div', { className: 'canhoto ' + (b.arq ? '' : st) }, [el('div', { className: 'data' }, dt)])
       ]),
       el('div', { className: 'acoes' }, [tres])
     ]);
   }
 
+  var FILTRO_CAT = { todos: 'todos', pessoal: 'pessoal', equipe: 'equipe', evento: 'eventos' };
+  function rotulo(tag, id, txt) { return el(tag, { id: id, className: 'rot-sec', textContent: txt }); }
+
   function render() {
-    var termo = sem(est.busca.trim());
-    var ativos = quadros.filter(function (b) { return !b.arq; }).length, arq = quadros.length - ativos;
-    var abas = $('abas'); abas.replaceChildren();
-    [['ativos', 'Ativos (' + ativos + ')'], ['arquivados', 'Arquivados (' + arq + ')']].forEach(function (a) {
-      var b = el('button', { type: 'button', textContent: a[1], attrs: { 'aria-pressed': est.aba === a[0] } });
-      b.addEventListener('click', function () { est.aba = a[0]; render(); abas.querySelector('[aria-pressed=true]').focus(); });
-      abas.append(b);
-    });
-    var at = quadros.filter(function (b) { return !b.arq; });
-    function nT(t) { return at.filter(function (b) { return b.tipo === t; }).length; }
-    $('nAtivos').textContent = ativos;
-    $('dados').replaceChildren.apply($('dados'), [['Quadros ativos', ativos], ['Em equipe', nT('equipe')], ['Por evento', nT('evento')], ['Cartões atrasados', at.reduce(function (s, b) { return s + b.atr; }, 0)]].map(function (k) {
-      return el('div', { className: 'kpi' }, [el('small', { textContent: k[0] }), el('b', { textContent: k[1] })]);
-    }));
-    var par = at.filter(function (b) { return b.parado >= 14; }), ins = $('insight');
-    ins.hidden = !par.length; ins.textContent = par.length ? 'Notou: ' + par.length + (par.length === 1 ? ' quadro sem atividade há ' : ' quadros sem atividade há ') + '14 dias (' + par.map(function (b) { return b.nome; }).join(', ') + ').' : '';
+    var termo = sem(est.busca.trim()), arqOn = est.aba === 'arquivados';
+    var arq = quadros.filter(function (b) { return b.arq; }).length;
+    $('arqLink').textContent = arqOn ? 'Voltar aos quadros ativos' : 'Ver arquivados (' + arq + ')';
     var chips = $('chips'); chips.replaceChildren();
     FILTROS.forEach(function (f) {
       var b = el('button', { type: 'button', textContent: f[1], attrs: { 'aria-pressed': est.filtro === f[0] } });
       b.addEventListener('click', function () { est.filtro = f[0]; render(); chips.querySelector('[aria-pressed=true]').focus(); });
       chips.append(b);
     });
-    var box = $('secoes'); box.replaceChildren();
+    var rec = $('recentes'), box = $('todos'); rec.replaceChildren(); box.replaceChildren();
+    var jaVistos = {};
+    if (!arqOn && !termo && est.filtro === 'todos') {
+      var ult = quadros.filter(function (b) { return !b.arq; }).sort(function (a, b) { return b.ord - a.ord; }).slice(0, 3);
+      ult.forEach(function (b) { jaVistos[b.id] = 1; });
+      rec.append(rotulo('h2', 'sec-recentes', 'Recentes'), el('div', { className: 'grade g' }, ult.map(function (b) { return cartaoPasta(b, true); })));
+    }
+    var bloco = el('div', { className: 'bloco-s' }, [rotulo('h2', 'sec-todos', arqOn ? 'Arquivados' : 'Todos os quadros')]);
+    var gradeTile = null;
+    function tile() {
+      var t = el('button', { type: 'button', className: 'criar-tile' }, [icone('mais'), document.createTextNode('Criar quadro')]);
+      t.addEventListener('click', function () { abrirCriar(t, FILTRO_CAT[est.filtro]); });
+      return t;
+    }
+    var feitas = 0;
     SECOES.forEach(function (s) {
       if (est.filtro !== 'todos' && est.filtro !== s[0]) return;
-      var todos = quadros.filter(function (b) { return b.tipo === s[0] && b.arq === (est.aba === 'arquivados'); });
-      var lista = ordenar(todos.filter(function (b) { return !termo || sem(b.nome).indexOf(termo) >= 0; }), est.ordem, s[0]);
-      var sec = el('section', { className: 'lane sec', attrs: { 'aria-labelledby': 'sec-' + s[0] } }, [
-        el('header', {}, [el('span', { className: 'bolha', style: '--c:' + CORES_SEC[s[0]] }), el('h2', { id: 'sec-' + s[0], textContent: s[1] }), el('span', { className: 'n', textContent: lista.length })])]);
-      if (lista.length) {
-        sec.append(el('div', { className: 'grade' }, lista.map(cartaoPasta)));
-        if (est.aba === 'ativos') {
-          var nv = el('button', { type: 'button', className: 'novo', textContent: 'Novo quadro' });
-          nv.addEventListener('click', function () { abrirCriar(nv, CAT_TIPO_SEC[s[0]]); });
-          sec.append(nv);
-        }
-      }
-      else {
-        var v = el('div', { className: 'vazio' });
-        if (termo) v.append(el('p', { textContent: 'Nenhum quadro encontrado nesta seção.' }));
-        else if (est.aba === 'arquivados') v.append(el('p', { textContent: 'Nenhum quadro arquivado aqui.' }));
-        else {
-          v.append(el('p', { textContent: 'Você ainda não tem quadros nesta seção.' }));
-          var bt = el('button', { type: 'button', className: 'btn', textContent: 'Criar quadro' });
-          bt.addEventListener('click', function () { abrirCriar(bt, CAT_TIPO_SEC[s[0]]); });
-          v.append(bt);
-        }
-        sec.append(v);
-      }
-      box.append(sec);
+      var lista = ordenar(quadros.filter(function (b) {
+        return b.tipo === s[0] && b.arq === arqOn && !jaVistos[b.id] && (!termo || sem(b.nome).indexOf(termo) >= 0);
+      }), est.ordem, s[0]);
+      if (!lista.length) return;
+      var cards = lista.map(function (b) { return cartaoPasta(b, false); });
+      if (!feitas && !arqOn) cards.unshift(tile());
+      feitas++;
+      var sec = el('section', { attrs: { 'aria-labelledby': 'sec-' + s[0] } }, [rotulo('h3', 'sec-' + s[0], s[1]), el('div', { className: 'grade' }, cards)]);
+      bloco.append(sec);
     });
+    if (!feitas) {
+      bloco.append(el('p', { className: 'vazio', textContent: arqOn ? 'Nenhum quadro arquivado.' : 'Nenhum quadro encontrado.' }));
+      if (!arqOn) bloco.append(el('div', { className: 'grade' }, [tile()]));
+    }
+    box.append(bloco);
   }
-  var CORES_SEC = { pessoal: '#3f7fe0', equipe: '#2e9a76', evento: '#8f33f5' };
-  var CAT_TIPO_SEC = { pessoal: 'pessoal', equipe: 'equipe', evento: 'eventos' };
 
+  $('arqLink').addEventListener('click', function () { est.aba = est.aba === 'ativos' ? 'arquivados' : 'ativos'; render(); });
   $('busca').addEventListener('input', function (e) { est.busca = e.target.value; render(); });
   $('ordem').addEventListener('change', function (e) { est.ordem = e.target.value; render(); });
   $('criar').addEventListener('click', function () { abrirCriar($('criar')); });
@@ -313,8 +316,8 @@
       item('Membros', false, function () { abrirMembros(b, btn); }),
       item('Salvar como modelo', false, function () {
         abrirNome('Salvar como modelo', 'Nome do modelo', ('Modelo ' + b.nome).slice(0, 40), btn, function (n) {
-          MODELOS.push({ id: 'm' + (++seq), cat: TIPO_CAT[b.tipo], nome: n, desc: 'Salvo a partir de um quadro seu.', col: b.col, cartoes: [], meu: true });
-          aviso('Modelo salvo. Ele aparece em Criar quadro.');
+          MODELOS.push({ id: 'm' + (++seq), cat: TIPO_CAT[b.tipo], nome: n, ic: TIPO_IC[b.tipo], desc: 'Salvo a partir de um quadro seu.', col: b.col, cartoes: [], meu: true });
+          aviso('Modelo salvo.');
         });
       }),
       item(b.arq ? 'Desarquivar' : 'Arquivar', !dono, function () { b.arq = !b.arq; render(); aviso(b.arq ? 'Quadro arquivado.' : 'Quadro desarquivado.'); })
@@ -362,14 +365,14 @@
     $('memSub').textContent = b.nome;
     var av = $('memAviso');
     av.hidden = dono && !pessoal;
-    av.textContent = pessoal ? 'Quadro pessoal: fica só com você.' : 'Só o dono do quadro (' + pessoa(b.dono).nome + ') pode mudar quem vê e o nível de cada pessoa. Você está vendo, sem poder editar.';
+    av.textContent = pessoal ? 'Pessoal: fica só com você.' : 'Só ' + pessoa(b.dono).nome + ' (dono) altera os membros. Você só pode ver.';
     if (!mvis) mvis = seg($('mvisSeg'), Object.keys(VIS).map(function (k) { return [k, VIS[k]]; }), function (v) {
       membrosB.vis = v; if (v === 'escolhidas') membrosB.mem = membrosB.mem || {}; renderMembros(); render();
     });
     mvis.set(b.vis); mvis.off(function () { return trava || pessoal; });
     var lista = $('memLista'); lista.replaceChildren();
     lista.append(linhaPessoa(b.dono, el('span', { textContent: 'Dono' })));
-    if (b.vis === 'equipe') lista.append(el('div', { className: 'pes', textContent: 'A equipe toda vê este quadro, com permissão de ver.' }));
+    if (b.vis === 'equipe') lista.append(el('div', { className: 'pes', textContent: 'A equipe toda pode ver.' }));
     if (b.vis === 'escolhidas') Object.keys(b.mem).forEach(function (id) {
       var s = nivel(b.mem[id], 'Nível de ' + pessoa(id).nome, trava, function (v) { b.mem[id] = v; });
       var rm = el('button', { type: 'button', className: 'btn', textContent: 'Remover', disabled: trava, attrs: { 'aria-label': 'Remover ' + pessoa(id).nome } });
@@ -399,7 +402,7 @@
   /* ---------- criar quadro ---------- */
   var cr, tipoSeg, visSeg;
   function abrirCriar(de, cat) {
-    if (quadros.length >= LIMITE) { aviso('Limite do protótipo: ' + LIMITE + ' quadros. Arquive ou use outro navegador para recomeçar.'); return; }
+    if (quadros.length >= LIMITE) { aviso('Limite de ' + LIMITE + ' quadros no protótipo.'); return; }
     cr = { passo: 1, cat: cat || 'todos', busca: '', modelo: 'zero', nome: '', nomeDe: null, tipo: 'equipe', ev: EVENTOS[0].id, vis: 'equipe', sel: {} };
     $('buscaMod').value = '';
     mostrarPasso(); abrir($('dlgCriar'), de, 'buscaMod'); renderPasso1();
@@ -408,15 +411,13 @@
   function mostrarPasso() {
     var p1 = cr.passo === 1;
     $('passo1').hidden = !p1; $('passo2').hidden = p1; $('voltar').hidden = p1;
-    $('passoTxt').textContent = 'Passo ' + cr.passo + ' de 2: ' + (p1 ? 'escolha um modelo' : 'detalhes do quadro');
+    $('passoTxt').textContent = 'Passo ' + cr.passo + ' de 2';
     $('avancar').textContent = p1 ? 'Continuar' : 'Criar quadro';
     $('resumoBox').hidden = p1;
   }
-  function barras(cols) { return el('div', { className: 'rotulos', attrs: { 'aria-hidden': 'true' } }, cols.map(function (n, i) { return el('i', { style: '--t:' + CORES[i % 5] }); })); }
-  function ingresso(cls, titulo, desc, cols, num, rot, ativo, onClick) {
-    var b = el('button', { type: 'button', className: 'mod ' + cls, attrs: { 'aria-pressed': ativo } }, [
-      el('span', { className: 'principal' }, [barras(cols), el('strong', { textContent: titulo }), el('span', { className: 'd', textContent: desc }), el('span', { className: 'cols', textContent: cols.join(' · ') })]),
-      el('span', { className: 'canhoto' }, [el('b', { textContent: num }), el('span', { textContent: rot })])]);
+  function ingresso(cls, titulo, desc, ic, tom, rot, ativo, onClick) {
+    var b = el('button', { type: 'button', className: 'mod ' + cls, attrs: { 'aria-pressed': ativo } }, [capa(ic, tom),
+      el('span', {}, [el('strong', { textContent: titulo }), el('span', { className: 'd', textContent: desc }), el('span', { className: 'n', textContent: rot })])]);
     b.addEventListener('click', onClick);
     return b;
   }
@@ -430,18 +431,19 @@
       cats.append(b);
     });
     var lista = MODELOS.filter(function (m) { return (cr.cat === 'todos' || m.cat === cr.cat) && (!termo || sem(m.nome + ' ' + m.desc).indexOf(termo) >= 0); });
-    var itens = [ingresso('zero', 'Começar do zero', 'Um quadro vazio com três colunas para você montar do seu jeito.', COL3, '0', 'CARTÕES', cr.modelo === 'zero', function () { cr.modelo = 'zero'; renderPasso1(); })];
-    $('modelos').replaceChildren.apply($('modelos'), itens.concat(lista.map(function (m) {
-      return ingresso('', m.nome, m.desc, m.col, m.cartoes.length, m.cartoes.length === 1 ? 'CARTÃO INICIAL' : 'CARTÕES INICIAIS', cr.modelo === m.id, function () { cr.modelo = m.id; renderPasso1(); });
+    var itens = [ingresso('zero', 'Começar do zero', 'Quadro vazio com três colunas.', 'mais', PASTAS[3], COL3.join(' · '), cr.modelo === 'zero', function () { cr.modelo = 'zero'; renderPasso1(); })];
+    $('modelos').replaceChildren.apply($('modelos'), itens.concat(lista.map(function (m, i) {
+      return ingresso('', m.nome, m.desc, m.ic, PASTAS[i % 4], m.cartoes.length + (m.cartoes.length === 1 ? ' cartão inicial' : ' cartões iniciais'), cr.modelo === m.id, function () { cr.modelo = m.id; renderPasso1(); });
     })));
     $('semMod').hidden = lista.length > 0;
     var m = modeloAtual(), pv = $('previa'); pv.replaceChildren();
-    var nomeP = m ? m.nome : 'Quadro vazio', colP = m ? m.col : COL3;
-    pv.append(el('b', { textContent: nomeP }), el('div', { className: 'cols-p', style: 'margin-top:6px' }, colP.map(function (n) { return el('span', { textContent: n }); })));
-    if (!m) { pv.append(el('p', { textContent: 'Sem cartões iniciais.' })); return; }
-    pv.append(m.cartoes.length ? el('ul', {}, m.cartoes.map(function (k) {
-      return el('li', { textContent: k.t + ' · ' + k.p + (k.d == null ? '' : k.d >= 0 ? ' · D-' + k.d : ' · D+' + (-k.d)) });
-    })) : el('p', { textContent: 'Este modelo não traz cartões iniciais.' }));
+    var colP = m ? m.col : COL3;
+    pv.append(el('b', { textContent: m ? m.nome : 'Quadro vazio' }), el('ol', { className: 'cols-l' }, colP.map(function (n) { return el('li', { textContent: n }); })));
+    if (!m || !m.cartoes.length) return;
+    pv.append(el('ul', { className: 'cards-l' }, m.cartoes.slice(0, 3).map(function (k) {
+      return el('li', { textContent: k.t + (k.d == null ? '' : k.d >= 0 ? ' · D-' + k.d : ' · D+' + (-k.d)) });
+    })));
+    if (m.cartoes.length > 3) pv.append(el('p', { textContent: '+ ' + (m.cartoes.length - 3) + ' cartões' }));
   }
   $('cats').addEventListener('keydown', function (e) {
     var b = [].slice.call($('cats').querySelectorAll('button')), i = b.indexOf(document.activeElement), d = { ArrowDown: 1, ArrowUp: -1, ArrowRight: 1, ArrowLeft: -1 }[e.key];
@@ -472,7 +474,7 @@
     var pessoal = cr.tipo === 'pessoal';
     if (pessoal) cr.vis = 'eu';
     tipoSeg.set(cr.tipo); visSeg.set(cr.vis); visSeg.off(function () { return pessoal; });
-    $('visDica').textContent = pessoal ? 'Quadro pessoal fica sempre só com você.' : cr.vis === 'eu' ? 'Só você verá este quadro.' : cr.vis === 'equipe' ? 'Todas as pessoas da equipe poderão ver.' : 'Escolha abaixo quem vê e o que cada pessoa pode fazer.';
+    $('visDica').textContent = pessoal ? 'Pessoal fica só com você.' : '';
     $('evBox').hidden = cr.tipo !== 'evento'; $('evErro').textContent = '';
     $('pesBox').hidden = cr.vis !== 'escolhidas'; $('pesErro').textContent = '';
     var box = $('pessoas'); box.replaceChildren();
@@ -489,14 +491,14 @@
     var nomes = ['Você'];
     if (cr.vis === 'equipe') nomes = nomes.concat(PESSOAS.slice(1).map(function (p) { return p.nome; }));
     if (cr.vis === 'escolhidas') nomes = nomes.concat(Object.keys(cr.sel).map(function (i) { return pessoa(i).nome + ' (' + (cr.sel[i] === 'editar' ? 'edita' : 'vê') + ')'; }));
-    $('resumo').textContent = nomes.length === 1 ? 'Quem verá este quadro: só você.' : 'Quem verá este quadro (' + nomes.length + '): ' + nomes.join(', ') + '.';
+    $('resumo').textContent = nomes.length === 1 ? 'Só você.' : nomes.length + ' pessoas: ' + nomes.join(', ') + '.';
   }
   function criar() {
     var err = validarNome($('nome').value);
     $('nomeErro').textContent = err; $('nome').setAttribute('aria-invalid', !!err);
     if (err) { $('nome').focus(); return; }
-    if (cr.vis === 'escolhidas' && !Object.keys(cr.sel).length) { $('pesErro').textContent = 'Escolha ao menos uma pessoa ou mude para Só eu.'; return; }
-    if (quadros.length >= LIMITE) { fechar(); aviso('Limite do protótipo: ' + LIMITE + ' quadros.'); return; }
+    if (cr.vis === 'escolhidas' && !Object.keys(cr.sel).length) { $('pesErro').textContent = 'Escolha ao menos uma pessoa.'; return; }
+    if (quadros.length >= LIMITE) { fechar(); aviso('Limite de ' + LIMITE + ' quadros no protótipo.'); return; }
     var m = modeloAtual();
     var b = q('q' + (++seq), $('nome').value.trim(), cr.tipo, cr.tipo === 'evento' ? cr.ev : null, cr.vis, cr.vis === 'escolhidas' ? Object.assign({}, cr.sel) : {}, m ? m.cartoes.length : 0, 0, 0,
       { col: m ? m.col : COL3, ord: ++seq, cor: PASTAS[seq % 6] });

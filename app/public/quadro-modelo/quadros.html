@@ -130,7 +130,6 @@ h1{margin:0;font:500 clamp(24px,2.3vw,32px)/1.1 var(--sans);letter-spacing:-.035
 .gv[hidden]{display:none!important}.gv{transform:none;transition:none}.gv:not([hidden]){animation:gvin .3s var(--ease)}@keyframes gvin{from{transform:translateX(104%)}}
 .pop{width:224px;padding:4px}.pop .mb{text-decoration:none}.mb:disabled{opacity:.45;cursor:not-allowed}
 .topo .eye{color:var(--lane-mut)}
-.bar2 a.btn{background:var(--tk);text-decoration:none}
 .busca{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--tk);border-radius:99px;padding:0 12px;min-height:32px;color:var(--muted)}
 .busca input{border:0;background:transparent;outline:0;min-width:150px;font:500 12.5px var(--sans);color:var(--ink)}
 .busca:focus-within{border-color:var(--brand)}
@@ -147,11 +146,42 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
 .cartao.arq{opacity:.62}.cartao.arq .canhoto{box-shadow:none}
 .cartao .acoes{z-index:4}.acoes button{min-width:26px;display:grid;place-items:center;padding:2px 6px}
 @media (hover:none){.acoes{opacity:1}}
-.selo{border:1px solid var(--line2);border-radius:99px;padding:0 8px;font:500 10.5px var(--mono);letter-spacing:.04em;color:var(--ink2)}
-.fino{height:3px;border-radius:9px;background:var(--line);overflow:hidden}.fino u{display:block;height:100%;width:var(--w);background:var(--brand);text-decoration:none}
-.atr{color:var(--bad)}
 .av.mais{background:var(--tk);color:var(--ink2);box-shadow:0 0 0 2px var(--tk2),inset 0 0 0 1px var(--line2)}
-.canhoto .pilha{margin-top:2px}
+/* --- v3: limpo, estilo Asana/Trello --- */
+h1{font-size:clamp(30px,3vw,32px)}
+.rot-sec{display:flex;align-items:center;gap:12px;margin:0 0 12px;font:500 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--lane-mut)}
+.rot-sec::after{content:"";flex:1;height:1px;background:var(--line)}
+.bloco-s{margin-top:28px}.bloco-s h3.rot-sec{margin-top:22px}
+.grade{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}.grade>*{min-width:0}
+.grade.g{grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))}
+.cartao,.bilhete{height:100%}.bilhete{grid-template-columns:minmax(0,1fr) var(--stub)}
+.cartao h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.cab-c{padding-right:48px}.cab-c>div{min-width:0}.criar-tile{width:100%;height:100%}
+.modelos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.mod{width:100%;min-height:92px}
+.verso.alto{height:min(780px,90vh)}.verso.alto .vb{height:100%;grid-template-rows:minmax(0,1fr)}
+.alto .vmain{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-bottom:20px}.alto .vlado{overflow-y:auto;min-height:0}
+#passo1,#passo2{flex:1;min-height:0;display:flex;flex-direction:column}#passo2{overflow-y:auto}.rola{flex:1;min-height:0;overflow-y:auto;padding:2px 4px 2px 0}
+.capa{width:44px;height:44px;border-radius:10px;flex:none;display:grid;place-items:center;background:color-mix(in srgb,var(--t) 14%,var(--tk));color:color-mix(in srgb,var(--t) 62%,var(--ink))}
+.capa svg.i{width:22px;height:22px;stroke-width:1.5}
+.cartao .principal{gap:12px;min-height:112px;padding:14px 14px 12px}
+.cartao h3{font:600 16.5px/1.3 var(--sans);letter-spacing:-.015em}.cartao.grande h3{font-size:19px}.cartao.grande .principal{min-height:128px}
+.cab-c{display:flex;gap:12px;align-items:center}
+.apoio{font-size:13px;color:var(--muted);margin-top:2px}
+.principal .pilha{margin-top:auto}
+.data b{font-size:26px}.data small.atr{color:var(--bad)}
+.criar-tile{min-height:112px;border:1px dashed var(--line2);background:transparent;border-radius:12px;color:var(--ink2);display:flex;align-items:center;justify-content:center;gap:10px;font:500 14px var(--sans);transition:.18s var(--ease)}
+.criar-tile:hover{border-color:var(--brand);color:var(--ink);background:var(--input)}
+.vazio{margin:0 0 14px}
+.linkarq{border:0;background:transparent;color:var(--muted);text-decoration:underline;font:500 13px var(--sans);padding:6px 0;min-height:32px;margin:6px 32px 0}
+.rodape{max-width:1900px;margin:auto;padding:0 32px 40px;font-size:12.5px}.rodape a{color:var(--muted)}
+.mod{display:flex;gap:12px;align-items:flex-start;text-align:left;padding:12px;border:1px solid var(--line2);background:var(--tk);border-radius:12px;transition:.18s var(--ease)}
+.mod:hover{border-color:var(--ink2)}.mod[aria-pressed=true]{border-color:var(--violet);box-shadow:0 0 0 2px color-mix(in srgb,var(--violet) 30%,transparent)}
+.mod strong{display:block;font:600 15px/1.3 var(--sans);letter-spacing:-.012em}.mod .d{display:block;color:var(--muted);font-size:13px;line-height:1.4;margin-top:2px}.mod .n{display:block;font-size:12.5px;color:var(--ink2);margin-top:6px}
+.mod.zero{grid-column:1/-1}
+#previa{max-height:320px;overflow:auto;font-size:13px;color:var(--ink2)}#previa b{font-weight:600}
+#previa ol,#previa ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+#previa .cols-l li::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--line2);margin-right:8px;vertical-align:middle}
+#previa .cards-l{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line2);color:var(--muted)}#previa p{margin:6px 0 0;color:var(--muted)}
 /* modal em forma de ingresso */
 .verso.peq{width:min(480px,100%)}.vb.um{grid-template-columns:1fr;mask:none;-webkit-mask:none}
 .vmain h2{margin:0 0 14px;font:500 24px/1.2 var(--sans);letter-spacing:-.03em}.vmain .eye{color:var(--muted)}
@@ -162,16 +192,6 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
 .erro{color:var(--bad);font-size:12.5px;font-weight:500;margin-top:5px}.campo[aria-invalid=true]{border-color:var(--bad)}
 .cats{margin-bottom:12px;max-width:100%;overflow-x:auto}.cats button{white-space:nowrap}
 .buscam{margin-bottom:12px}.buscam input{min-width:0;flex:1}.buscam{display:flex}
-.modelos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.mod{display:grid;grid-template-columns:1fr 64px;text-align:left;padding:0;border:1px solid var(--line2);background:var(--tk);border-radius:12px;overflow:hidden;transition:.18s var(--ease)}
-.mod:hover{border-color:var(--ink2)}.mod[aria-pressed=true]{border-color:var(--violet);box-shadow:0 0 0 2px color-mix(in srgb,var(--violet) 30%,transparent)}
-.mod .principal{padding:10px 12px}.mod strong{font:500 14px/1.3 var(--sans);letter-spacing:-.012em}.mod .d{color:var(--muted);font-size:12.5px;line-height:1.4}.mod .cols{color:var(--muted);font:500 10.5px var(--mono)}
-.mod .canhoto{border-left:1px dashed var(--line2);box-shadow:none;justify-content:center;text-align:center}.mod .canhoto::before{display:none}
-.mod .canhoto b{font:500 22px/1 var(--sans);letter-spacing:-.04em}.mod .canhoto span{font:500 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.mod.zero{grid-column:1/-1}
-.cols-p{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}.cols-p span{border:1px solid var(--line2);border-radius:99px;padding:0 8px;font-size:11.5px}
-#previa{max-height:300px;overflow:auto;font-size:12.5px;color:var(--ink2)}#previa ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
-#previa p{margin:0;color:var(--muted)}
 .pessoas{border:1px solid var(--line);border-radius:12px;max-height:250px;overflow:auto;background:var(--tk2)}
 .pes{display:flex;align-items:center;gap:10px;padding:6px 12px;min-height:46px;border-bottom:1px solid var(--line)}.pes:last-child{border:0}
 .pes input[type=checkbox]{width:18px;height:18px;accent-color:var(--violet);flex:none}
@@ -183,9 +203,13 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
 .gv header small{display:none}
 @media (max-width:820px){
  .vb{grid-template-columns:1fr;mask:none;-webkit-mask:none}.vlado{border-left:0;border-top:1px dashed var(--line2)}
- .topo,.bar2,.dados{padding-inline:16px}.secoes{padding-inline:16px}.insight{margin-inline:16px}.grade{grid-template-columns:1fr}
+ .topo,.bar2,.dados{padding-inline:16px}.secoes{padding-inline:16px}.insight{margin-inline:16px}.grade,.grade.g{grid-template-columns:1fr}.linkarq,.rodape{margin-inline:0;padding-inline:16px}
  .veu{padding:0}.verso{margin:0}.vb{border-radius:0;min-height:100vh}.vmain{padding:22px 16px}
- .modelos{grid-template-columns:1fr}.pes{flex-wrap:wrap;min-height:56px}
+ .modelos{grid-template-columns:1fr}
+ .verso.alto,.verso.alto .vb{height:auto}.alto .vmain{overflow:visible}.rola,#passo2{overflow:visible}
+ .bilhete{grid-template-columns:1fr}.canhoto{flex-direction:row;justify-content:flex-start;gap:14px;padding:10px 14px;border-top:1px dashed var(--line2);box-shadow:none}.canhoto::before{display:none}.canhoto .data{display:flex;align-items:baseline;gap:10px;text-align:left}.canhoto .data span,.canhoto .data small{margin-top:0}
+ .cartao .bilhete{-webkit-mask:none;mask:none}
+ .cartao .acoes{top:8px;right:8px}.cartao .acoes button{width:44px;height:44px}.pes{flex-wrap:wrap;min-height:56px}
  .btn,.seg button,.busca,.busca input,.campo,.mb,.cats button,.mod,.fechar,.acoes button,.gv header button{min-height:44px}.fechar{width:44px;height:44px}.acoes button{min-width:44px}.gv header button{width:44px}
  .pes input[type=checkbox]{width:24px;height:24px}
 }
@@ -195,22 +219,20 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
 <body>
 <header class="topo">
   <div><div class="eye mono">Equipe · Meus quadros</div><h1>Meus quadros</h1></div>
-  <div class="lado"><div class="faltam"><b id="nAtivos">0</b><span class="mono">quadros<br>ativos</span></div>
-  <div class="seg" id="tema" aria-label="Aparência"></div></div>
+  <div class="lado"><div class="seg" id="tema" aria-label="Aparência"></div></div>
 </header>
 <div class="bar2" role="toolbar" aria-label="Controles dos quadros">
-  <div class="seg" id="abas" role="group" aria-label="Situação dos quadros"></div>
-  <div class="seg" id="chips" role="group" aria-label="Filtrar por tipo"></div>
   <label class="busca"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" type="search" placeholder="Buscar quadro" aria-label="Buscar quadro" maxlength="60"></label>
+  <div class="seg" id="chips" role="group" aria-label="Filtrar por tipo"></div>
   <select id="ordem" class="campo" aria-label="Ordenar por"><option value="recentes">Mais recentes</option><option value="az">A–Z</option><option value="prazo">Por prazo</option></select>
-  <div class="sp"><a class="btn" href="./index.html">Modelo do kanban (v9)</a><a class="btn" href="./index.html">Abrir kanban de exemplo</a><button class="btn p" id="criar" type="button">Criar quadro</button></div>
+  <div class="sp"><button class="btn p" id="criar" type="button">Criar quadro</button></div>
 </div>
-<div class="dados" id="dados" aria-label="Resumo dos quadros"></div>
-<div class="insight" id="insight"></div>
-<main class="secoes" id="secoes"></main>
+<main class="secoes" id="secoes"><section id="recentes"></section><section id="todos"></section></main>
+<button class="linkarq" id="arqLink" type="button"></button>
+<footer class="rodape"><a href="./index.html">Modelo do kanban (v9)</a></footer>
 
 <div class="veu" id="dlgCriar" hidden>
-  <div class="verso" role="dialog" aria-modal="true" aria-labelledby="criarT">
+  <div class="verso alto" role="dialog" aria-modal="true" aria-labelledby="criarT">
     <div class="vb">
       <div class="vmain">
         <button class="fechar" type="button" data-fechar aria-label="Fechar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -218,21 +240,21 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
         <div id="passo1">
           <div class="seg cats" id="cats" role="group" aria-label="Categorias de modelo"></div>
           <label class="busca buscam"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaMod" type="search" placeholder="Buscar modelo" aria-label="Buscar modelo" maxlength="60"></label>
-          <div class="modelos" id="modelos"></div>
-          <p id="semMod" class="vazio" hidden>Nenhum modelo encontrado.</p>
+          <div class="rola"><div class="modelos" id="modelos"></div>
+          <p id="semMod" class="vazio" hidden>Nenhum modelo encontrado.</p></div>
         </div>
         <div id="passo2" hidden>
-          <div class="f"><label for="nome">Nome do quadro</label><input id="nome" class="campo" maxlength="60" autocomplete="off" aria-describedby="nomeErro"><div class="erro" id="nomeErro" role="alert"></div></div>
+          <div class="f"><label for="nome">Nome</label><input id="nome" class="campo" maxlength="60" autocomplete="off" aria-describedby="nomeErro"><div class="erro" id="nomeErro" role="alert"></div></div>
           <div class="f"><span class="rot" id="tipoRot">Tipo</span><div class="seg" id="tipoSeg" aria-labelledby="tipoRot"></div></div>
-          <div class="f" id="evBox"><label for="evento">Evento</label><select id="evento" class="campo" style="width:100%"></select><div class="aviso" style="margin-top:8px">Os prazos dos cartões iniciais usam a data do evento (D-n significa n dias antes dela).</div><div class="erro" id="evErro" role="alert"></div></div>
-          <div class="f"><span class="rot" id="visRot">Quem pode ver</span><div class="seg" id="visSeg" aria-labelledby="visRot"></div><small id="visDica"></small></div>
-          <div class="f" id="pesBox"><span class="rot">Pessoas escolhidas</span><div class="pessoas" id="pessoas" role="group" aria-label="Pessoas da equipe"></div><div class="erro" id="pesErro" role="alert"></div></div>
+          <div class="f" id="evBox"><label for="evento">Evento</label><select id="evento" class="campo" style="width:100%"></select><small>Os prazos seguem a data do evento.</small><div class="erro" id="evErro" role="alert"></div></div>
+          <div class="f"><span class="rot" id="visRot">Quem vê</span><div class="seg" id="visSeg" aria-labelledby="visRot"></div><small id="visDica"></small></div>
+          <div class="f" id="pesBox"><span class="rot">Pessoas</span><div class="pessoas" id="pessoas" role="group" aria-label="Pessoas da equipe"></div><div class="erro" id="pesErro" role="alert"></div></div>
         </div>
       </div>
       <aside class="vlado" aria-label="Resumo do quadro">
         <h5 class="mono" style="margin-top:0">Prévia</h5>
         <div id="previa" aria-live="polite"></div>
-        <div id="resumoBox" hidden><h5 class="mono">Tipo, visibilidade e quem verá</h5><div class="resumo" id="resumo" aria-live="polite"></div></div>
+        <div id="resumoBox" hidden><h5 class="mono">Quem verá</h5><div class="resumo" id="resumo" aria-live="polite"></div></div>
         <div class="botoes"><button class="btn p" type="button" id="avancar">Continuar</button><button class="btn" type="button" id="voltar" hidden>Voltar</button><button class="btn" type="button" data-fechar>Cancelar</button></div>
       </aside>
     </div>
@@ -244,7 +266,7 @@ select.campo{width:auto}.bar2 select.campo{border-radius:99px;background:var(--t
   <div class="gc">
     <div class="mono" id="memSub" style="color:var(--muted)"></div>
     <div class="regra" id="memAviso" hidden></div>
-    <div class="sec-t">Quem pode ver</div><div class="seg" id="mvisSeg" aria-label="Quem pode ver"></div>
+    <div class="sec-t">Quem vê</div><div class="seg" id="mvisSeg" aria-label="Quem pode ver"></div>
     <div class="sec-t">Pessoas</div><div class="pessoas" id="memLista"></div>
     <div id="memAdd" style="display:flex;gap:8px"><select id="memSel" class="campo" style="flex:1" aria-label="Pessoa a adicionar"></select><button class="btn" type="button" id="memBtn">Adicionar</button></div>
   </div>
