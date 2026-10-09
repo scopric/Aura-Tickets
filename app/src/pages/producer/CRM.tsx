@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { iniciais } from '../../hooks/useConversas'
+import { useArrastar } from '../../hooks/useArrastar'
 import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,8 +82,6 @@ export default function ProducerCRM() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [draggedId, setDraggedId] = useState<string | null>(null)
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const origemNovoLead = useRef<HTMLElement | null>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -187,11 +186,7 @@ export default function ProducerCRM() {
     recarregar()
   }
 
-  const handleDrop = (col: string) => {
-    if (draggedId) moverLead(draggedId, col)
-    setDraggedId(null)
-    setDragOverCol(null)
-  }
+  const arrastar = useArrastar(colunas.map(c => c.id), moverLead, nomeEtapa)
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -315,6 +310,7 @@ export default function ProducerCRM() {
           </div>
 
           {/* rolagem lateral contida no quadro: a página não rola de lado a 375 px */}
+          <p role="status" className="sr-only">{arrastar.aviso}</p>
           <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
             {colunas.map(col => {
               const colLeads = filtered.filter(l => colunaDe(l) === col.id)
@@ -322,10 +318,8 @@ export default function ProducerCRM() {
                 <section
                   key={col.id}
                   aria-label={col.name}
-                  className={`flex w-72 shrink-0 flex-col rounded-[10px] border bg-card ${dragOverCol === col.id ? 'border-primary' : 'border-border'}`}
-                  onDragOver={e => { e.preventDefault(); setDragOverCol(col.id) }}
-                  onDragLeave={() => setDragOverCol(null)}
-                  onDrop={() => handleDrop(col.id)}
+                  className={`flex w-72 shrink-0 flex-col rounded-[10px] border bg-card ${arrastar.alvo === col.id ? 'border-primary' : 'border-border'}`}
+                  {...arrastar.propsColuna(col.id)}
                 >
                   <h2 className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 text-sm font-medium text-foreground">
                     <span className="truncate">{col.name}</span>
@@ -333,7 +327,7 @@ export default function ProducerCRM() {
                   </h2>
                   <ul className="max-h-[500px] space-y-2 overflow-y-auto p-2">
                     {colLeads.map(l => (
-                      <li key={l.id} draggable onDragStart={() => setDraggedId(l.id)} className="group relative rounded-md border border-border bg-background transition-colors hover:bg-foreground/5">
+                      <li key={l.id} {...arrastar.propsCartao(l.id, col.id)} className="group relative rounded-md border border-border bg-background transition-colors hover:bg-foreground/5">
                         <button type="button" onClick={() => setSelectedId(l.id)} className="flex w-full items-start gap-2 p-3 pr-10 text-left">
                           <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">{iniciais(l.full_name)}</span>
                           <span className="min-w-0 flex-1">
