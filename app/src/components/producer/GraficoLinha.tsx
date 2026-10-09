@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 // Gráfico de linha do Início (contrato v3.4, 7.1): série do período em --primary 2 px com preenchimento a 8%, período
 // anterior tracejado em cinza, eixo Y à direita sem linha própria, 3 linhas de grade e eixo X sem rótulo girado.
@@ -22,10 +23,19 @@ const py = (y: number, max: number) => Y[2] - (y / max) * (Y[2] - Y[0])
 // v começa no ponto de índice `de` da série (para desenhar só um trecho)
 const caminho = (v: number[], n: number, max: number, de = 0) =>
   v.map((y, i) => `${i ? 'L' : 'M'}${(px(de + i, n) * LARGURA).toFixed(1)} ${py(y, max).toFixed(1)}`).join(' ')
+// Série com lacunas (null): um trecho por sequência contínua; ponto isolado fica só com o marcador
+const trechos = (v: (number | null)[], n: number, max: number, de = 0): string[] => {
+  const fora: string[] = []
+  let seq: number[] = [], ini = 0
+  const fecha = () => { if (seq.length > 1) fora.push(caminho(seq, n, max, de + ini)); seq = [] }
+  v.forEach((y, i) => { if (y == null) return fecha(); if (!seq.length) ini = i; seq.push(y) })
+  fecha()
+  return fora
+}
 
-export default function GraficoLinha({ atual, anterior, n, inteiro = false, formatoValor, formatoEixo, rotulo, rotuloEixo, ultimoParcial = true, legendaAtual, legendaAnterior, resumo, vazio }: {
-  atual: number[] // pode ter menos de n pontos (o que ainda não aconteceu não entra)
-  anterior: number[] | null
+export default function GraficoLinha({ atual, anterior, n, inteiro = false, formatoValor, formatoEixo, rotulo, rotuloEixo, ultimoParcial = true, legendaAtual, legendaAnterior, resumo, vazio, detalhes }: {
+  atual: (number | null)[] // pode ter menos de n pontos (o que ainda não aconteceu não entra); null = dia sem valor (lacuna)
+  anterior: (number | null)[] | null
   n: number
   inteiro?: boolean
   formatoValor: (v: number) => string
@@ -41,9 +51,14 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
   resumo: string
   /** sem dado no período: grade e linha zerada, com este conteúdo no centro */
   vazio?: ReactNode
+  /** linhas extras na dica do ponto (ex.: as outras métricas do mesmo dia) */
+  detalhes?: (k: number) => { rotulo: string; valor: string }[]
 }) {
   const [hi, setHi] = useState<number | null>(null)
-  const max = teto(Math.max(0, ...atual, ...(anterior ?? [])), inteiro)
+  const tem = (v: number | null): v is number => v != null
+  const max = teto(Math.max(0, ...atual.filter(tem), ...(anterior ?? []).filter(tem)), inteiro)
+  const semLacuna = atual.every(tem)
+  const mostra = (v: number | null) => (v == null ? '—' : formatoValor(v))
   const x = (i: number) => px(i, n)
   const ultimo = atual.length - 1
 
@@ -62,7 +77,7 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
   }
 
   // sempre montada: leitor de tela só anuncia mudança de texto numa região que já existia
-  const dica = hi != null && !vazio ? `${rotulo(hi)}: ${formatoValor(atual[hi])}${anterior ? `, período anterior ${formatoValor(anterior[hi])}` : ''}` : ''
+  const dica = hi != null && !vazio ? `${rotulo(hi)}: ${mostra(atual[hi])}${anterior ? `, período anterior ${mostra(anterior[hi])}` : ''}${detalhes ? `. ${detalhes(hi).map(l => `${l.rotulo} ${l.valor}`).join(', ')}` : ''}` : ''
 
   return (
     <div>
@@ -78,20 +93,26 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
         onBlur={() => setHi(null)}
       >
         <svg viewBox={`0 0 ${LARGURA} ${ALTURA}`} preserveAspectRatio="none" width="100%" height={ALTURA} aria-hidden="true" focusable="false" className="block overflow-visible">
-          {Y.map(y => <line key={y} x1="0" x2={LARGURA} y1={y} y2={y} className="stroke-border" vectorEffect="non-scaling-stroke" />)}
+          {/* grade pontilhada; só a base é contínua */}
+          {Y.map((y, i) => <line key={y} x1="0" x2={LARGURA} y1={y} y2={y} className="stroke-border" strokeDasharray={i === 2 ? undefined : '2 5'} strokeLinecap="round" vectorEffect="non-scaling-stroke" />)}
           {vazio ? (
             <path d={`M0 ${Y[2]} H${LARGURA}`} fill="none" className="stroke-border" strokeWidth="2" vectorEffect="non-scaling-stroke" />
           ) : (
             <>
-              {anterior && <path d={caminho(anterior, n, max)} fill="none" className="stroke-muted-foreground" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
-              {atual.length > 1 && <path d={`${caminho(atual, n, max)} L${(x(ultimo) * LARGURA).toFixed(1)} ${Y[2]} L${(x(0) * LARGURA).toFixed(1)} ${Y[2]} Z`} className="fill-primary" fillOpacity="0.08" />}
-              {(ultimoParcial ? atual.length > 2 : atual.length > 1) && <path d={caminho(ultimoParcial ? atual.slice(0, -1) : atual, n, max)} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+              {anterior && trechos(anterior, n, max).map(d => <path key={d} d={d} fill="none" className="stroke-muted-foreground" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />)}
+              {atual.length > 1 && semLacuna && <path d={`${caminho(atual as number[], n, max)} L${(x(ultimo) * LARGURA).toFixed(1)} ${Y[2]} L${(x(0) * LARGURA).toFixed(1)} ${Y[2]} Z`} className="fill-primary" fillOpacity="0.08" />}
+              {trechos(ultimoParcial ? atual.slice(0, -1) : atual, n, max).map(d => <path key={d} d={d} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />)}
               {/* o último ponto é do dia (ou da hora) em curso: o trecho final é tracejado */}
-              {ultimoParcial && atual.length > 1 && <path d={caminho(atual.slice(-2), n, max, ultimo - 1)} fill="none" className="stroke-primary" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
-              {atual.length === 1 && <circle cx={LARGURA / 2} cy={py(atual[0], max)} r="3" className="fill-primary" />}
+              {ultimoParcial && atual.length > 1 && atual.slice(-2).every(tem) && <path d={caminho(atual.slice(-2) as number[], n, max, ultimo - 1)} fill="none" className="stroke-primary" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+              {atual.length === 1 && tem(atual[0]) && <circle cx={LARGURA / 2} cy={py(atual[0], max)} r="3" className="fill-primary" />}
             </>
           )}
         </svg>
+
+        {/* marcadores nos pontos (HTML, porque o SVG estica e deformaria o círculo); com muitos pontos some */}
+        {!vazio && atual.length > 1 && atual.length <= 31 && atual.map((v, i) => i === hi || v == null ? null : (
+          <span key={i} aria-hidden="true" data-marcador className={cn('pointer-events-none absolute -ml-[2.5px] -mt-[2.5px] size-[5px] rounded-full ring-2 ring-card', ultimoParcial && i === ultimo ? 'bg-card outline outline-1 outline-primary' : 'bg-primary')} style={{ left: `${x(i) * 100}%`, top: py(v, max) }} />
+        ))}
 
         {!vazio && [max, max / 2, 0].map((v, i) => (
           <span key={i} aria-hidden="true" className="absolute -right-14 -translate-y-1/2 text-[11px] font-medium leading-[14px] tabular-nums text-muted-foreground" style={{ top: Y[i] }}>
@@ -102,15 +123,16 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
         {hi != null && !vazio && (
           <>
             <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 w-px bg-muted-foreground/50" style={{ left: `${x(hi) * 100}%` }} />
-            <span aria-hidden="true" className="pointer-events-none absolute -ml-1 -mt-1 size-2 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--card))]" style={{ left: `${x(hi) * 100}%`, top: py(atual[hi], max) }} />
+            {atual[hi] != null && <span aria-hidden="true" className="pointer-events-none absolute -ml-1 -mt-1 size-2 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--card))]" style={{ left: `${x(hi) * 100}%`, top: py(atual[hi] as number, max) }} />}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -top-2 z-10 whitespace-nowrap rounded-ev-sm bg-[var(--ev-indigo)] px-2.5 py-2 text-xs font-medium leading-4 text-white shadow-ev-2 dark:bg-foreground dark:text-background"
               style={{ left: `${x(hi) * 100}%`, transform: x(hi) > 0.6 ? 'translateX(calc(-100% - 12px))' : 'translateX(12px)' }}
             >
               <div className="opacity-70">{rotulo(hi)}</div>
-              <div className="font-display text-sm font-semibold leading-5 tabular-nums">{formatoValor(atual[hi])}</div>
-              {anterior && <div className="font-display tabular-nums opacity-70">anterior {formatoValor(anterior[hi])}</div>}
+              <div className="font-display text-sm font-semibold leading-5 tabular-nums">{mostra(atual[hi])}</div>
+              {anterior && <div className="font-display tabular-nums opacity-70">anterior {mostra(anterior[hi])}</div>}
+              {detalhes && <div className="mt-1 space-y-0.5 border-t border-white/20 pt-1 dark:border-black/20">{detalhes(hi).map(l => <div key={l.rotulo} className="flex justify-between gap-4 tabular-nums"><span className="opacity-70">{l.rotulo}</span><span>{l.valor}</span></div>)}</div>}
             </div>
           </>
         )}

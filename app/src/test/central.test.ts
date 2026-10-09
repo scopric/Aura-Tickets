@@ -56,6 +56,13 @@ const v: VendasPagas = {
 }
 
 describe('totais, entradas e CSV', () => {
+  it('ticket médio por dia = bruto / pedidos; dia sem pedido é lacuna (null), nunca R$ 0', () => {
+    const pd = [{ dia: '2026-10-07', pedidos: 4, total: 400 }, { dia: '2026-10-08', pedidos: 0, total: 0 }, { dia: '2026-10-09', pedidos: 0, total: 25 }]
+    expect(porDiaEm(pd, ['2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'], 'medio')).toEqual([100, null, null, null]) // 0 pedidos com total > 0 também não divide
+    expect(porDiaEm(pd, ['2026-10-08', '2026-10-09'], 'total')).toEqual([0, 25])
+    expect(porDiaEm(pd, ['2026-10-07'], 'pedidos')).toEqual([4])
+  })
+
   it('forma filtra total e pedidos pela quebra do banco', () => {
     expect(totais(v, null)).toEqual({ total: 300, pedidos: 3 }); expect(totais(v, 'pix')).toEqual({ total: 200, pedidos: 2 }); expect(totais(v, 'boleto')).toEqual({ total: 0, pedidos: 0 })
   })

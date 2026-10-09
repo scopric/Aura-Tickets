@@ -61,4 +61,31 @@ describe('Dashboards (Central de comando)', () => {
     fireEvent.click(botao)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pix' })).toHaveAttribute('aria-pressed', 'true'))
   })
+
+  it('o seletor de métrica troca o gráfico: Pedidos e Ticket médio por dia (tabela e mini-tendências)', async () => {
+    banco.fator.mockResolvedValue(false)
+    banco.soma.mockResolvedValue(soma({ total: 500, pedidos: 4, por_dia: [{ dia: '2026-10-06', pedidos: 1, total: 100 }, { dia: '2026-10-07', pedidos: 3, total: 400 }], por_forma: [{ forma: 'pix', pedidos: 4, total: 500 }] }))
+    const { container } = montar('/producer/central?tipo=ritmo&periodo=30d&comparar=0')
+    await waitFor(() => expect(screen.getAllByText(/500,00/).length).toBeGreaterThan(0))
+    expect(container.querySelectorAll('polyline').length).toBe(3) // bruto, pedidos e ticket médio
+    fireEvent.click(screen.getByRole('button', { name: 'Pix' })) // com forma escolhida a curva (de todas as formas) sai dos cartões
+    expect(container.querySelectorAll('polyline').length).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Pix' }))
+    expect(container.querySelectorAll('polyline').length).toBe(3)
+    fireEvent.click(screen.getByRole('radio', { name: 'Pedidos' }))
+    expect(container.querySelector('[role=img][aria-label^="Pedidos por dia"]')?.getAttribute('aria-label')).not.toMatch(/R\$/) // o texto do leitor de tela acompanha a métrica
+    fireEvent.click(screen.getAllByRole('button', { name: /Ver como tabela/ })[0])
+    expect(document.querySelector('table caption')!.textContent).toBe('Pedidos por dia')
+    fireEvent.click(screen.getByRole('radio', { name: 'Ticket médio' }))
+    expect(document.querySelector('table caption')!.textContent).toBe('Ticket médio por dia')
+    const celulas = () => [...document.querySelectorAll('table tbody td')].map(c => c.textContent?.replace(/\s/g, ' ')) // brl usa espaço inseparável
+    expect(celulas()).toContain('R$ 100,00') // dia 6: 100 / 1 pedido
+    expect(celulas()).toContain('—') // dias sem pedido: sem ticket médio (nunca R$ 0,00)
+    expect(celulas().filter(c => c === 'R$ 0,00')).toEqual([])
+    fireEvent.click(screen.getByRole('radio', { name: 'Pedidos' }))
+    expect(celulas()).toContain('3') // inteiro, sem R$
+    expect(celulas().some(c => c?.includes('R$'))).toBe(false)
+    const pts = [...container.querySelectorAll('polyline')].map(l => l.getAttribute('points'))
+    expect(new Set(pts).size).toBeGreaterThan(1) // as 3 mini-tendências são de séries diferentes
+  })
 })
