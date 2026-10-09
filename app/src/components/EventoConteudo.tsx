@@ -108,7 +108,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   // A barra de topo ganha vidro quando a capa sai de cena (passa por baixo dela)
   useEffect(() => {
     if (previa) return
-    const aoRolar = () => setRolou(window.scrollY > (heroRef.current?.offsetHeight ?? 460) - 64)
+    const aoRolar = () => setRolou(window.scrollY > (heroRef.current?.offsetHeight || 460) - 64)
     aoRolar()
     window.addEventListener('scroll', aoRolar, { passive: true })
     return () => window.removeEventListener('scroll', aoRolar)
@@ -253,13 +253,14 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
       </header>}
 
       {demo && <div className="fixed inset-x-0 top-0 z-50 bg-foreground py-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-background">{demo.faixa}</div>}
+      <div className={!previa ? 'evv-grade' : undefined}>
       {!previa && (
-        <section ref={heroRef}>
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[clamp(520px,70vh,720px)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:gap-12">
-            <div className="relative mx-auto aspect-[4/5] w-full max-w-[320px] md:order-last md:mx-0 md:max-w-none">
+        <section ref={heroRef} className="evv-contents">
+          <div className="evv-contents mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[clamp(520px,70vh,720px)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:gap-12">
+            <div className="evv-capa-col relative mx-auto aspect-[4/5] w-full max-w-[320px] md:order-last md:mx-0 md:max-w-none">
               <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
             </div>
-            <div className="min-w-0">
+            <div className="evv-hero-texto min-w-0">
               <div className="flex items-center gap-4">
                 {dataEvento && (
                   <>
@@ -289,7 +290,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         </section>
       )}
 
-      <div className={cn('mx-auto max-w-xl', !previa && 'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[repeat(7,auto)_1fr] lg:gap-x-10 lg:px-8 lg:pt-10 lg:[&>*:not(#ingressos)]:col-start-1')}>
+      <div className={cn('mx-auto max-w-xl', !previa && 'evv-contents evv-meio')}>
         {previa ? (
           <>
             <div className="relative aspect-[390/460] w-full overflow-hidden">
@@ -329,7 +330,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         {previa && <BlocoOrganizador organizador={organizador} titulo={event.title} />}
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
+        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
           <div className={!previa ? 'evv-bilhete-in lg:pt-5' : undefined}>
           <div className={cn('flex items-baseline justify-between gap-3', !previa && 'lg:mx-5 lg:border-b lg:border-border lg:pb-3')}>
             <h2 id="h-ingressos" className={cn(titulo, 'min-w-0 flex-1')}>Ingressos</h2>
@@ -515,6 +516,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           </p>
         </section>
         )}
+      </div>
       </div>
 
       {/* Barra de compra fixa em vidro; "Comprar" é sólido. A taxa fica em --vidro-texto-2 (#334155 no claro, #d6dde6 no escuro) */}

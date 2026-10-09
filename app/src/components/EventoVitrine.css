@@ -58,3 +58,17 @@
   [data-evv] [data-entra] { transition: opacity 400ms var(--curva-entra, ease-out), transform 400ms var(--curva-entra, ease-out); }
   [data-evv] [data-entra]:not([data-vista]) { opacity: 0; transform: translateY(12px); }
 }
+
+/* Computador: 3 zonas numa grade só (capa fixa | título e blocos | ingressos fixos). Hero e miolo viram filhos diretos
+   da grade; a capa e o bilhete ficam sticky e atravessam todas as linhas. Celular/tablet e `previa` não mudam. */
+@media (min-width: 1024px) {
+  .evv-grade {
+    display: grid; max-width: 72rem; margin-inline: auto; padding: 6rem 2rem 0; column-gap: 2rem;
+    grid-template-columns: clamp(200px, 22vw, 300px) minmax(0, 1fr) 360px; grid-template-rows: repeat(8, auto) 1fr;
+  }
+  .evv-contents { display: contents; }
+  .evv-capa-col { grid-column: 1; grid-row: 1 / -1; align-self: start; position: sticky; top: 5rem; max-width: none; margin: 0; }
+  .evv-hero-texto { grid-column: 2; grid-row: 1; padding-bottom: 2.5rem; }
+  .evv-meio > :not(#ingressos) { grid-column: 2; }
+  .evv-meio > #ingressos { grid-column: 3; grid-row: 1 / -1; }
+}
