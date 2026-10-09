@@ -1,18 +1,22 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import GraficoLinha from '@/components/producer/GraficoLinha'
 import { KpiCard } from '@/components/producer/ui-evento'
+import Tendencia from '@/components/producer/Tendencia'
+import { Segmented } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { brl } from '../../../lib/taxa'
 import { forma as nomeForma } from '../../../lib/bordero'
-import { janelaAnterior, delta, textoDelta, diasA, diaBr, diasDoPeriodo, porDiaEm, totais } from '../../../lib/central'
+import { janelaAnterior, delta, textoDelta, diasA, diaBr, diasDoPeriodo, porDiaEm, totais, type Metrica } from '../../../lib/central'
 import type { Periodo } from '../../../lib/inicioProdutor'
 import type { DadosVendas } from '../../../hooks/useCentral'
+import type { VendasPagas } from '../../../lib/vendasPagas'
 import Mosaico, { Dica, corFatia, semAnimacao } from './Mosaico'
 
 const eixoBrl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
 const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const diaCurto = (d: string) => `${Number(d.slice(8))} ${MES[Number(d.slice(5, 7)) - 1]}`
+const NOME: Record<Metrica, string> = { total: 'Bruto', pedidos: 'Pedidos', medio: 'Ticket médio' }
 const LEGENDA: Record<Periodo, string> = { hoje: 'Hoje', '7d': '7 dias', '30d': '30 dias', tudo: 'Todo o período' }
 
 // Rótulo direto na rosca: nome e percentual ao lado da fatia (sem legenda separada para decorar cores)
@@ -28,6 +32,7 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
   onEvento: (id: string | null) => void; onForma: (f: string | null) => void
 }) {
   const idKpi = useId()
+  const [metrica, setMetrica] = useState<Metrica>('total') // o que o gráfico mostra (Gumroad: o cartão manda no gráfico)
   const d = q.data
   const carregando = q.isPending, erro = q.isError
   const sem2fa = !!d?.faltaFator
@@ -43,8 +48,17 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
   const dias = d ? diasDoPeriodo(periodo, d.agora, d.atual.por_dia) : []
   const ant = d && comparar ? janelaAnterior(periodo, d.agora) : null
   const diasAnt = ant ? diasA(diaBr(Date.parse(ant.de)), dias.length) : []
-  const serieAtual = d ? porDiaEm(d.atual.por_dia, dias) : []
-  const serieAnt = d?.anterior && ant ? porDiaEm(d.anterior.por_dia, diasAnt) : null
+  const doPeriodo = (m: Metrica, porDia: VendasPagas['por_dia'], diasDe: string[]): (number | null)[] => (m === 'medio' ? porDiaEm(porDia, diasDe, 'medio') : porDiaEm(porDia, diasDe, m))
+  const series = d ? { total: doPeriodo('total', d.atual.por_dia, dias), pedidos: doPeriodo('pedidos', d.atual.por_dia, dias), medio: doPeriodo('medio', d.atual.por_dia, dias) } : { total: [], pedidos: [], medio: [] } // calculadas uma vez por render
+  const serieAtual = series[metrica]
+  const serieAnt = d?.anterior && ant ? doPeriodo(metrica, d.anterior.por_dia, diasAnt) : null
+  const dinheiro = metrica !== 'pedidos'
+  // dia sem pedido não tem ticket médio: "—" (nunca R$ 0,00) no gráfico, na dica e na tabela
+  const fmtDe = (m: Metrica) => (v: number | null) => (v == null ? '—' : m === 'pedidos' ? v.toLocaleString('pt-BR') : brl(v))
+  const fmt = fmtDe(metrica)
+  // com a forma de pagamento escolhida, o bruto e os pedidos dos cartões são só dela, mas a curva é de todas as formas: sem mini-tendência
+  const mostrarTendencia = !forma
+  const detalhes = (k: number) => (['total', 'pedidos', 'medio'] as Metrica[]).filter(m => m !== metrica).map(m => ({ rotulo: NOME[m], valor: fmtDe(m)(series[m][k]) }))
   const nada = !!d && d.atual.pedidos === 0 && (d.anterior?.pedidos ?? 0) === 0
 
   const eventos = d ? [...d.atual.por_evento].sort((a, b) => Number(b.total) - Number(a.total)) : []
@@ -63,7 +77,12 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
   }
 
   const textoVazio = <p>Nenhum pedido pago neste período{evento ? ' neste evento' : ''}. Tente um período maior.</p>
-  const resumoDia = d ? `Vendas por dia, ${LEGENDA[periodo].toLowerCase()}: ${brl(t!.total)} em ${t!.pedidos} pedidos${tAnt ? `, ${textoDelta(delta(t!.total, tAnt.total))} sobre o período anterior` : ''}` : ''
+  // o texto lido por leitor de tela acompanha a métrica escolhida (e a variação é da mesma métrica)
+  const resumoDia = d ? (() => {
+    const [v, vAnt] = metrica === 'pedidos' ? [t!.pedidos, tAnt?.pedidos ?? null] : metrica === 'medio' ? [medio, medioAnt] : [t!.total, tAnt?.total ?? null]
+    const valor = v == null ? 'sem pedidos' : metrica === 'pedidos' ? `${v} pedidos` : metrica === 'medio' ? `ticket médio ${brl(v)}` : `${brl(v)} em ${t!.pedidos} pedidos`
+    return `${NOME[metrica]} por dia, ${LEGENDA[periodo].toLowerCase()}: ${valor}${tAnt && v != null ? `, ${textoDelta(delta(v, vAnt))} sobre o período anterior` : ''}`
+  })() : ''
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -71,13 +90,14 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
       {/* peça principal: o gráfico do período, bem maior que o resto */}
       <Mosaico
         className="xl:col-span-8" titulo="Vendas por dia" altura={300}
+        acoes={<Segmented label="Métrica do gráfico" size="md" value={metrica} onValueChange={v => setMetrica(v as Metrica)} className="h-12 w-full sm:w-80" items={[{ value: 'total', label: 'Bruto' }, { value: 'pedidos', label: 'Pedidos' }, { value: 'medio', label: 'Ticket médio' }]} />}
         carregando={carregando} erro={erro} onTentar={q.refetch} vazio={nada ? textoVazio : undefined} resumo={resumoDia}
-        tabela={{ legenda: 'Valor bruto vendido por dia', colunas: ['Dia', 'Atual', ...(serieAnt ? ['Anterior'] : [])], linhas: dias.map((x, i) => [diaCurto(x), brl(serieAtual[i]), ...(serieAnt ? [brl(serieAnt[i])] : [])]) }}
+        tabela={{ legenda: `${NOME[metrica]} por dia`, colunas: ['Dia', 'Atual', ...(serieAnt ? ['Anterior'] : [])], linhas: dias.map((x, i) => [diaCurto(x), fmt(serieAtual[i]), ...(serieAnt ? [fmt(serieAnt[i])] : [])]) }}
       >
         <GraficoLinha
-          key={`${periodo}-${comparar}-${evento}`}
-          atual={serieAtual} anterior={serieAnt} n={dias.length}
-          formatoValor={brl} formatoEixo={v => eixoBrl.format(v)} rotulo={k => diaCurto(dias[k])}
+          key={`${periodo}-${comparar}-${evento}-${metrica}`}
+          atual={serieAtual} anterior={serieAnt} n={dias.length} inteiro={metrica === 'pedidos'}
+          formatoValor={fmt} formatoEixo={v => (dinheiro ? eixoBrl.format(v) : v.toLocaleString('pt-BR'))} rotulo={k => diaCurto(dias[k])} detalhes={detalhes}
           legendaAtual={LEGENDA[periodo]} legendaAnterior="Período anterior" resumo={resumoDia}
         />
       </Mosaico>
@@ -89,15 +109,16 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
           destaque rotulo="Vendas pagas (bruto)" valor={carregando ? '—' : erro || !t ? '—' : brl(t.total)}
           comparacao={t ? cmp(t.total, tAnt?.total ?? null) : undefined}
           ajuda="Soma do que os compradores pagaram nos pedidos pagos, com a taxa de serviço. Pedido reembolsado fica de fora."
+          extra={mostrarTendencia ? <Tendencia valores={series.total} /> : undefined}
         />
         <dl className="rounded-[10px] border border-border bg-card px-4 py-1">
           {[
-            ['Pedidos pagos', t ? t.pedidos.toLocaleString('pt-BR') : '—', t ? cmp(t.pedidos, tAnt?.pedidos ?? null) : undefined],
-            ['Ticket médio', medio != null ? brl(medio) : '—', cmp(medio, medioAnt)],
-          ].map(([r, v, c]) => (
+            ['Pedidos pagos', t ? t.pedidos.toLocaleString('pt-BR') : '—', t ? cmp(t.pedidos, tAnt?.pedidos ?? null) : undefined, 'pedidos'],
+            ['Ticket médio', medio != null ? brl(medio) : '—', cmp(medio, medioAnt), 'medio'],
+          ].map(([r, v, c, m]) => (
             <div key={r} className="flex min-h-11 items-baseline justify-between gap-3 border-b border-border py-2 last:border-0">
               <dt className="text-sm text-muted-foreground">{r}</dt>
-              <dd className="text-right"><span className="font-display text-base font-semibold tabular-nums text-foreground">{v}</span>{c && <span className="block text-xs text-muted-foreground">{c}</span>}</dd>
+              <dd className="flex items-center gap-3 text-right">{mostrarTendencia && <Tendencia valores={series[m as 'pedidos' | 'medio']} className="w-16" />}<span><span className="font-display text-base font-semibold tabular-nums text-foreground">{v}</span>{c && <span className="block text-xs text-muted-foreground">{c}</span>}</span></dd>
             </div>
           ))}
         </dl>

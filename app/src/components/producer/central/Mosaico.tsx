@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils'
 export const semAnimacao = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /** Cores só por tokens; a rosca usa tons da cor de ação, o resto é neutro */
-export const corFatia = (i: number) => ['hsl(var(--primary))', 'hsl(var(--primary) / 0.65)', 'hsl(var(--primary) / 0.4)', 'hsl(var(--muted-foreground) / 0.5)'][Math.min(i, 3)]
+// Fatias: violeta da marca, azul-violeta da logo, violeta claro e neutro (cada uma se distingue sem depender só de opacidade)
+export const corFatia = (i: number) => ['hsl(var(--primary))', 'var(--brand-blue, #4a60e3)', 'hsl(var(--primary) / 0.4)', 'hsl(var(--muted-foreground) / 0.5)'][Math.min(i, 3)]
 
 /** Dica ao passar o mouse, em pt-BR (recharts: <Tooltip content={<Dica formato={...} />} />) */
 export function Dica({ active, payload, label, formato }: { active?: boolean; payload?: { name?: string; value?: number; payload?: { nome?: string } }[]; label?: string; formato: (v: number) => string }) {
@@ -74,7 +75,7 @@ export default function Mosaico({ titulo, resumo, tabela, carregando, erro, onTe
     <section aria-labelledby={id} className={cn('rounded-[10px] border border-border bg-card', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
         <SectionTitle id={id}>{titulo}</SectionTitle>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
           {acoes}
           {!carregando && !erro && !sem && (
             <Button variant="ghost" size="sm" className="min-h-11" aria-pressed={comoTabela} onClick={() => setTabela(v => !v)}>

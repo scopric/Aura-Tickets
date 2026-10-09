@@ -49,8 +49,17 @@ export function diasDoPeriodo(p: Periodo, agora: number, porDia: VendasPagas['po
 }
 
 /** Valor por dia, zero nos dias sem venda */
-export const porDiaEm = (porDia: VendasPagas['por_dia'], dias: string[], campo: 'total' | 'pedidos' = 'total'): number[] =>
-  dias.map(d => Number(porDia.find(x => x.dia === d)?.[campo]) || 0)
+export type Metrica = 'total' | 'pedidos' | 'medio'
+// Ticket médio do dia = bruto / pedidos; dia sem pedido NÃO tem ticket médio (null = lacuna no gráfico e "—" na tabela, nunca R$ 0)
+export function porDiaEm(porDia: VendasPagas['por_dia'], dias: string[], campo: 'medio'): (number | null)[]
+export function porDiaEm(porDia: VendasPagas['por_dia'], dias: string[], campo?: 'total' | 'pedidos'): number[]
+export function porDiaEm(porDia: VendasPagas['por_dia'], dias: string[], campo: Metrica = 'total'): (number | null)[] {
+  return dias.map(d => {
+    const x = porDia.find(y => y.dia === d)
+    if (campo === 'medio') { const p = Number(x?.pedidos) || 0; return p ? (Number(x?.total) || 0) / p : null }
+    return Number(x?.[campo]) || 0
+  })
+}
 
 /** Total e pedidos; com forma, os dessa forma de pagamento (a RPC só quebra por forma, não filtra) */
 export function totais(v: VendasPagas, forma: string | null): { total: number; pedidos: number } {
