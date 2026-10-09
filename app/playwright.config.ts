@@ -53,6 +53,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
+    env: { VITE_RECAPTCHA_SITE_KEY: process.env.VITE_RECAPTCHA_SITE_KEY || 'teste' }, // o e2e do Pix troca o script do Google; sem chave a tela diz "Pagamento indisponível"
     url: process.env.PW_BASE_URL || 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },
