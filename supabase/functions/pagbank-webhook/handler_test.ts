@@ -91,6 +91,14 @@ Deno.test("sandbox sem o interruptor PAGBANK_WEBHOOK_SEM_ASSINATURA=1: sem cabe�
   assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 401);
   assertEquals(m.pagbank.length, 0);
 });
+Deno.test("o interruptor sem assinatura vence sozinho no lançamento (16/10/2026)", async () => {
+  const agora = Date.now; Date.now = () => Date.parse("2026-10-16T00:00:01-03:00");
+  try {
+    const m = montar();
+    assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 401);
+    assertEquals(m.pagbank.length, 0);
+  } finally { Date.now = agora; }
+});
 Deno.test("produção: aviso com assinatura válida continua sendo aceito", async () => {
   const m = montar({ env: PROD });
   assertEquals((await handler(await req(), m.deps)).status, 200);

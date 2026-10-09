@@ -239,6 +239,9 @@ Deno.test("reCAPTCHA: localhost só com RECAPTCHA_ALLOW_LOCALHOST=1", async () =
   assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), sub("app.localhost")), true);
   assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), sub("evil.localhost")), false);
   assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://api.pagseguro.com" }), sub("app.localhost")), false); // produção real: localhost nunca passa
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.evil.com" }), sub("app.localhost")), false); // URL exata
+  const agora = Date.now; Date.now = () => Date.parse("2026-10-16T00:00:01-03:00");
+  try { assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), sub("app.localhost")), false); } finally { Date.now = agora; } // vence no lançamento
 });
 
 Deno.test("custódia: evento a 400 dias = sem split; a 30 dias = com split e custódia", async () => {

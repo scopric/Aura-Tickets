@@ -55,6 +55,8 @@ export type Deps = {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_CORPO = 4096
 const HOSTS = ORIGENS.map(o => new URL(o).hostname)
+// os interruptores de teste (RECAPTCHA_ALLOW_LOCALHOST aqui e PAGBANK_WEBHOOK_SEM_ASSINATURA no webhook) morrem sozinhos no dia do lançamento
+export const ATE_LANCAMENTO = Date.parse('2026-10-16T00:00:00-03:00')
 
 /** Lê o corpo parando em MAX_CORPO bytes; null = passou do teto. Confere Content-Length antes de ler. */
 async function lerCorpo(req: Request): Promise<string | null> {
@@ -93,7 +95,7 @@ export async function verificarRecaptcha(
     if (!r.ok) { console.error('[pagbank-criar-pedido] recaptcha: Google respondeu HTTP', r.status); return false }
     const j = await r.json()
     // localhost só em desenvolvimento (RECAPTCHA_ALLOW_LOCALHOST=1 e PagBank no sandbox; em produção real não passa): o app roda em app.localhost e o painel em alpha.localhost
-    const dev = env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && /^https:\/\/sandbox\./.test(env('PAGBANK_BASE_URL')) && ['localhost', 'app.localhost', 'alpha.localhost'].includes(String(j.hostname))
+    const dev = env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && env('PAGBANK_BASE_URL').trim().replace(/\/+$/, '') === 'https://sandbox.api.pagseguro.com' && Date.now() < ATE_LANCAMENTO && ['localhost', 'app.localhost', 'alpha.localhost'].includes(String(j.hostname))
     const ok = j.success === true && j.action === 'pagbank_checkout' && (HOSTS.includes(String(j.hostname)) || dev)
        && typeof j.score === 'number' && j.score >= minimo
     // diagnóstico: só campos que o Google devolve (nenhum segredo nem token)
