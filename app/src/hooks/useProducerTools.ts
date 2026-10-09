@@ -32,6 +32,8 @@ export interface DbTask {
   archived_at?: string | null
   recur_days?: number | null
   recur_next?: string | null
+  // Fatia 2C: mover para a coluna de revisão quando o checklist fechar
+  ck_move?: boolean
 }
 type CamposTarefa = Omit<DbTask, 'id' | 'producer_id' | 'created_at' | 'board_id' | 'column_id' | 'position' | 'updated_at'>
 

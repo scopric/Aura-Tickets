@@ -21,6 +21,7 @@ import { corPrazo, prazoDoDia } from '../../../lib/tarefas'
 import { diaBR } from '../../../lib/visaoEvento'
 import { EscolhaCapa, EscolhaChecklist, EscolhaDatas, EscolhaEtiquetas, EscolhaLocal, EscolhaMembros } from './CartaoEscolhas'
 import { Anexos, Atividade, Checklists, Comentarios, Dependencias, EscolhaVinculo, Secao, Vinculos } from './CartaoSecoes'
+import CartaoPlanejamento from './CartaoPlanejamento'
 import LocalRota from './LocalRota'
 import { AvatarPessoa, ChipEtiqueta } from './pecas'
 import { VistoPor } from './Recibos'
@@ -184,6 +185,7 @@ function Conteudo({ tarefa, tarefas, boardId, colunas, pessoas, resumo, onFechar
               </Secao>
               <Checklists detalhe={det.data} acoes={acoes} />
               <Dependencias tarefa={tarefa} tarefas={tarefas} detalhe={det.data} acoes={acoes} />
+              <CartaoPlanejamento tarefa={tarefa} boardId={boardId} colunas={colunas} temChecklist={det.data.checklists.some(c => c.itens.length > 0)} gravar={campos => gravar(campos)} />
               <Anexos tarefa={tarefa} detalhe={det.data} entrada={entradaAnexo} />
               <Comentarios detalhe={det.data} acoes={acoes} pessoas={pessoas} eu={user?.id}
                 leitura={lendo ? { membros, observadores: recibos.data?.observadores ?? [], lista: recibos.data?.recibos ?? [] } : undefined} />
