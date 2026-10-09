@@ -106,7 +106,8 @@ export async function chaveIdempotencia(orderId: string, cpf: string, fone: stri
   const enc = new TextEncoder()
   const k = await crypto.subtle.importKey('raw', enc.encode(segredo), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const h = await crypto.subtle.sign('HMAC', k, enc.encode(`${cpf}|${fone}`))
-  return `${orderId}:${[...new Uint8Array(h)].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join('')}`
+  // só [\w-]: o PagBank recusa ':' (400 40002, verificado no sandbox em 09/10/2026)
+  return `${orderId}-${[...new Uint8Array(h)].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join('')}`
 }
 
 /** Chamada à API com timeout. Qualquer falha vira PagbankErro SEM o corpo da resposta (o detalhe mascarado fica na mensagem, só para log). */
