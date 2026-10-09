@@ -326,9 +326,13 @@ export default function ProducerCRM() {
                     <span className="text-xs tabular-nums text-muted-foreground">{colLeads.length}</span>
                   </h2>
                   <ul className="max-h-[500px] space-y-2 overflow-y-auto p-2">
-                    {colLeads.map(l => (
-                      <li key={l.id} {...arrastar.propsCartao(l.id, col.id)} className="group relative rounded-md border border-border bg-background transition-colors hover:bg-foreground/5">
-                        <button type="button" onClick={() => setSelectedId(l.id)} className="flex w-full items-start gap-2 p-3 pr-10 text-left">
+                    {colLeads.map(l => {
+                      const cartao = arrastar.propsCartao(l.id, col.id)
+                      return (
+                      // abrir o lead não tem dois alvos de Tab: o li (Espaço arrasta, Enter abre); o botão de abrir fica para o mouse. Excluir continua com Tab próprio
+                      <li key={l.id} {...cartao} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) setSelectedId(l.id); else cartao.onKeyDown(e) }}
+                        className="group relative rounded-md border border-border bg-background outline-none transition-colors hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring">
+                        <button type="button" tabIndex={-1} onClick={() => setSelectedId(l.id)} className="flex w-full items-start gap-2 p-3 pr-10 text-left">
                           <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">{iniciais(l.full_name)}</span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium text-foreground">{l.full_name}</span>
@@ -344,7 +348,8 @@ export default function ProducerCRM() {
                           <I.Lixeira aria-hidden="true" />
                         </Button>
                       </li>
-                    ))}
+                      )
+                    })}
                     {colLeads.length === 0 && <li className="py-8 text-center text-xs text-muted-foreground">Arraste leads para cá</li>}
                   </ul>
                 </section>

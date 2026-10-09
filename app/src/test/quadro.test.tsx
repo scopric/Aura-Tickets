@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import Quadro from '../components/producer/quadro/Quadro'
@@ -72,6 +73,31 @@ describe('Quadro', () => {
     expect(screen.getByRole('status').textContent).toBe('Coluna Em andamento.')
     fireEvent.keyDown(cartao, { key: ' ' })
     expect(onMover).toHaveBeenCalledWith(expect.objectContaining({ id: '2' }), 'c2', 1500)
+  })
+
+  it('soltar fora de uma coluna não deixa o cartão pego', () => {
+    const onMover = montar()
+    const cartao = screen.getByRole('listitem', { name: /Tarefa 1/ })
+    fireEvent.dragStart(cartao)
+    fireEvent.dragEnd(cartao)
+    expect(cartao.className).not.toContain('opacity-60')
+    fireEvent.drop(screen.getByRole('region', { name: 'Em andamento' }))
+    expect(onMover).not.toHaveBeenCalled()
+  })
+
+  it('solto pelo teclado em outra coluna, o foco volta ao cartão', () => {
+    function ComEstado() {
+      const [lista, setLista] = useState(tarefas)
+      return <Quadro tarefas={lista} colunas={colunas} colunaDe={x => x.column_id ?? ''} ordenavel
+        onMover={(t, c, p) => setLista(l => l.map(x => (x.id === t.id ? { ...x, column_id: c, position: p } : x)))} />
+    }
+    render(<ComEstado />)
+    const cartao = screen.getByRole('listitem', { name: /Tarefa 2, coluna A fazer/ })
+    cartao.focus()
+    fireEvent.keyDown(cartao, { key: ' ' })
+    fireEvent.keyDown(cartao, { key: 'ArrowRight' })
+    fireEvent.keyDown(cartao, { key: ' ' })
+    expect(document.activeElement).toBe(screen.getByRole('listitem', { name: /Tarefa 2, coluna Em andamento/ }))
   })
 
   it('Esc cancela sem mover', () => {
