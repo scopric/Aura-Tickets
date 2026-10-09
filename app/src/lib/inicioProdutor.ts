@@ -145,6 +145,7 @@ export const editarEvento = (e: { id: string }) => `/producer/events/${e.id}/edi
 
 // "Evo sugere" (V9d): uma sugestão por vez, a primeira das 8 regras que vale e não foi dispensada. Só dados que o Início
 // já carregou; vendas ou perfil ainda sem chegar (undefined) deixam de fora as regras que dependem deles.
+// A equipe segue a mesma regra: leitura que falhou fica undefined e nunca vira "não tem".
 export type Sugestao = {
   chave: string // a que vai para o registro de dispensa
   texto: string
@@ -157,10 +158,16 @@ export type DadosSugestao = {
   porTipo: Record<string, number> // ingressos por tipo de ingresso
   checkinFeito?: boolean
   empresa?: boolean // perfil da empresa preenchido
+  portaria?: boolean // há pessoa da equipe aceita, sem bloqueio, com cargo admin ou editor (o que dá acesso ao check-in)
 }
 
 // ponytail: soma dos códigos de caractere em base 36; basta para distinguir um motivo de outro, não é hash de verdade
 const hashCurto = (t: string) => [...t].reduce((h, c) => h + c.charCodeAt(0), 0).toString(36)
+
+// Quem da equipe pode fazer o check-in (mesmo critério de gf_portaria_ok: aceito, sem bloqueio, cargo admin ou editor).
+// O banco ainda exige 2FA do membro, que o produtor não vê: na dúvida a sugestão some, nunca aparece a mais.
+export const temPortaria = (equipe: { role: string; accepted_at: string | null; blocked_at: string | null }[]) =>
+  equipe.some(m => !!m.accepted_at && !m.blocked_at && (m.role === 'admin' || m.role === 'editor'))
 
 export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>, agora: number): Sugestao | null {
   const hoje = meiaNoite(agora)
@@ -191,6 +198,12 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
         `${c.t.name} do ${c.e.title}: ${inteiro(c.vend)}${piso} de ${inteiro(c.cap)} vendidos.`,
         { texto: 'Editar ingressos', to: editarEvento(c.e) },
         { pct: (c.vend / c.cap) * 100, mais: !!piso })) : []),
+    // 2b. evento no ar que começa em até 7 dias e ninguém da equipe pode fazer o check-in. A chave não leva o id do
+    // evento: quem faz a portaria sozinho dispensa uma vez e pronto.
+    ...(d.portaria === false ? noAr
+      .filter(e => inicioDe(e) > agora && dataDoEvento(e).getTime() <= agora + 7 * DIA_MS)
+      .slice(0, 1)
+      .map(e => sug('dica:portaria', `O ${e.title} é em até 7 dias e ninguém da equipe tem acesso ao check-in. Se outra pessoa vai fazer a portaria, convide-a.`, { texto: 'Convidar equipe', to: '/producer/team' })) : []),
     // 3. testar o check-in: no ar, ainda não começou, faltam até 7 dias, ao menos 1 ingresso vendido, nenhum check-in feito
     ...(vendidos && d.checkinFeito === false ? noAr
       .filter(e => inicioDe(e) > agora && dataDoEvento(e).getTime() <= agora + 7 * DIA_MS && (vendidos.porEvento[e.id] ?? 0) >= 1)

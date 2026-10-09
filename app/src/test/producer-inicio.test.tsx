@@ -254,7 +254,7 @@ describe('Início do produtor', () => {
     fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-10-05' } })
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-01' } })
     await screen.findByText('A data inicial não pode ser depois da final.')
-    expect(rpc.soma.mock.calls.filter(c => (c[0] as { p_event_id: unknown }).p_event_id === null && (c[0] as { p_ate: unknown }).p_ate !== null)).toHaveLength(0)
+    expect(rpc.soma.mock.calls.filter(c => (c[0] as { p_event_id: unknown } | undefined)?.p_event_id === null && (c[0] as { p_ate: unknown }).p_ate !== null)).toHaveLength(0)
   })
 
   it('consulta do 2FA falhou: avisa que não deu para confirmar, sem afirmar zero', async () => {

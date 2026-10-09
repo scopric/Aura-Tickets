@@ -14,7 +14,7 @@ import { soltarConfete } from '../../lib/confete'
 import { corDoEvento, derivarCor } from '../../lib/corEvento'
 import {
   PERIODOS, VENDIDO, ehPeriodo, janelas, resumoDe, serie, rotuloDoBalde, dataPorExtenso, dataDoEvento,
-  inteiro, inteiroMais, brlMais, sugestaoDoEvo, type Linha, type Periodo,
+  inteiro, inteiroMais, brlMais, sugestaoDoEvo, temPortaria, type Linha, type Periodo,
 } from '../../lib/inicioProdutor'
 import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import GraficoLinha from '@/components/producer/GraficoLinha'
@@ -159,11 +159,12 @@ export default function ProducerDashboard() {
     retry: 1,
     queryFn: () => comLimite(async sinal => {
       const id = user!.id
-      const [perfil, pessoa, checkin] = await Promise.all([
+      const [perfil, pessoa, checkin, equipe] = await Promise.all([
         supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
         supabase.from('profiles').select('full_name').eq('id', id).abortSignal(sinal).maybeSingle(),
         supabase.from('tickets').select('id, events!inner(producer_id)')
           .eq('events.producer_id', id).not('checked_in_at', 'is', null).limit(1).abortSignal(sinal),
+        supabase.rpc('team_lista' as never).abortSignal(sinal), // exige 2FA em dia (42501 sem ele): erro = undefined, a regra não dispara
       ])
       // sem permissão (42501) = perfil não preenchido; outro erro (rede, tempo) não pode virar "não preenchido"
       if (perfil.error && perfil.error.code !== '42501') throw perfil.error
@@ -175,6 +176,7 @@ export default function ProducerDashboard() {
       return {
         empresa: !!empresa && empresa !== 'minha empresa' && empresa !== nome,
         checkinFeito: (checkin.data ?? []).length > 0,
+        portaria: equipe.error ? undefined : temPortaria((equipe.data ?? []) as Parameters<typeof temPortaria>[0]),
       }
     }),
   })
@@ -336,7 +338,7 @@ export default function ProducerDashboard() {
   // "Evo sugere": uma sugestão por vez (lib/inicioProdutor). A dispensa vai para o registro do tour; só decide depois de lê-lo.
   // Só depois de tudo chegar (registro, vendas e perfil): senão a faixa troca de sugestão enquanto carrega.
   const sugestao = carregou && !vendasQ.isPending && !passosQ.isPending ? sugestaoDoEvo({
-    eventos, vendidos: v ? vendidos : undefined, porTipo, checkinFeito: passosDados?.checkinFeito, empresa: passosDados?.empresa,
+    eventos, vendidos: v ? vendidos : undefined, porTipo, checkinFeito: passosDados?.checkinFeito, empresa: passosDados?.empresa, portaria: passosDados?.portaria,
   }, registrados, agora) : null
 
   // Vendas recentes: os ingressos do mesmo pedido e tipo viram uma linha ("2 × Pista"); sem nome de comprador (LGPD)
