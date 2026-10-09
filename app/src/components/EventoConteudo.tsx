@@ -11,6 +11,7 @@ import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
 import EventoCapa from './EventoCapa'
+import { CapaInclinada, TotalAnimado, podeMover } from './EventoVitrine'
 import ThemeToggle from './ThemeToggle'
 import { JanelaSuporte } from './SupportChatWidget'
 import { useAuthStore } from '../stores/authStore'
@@ -35,7 +36,7 @@ function horaCurta(time: string | null) {
 }
 
 // Linha de informação (ícone de 20 px, sem caixa; contrato 8.1, item 4)
-function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo: string; sub?: string; href?: string; rotulo?: string }) {
+function Linha({ icone, titulo, sub, href, rotulo, cartao }: { icone: ReactNode; titulo: string; sub?: string; href?: string; rotulo?: string; cartao?: boolean }) {
   const corpo = (
     <>
       <span className="shrink-0 text-muted-foreground">{icone}</span>
@@ -46,7 +47,7 @@ function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo:
       {href && <I.AbrirExterno size={16} className="shrink-0 text-muted-foreground" />}
     </>
   )
-  const classe = 'flex min-h-14 w-full items-center gap-4 border-t border-border px-5 py-2 text-left first:border-t-0'
+  const classe = cn('flex min-h-14 w-full items-center gap-4 border-t border-border px-5 py-2 text-left first:border-t-0', cartao && 'lg:rounded-ev-xl lg:border lg:bg-card lg:px-4 lg:py-3 lg:first:border-t')
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" aria-label={rotulo} className={cn(classe, 'hover:bg-[var(--ev-tint-hover)] focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))] focus-visible:outline-none')}>{corpo}</a>
   ) : (
@@ -63,6 +64,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   const { data: organizador } = useOrganizadorDoEvento(event.id)
   const location = useLocation()
   const heroRef = useRef<HTMLDivElement>(null)
+  const raiz = useRef<HTMLDivElement>(null)
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [rolou, setRolou] = useState(false)
@@ -76,6 +78,18 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
     aoRolar()
     window.addEventListener('scroll', aoRolar, { passive: true })
     return () => window.removeEventListener('scroll', aoRolar)
+  }, [event, previa])
+
+  // Entrada ao rolar: o CSS só esconde (data-evv) quando há IntersectionObserver e movimento permitido
+  useEffect(() => {
+    const el = raiz.current
+    if (previa || !el || !podeMover() || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver((itens) => itens.forEach((i) => {
+      if (i.isIntersecting) { (i.target as HTMLElement).dataset.vista = ''; io.unobserve(i.target) }
+    }), { threshold: 0.1 })
+    el.querySelectorAll('[data-entra]').forEach((n) => io.observe(n))
+    el.dataset.evv = ''
+    return () => { io.disconnect(); delete el.dataset.evv }
   }, [event, previa])
 
   const addToCart = (ticketId: string) => {
@@ -163,10 +177,14 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
     'transition-transform duration-micro active:scale-105 motion-reduce:active:scale-100',
     'focus-visible:outline-none focus-visible:shadow-ev-foco',
   )
+  // Compra em destaque: botão invertido (contraste máximo) com relevo de tecla; só "Comprar" e "Finalizar"
+  const cta = 'shrink-0 rounded-full bg-foreground text-background shadow-[inset_0_-2px_0_hsl(var(--background)/0.28)] hover:bg-foreground/90 active:translate-y-px motion-reduce:active:translate-y-0'
   const circuloFundo = rolou ? '' : solido ? 'bg-card text-foreground shadow-ev-2' : 'vidro'
 
   return (
-    <div className={cn('evento-cor bg-background text-foreground', !previa && 'min-h-screen')} style={varsDoEvento(corEv, false, event.accent_intensity ?? 100)}>
+    <div ref={raiz} className={cn('evento-cor bg-background text-foreground', !previa && 'relative isolate min-h-screen overflow-x-clip')} style={varsDoEvento(corEv, false, event.accent_intensity ?? 100)}>
+      {/* Luz ambiente na cor do evento, atrás do topo (computador) */}
+      {!previa && <div aria-hidden="true" className="evv-ambiente -z-10 hidden lg:block" />}
       {/* Barra de topo: círculos de vidro sobre a capa; depois de rolar, a barra inteira ganha vidro */}
       {!previa && <header
         className={cn(
@@ -176,7 +194,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             : 'vidro rounded-none shadow-[inset_0_-1px_0_var(--vidro-base)]'),
         )}
       >
-        <div className="mx-auto flex h-full max-w-xl items-center gap-2 px-3">
+        <div className={cn('mx-auto flex h-full max-w-xl items-center gap-2 px-3', !previa && 'lg:max-w-6xl lg:px-8')}>
           <button type="button" onClick={voltar} aria-label="Voltar" className={cn(circulo, circuloFundo)}>
             <I.ChevronEsquerda size={20} />
           </button>
@@ -193,34 +211,35 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         </div>
       </header>}
 
-      <div className={cn('mx-auto max-w-xl', !previa && 'min-h-screen md:border-x md:border-border')}>
+      <div className={cn('mx-auto max-w-xl', !previa && 'min-h-screen md:border-x md:border-border lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[repeat(7,auto)_1fr] lg:gap-x-10 lg:border-x-0 lg:px-8 lg:pt-20 lg:[&>*:not(#ingressos)]:col-start-1')}>
         {/* Capa sem texto por cima: foto em duotone na cor do evento ou cartaz (o nome fica no bloco abaixo) */}
-        <div ref={heroRef} className="relative aspect-[390/460] w-full overflow-hidden">
-          <EventoCapa evento={event} tamanho="faixa" prioridade />
+        <div ref={heroRef} className={cn('relative aspect-[390/460] w-full overflow-hidden', !previa && 'lg:aspect-[16/10] lg:overflow-visible')}>
+          {previa ? <EventoCapa evento={event} tamanho="faixa" prioridade /> : <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>}
         </div>
 
         {/* Bloco de título na cor do evento: o nome aparece uma vez só */}
-        <section className="bg-[var(--evento-fundo)] px-5 pb-5 pt-[22px]">
+        <section className={cn('bg-[var(--evento-fundo)] px-5 pb-5 pt-[22px]', !previa && 'lg:mt-4 lg:rounded-ev-2xl lg:p-8')}>
           <p className="text-[15px] font-semibold leading-5 text-[var(--evento-texto)]">{dataLonga}{hora && ` · ${hora}`}</p>
-          <h1 className="font-display wide mt-1.5 break-words text-[34px] font-extrabold leading-9 tracking-[-0.02em]">{event.title}</h1>
+          <h1 className={cn('font-display wide mt-1.5 break-words text-[34px] font-extrabold leading-9 tracking-[-0.02em]', !previa && 'lg:text-5xl lg:leading-[1.02] lg:tracking-[-0.03em]')}>{event.title}</h1>
           {event.subtitle && <p className="mt-2 text-base leading-6">{event.subtitle}</p>}
           <p className="mt-2 text-sm leading-5">{local}</p>
         </section>
 
-        <div className="py-2">
+        <div data-entra={previa ? undefined : ''} className={cn('py-2', !previa && 'lg:grid lg:grid-cols-3 lg:gap-3 lg:py-4')}>
           <Linha
             icone={<I.Horario size={20} />}
             titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
             sub={hora || undefined}
+            cartao={!previa}
           />
-          <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} />
-          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} />
+          <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} cartao={!previa} />
+          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} cartao={!previa} />
         </div>
 
         <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" aria-labelledby="h-ingressos" className="scroll-mt-20 border-t border-border px-5 pb-2 pt-6">
+        <section id="ingressos" data-entra={previa ? undefined : ''} aria-labelledby="h-ingressos" className={cn('scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
           <h2 id="h-ingressos" className="text-[15px] font-semibold leading-5">Ingressos</h2>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
 
@@ -330,7 +349,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         </section>
 
         {descricao && (
-          <section aria-labelledby="h-sobre" className="border-t border-border px-5 py-6">
+          <section aria-labelledby="h-sobre" data-entra={previa ? undefined : ''} className="border-t border-border px-5 py-6">
             <h2 id="h-sobre" className="mb-2 text-[15px] font-semibold leading-5">Sobre</h2>
             <p id="sobre-txt" className={cn('whitespace-pre-line text-base leading-6', descricaoLonga && !sobreAberto && 'line-clamp-5')}>{descricao}</p>
             {descricaoLonga && (
@@ -348,7 +367,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         )}
 
         {gallery.length > 0 && (
-          <section aria-labelledby="h-galeria" className="border-t border-border px-5 py-6">
+          <section aria-labelledby="h-galeria" data-entra={previa ? undefined : ''} className="border-t border-border px-5 py-6">
             <h2 id="h-galeria" className="mb-3 text-[15px] font-semibold leading-5">Galeria</h2>
             <div className="grid grid-cols-2 gap-2">
               {gallery.map((img, i) => (
@@ -382,11 +401,11 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           barraSolida ? 'border-t border-border bg-card text-foreground' : 'vidro rounded-none shadow-[inset_0_1px_0_var(--vidro-borda),0_-0.5px_0_var(--vidro-base)]',
         )}
       >
-        <div className="mx-auto flex max-w-xl items-center gap-3 pb-[max(12px,env(safe-area-inset-bottom))] pl-5 pr-4 pt-2.5">
+        <div className={cn('mx-auto flex max-w-xl items-center gap-3 pb-[max(12px,env(safe-area-inset-bottom))] pl-5 pr-4 pt-2.5', !previa && 'lg:max-w-6xl lg:px-8')}>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold leading-5">
               {cartCount > 0 ? (
-                <span className="font-display tabular-nums">{cartCount} ingresso{cartCount > 1 ? 's' : ''} · {brl(cartResumo.total)}</span>
+                <span className="font-display tabular-nums">{cartCount} ingresso{cartCount > 1 ? 's' : ''} · <TotalAnimado valor={cartResumo.total} /></span>
               ) : aVenda.length === 0 ? (
                 motivoSemVenda ?? 'Ingressos indisponíveis'
               ) : menorTotal === 0 ? (
@@ -402,11 +421,11 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             </div>
           </div>
           {cartCount > 0 ? (
-            <Button size="lg" className="shrink-0 rounded-full" onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}>
+            <Button size="lg" className={cta} onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}>
               Finalizar <I.ChevronDireita size={16} />
             </Button>
           ) : (
-            <Button size="lg" className="shrink-0 rounded-full" disabled={aVenda.length === 0 || !!previa} onClick={() => document.getElementById('ingressos')?.scrollIntoView()}>
+            <Button size="lg" className={cta} disabled={aVenda.length === 0 || !!previa} onClick={() => document.getElementById('ingressos')?.scrollIntoView()}>
               Comprar <I.ChevronDireita size={16} />
             </Button>
           )}
