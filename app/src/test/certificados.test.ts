@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   FONTES, MODELOS, aplicarModelo, camposPadrao, csvEmitidos, dataLonga, desfazer, erroDaImagem, histVazio, imagemSegura,
-  modeloPorId, mover, partesDoLote, refazer, registrar, resolverTexto, sanearTemplate, type DadosCertificado,
+  medidasDaImagem, modeloPorId, mover, partesDoLote, refazer, registrar, resolverTexto, sanearTemplate, type DadosCertificado,
 } from '../lib/certificados'
 
 afterEach(() => vi.unstubAllEnvs())
@@ -92,7 +92,7 @@ describe('sanearTemplate (JSON do banco é dado não confiável)', () => {
     expect(t.fields.map(f => f.width)).toEqual([12, 20, 18])
   })
   it('imagens: só png/jpeg/webp em base64 ou https; SVG, javascript: e tamanho absurdo caem', () => {
-    const png = 'data:image/png;base64,iVBORw0KGgo='
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     expect(imagemSegura(png)).toBe(png)
     vi.stubEnv('VITE_SUPABASE_URL', 'https://abc.supabase.co')
     const doBucket = 'https://abc.supabase.co/storage/v1/object/public/logos-produtor/u1/a.png'
@@ -181,5 +181,30 @@ describe('dataLonga', () => {
     expect(dataLonga('2026-06-15')).toBe('15 de junho de 2026')
     expect(dataLonga(null)).toBe('')
     expect(dataLonga('lixo')).toBe('')
+  })
+})
+
+describe('imagem embutida: medidas e bomba de pixels', () => {
+  const b64 = (bytes: number[]) => btoa(String.fromCharCode(...bytes))
+  const u32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]
+  const png = (w: number, h: number) => `data:image/png;base64,${b64([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, ...u32(w), ...u32(h), 8, 6, 0, 0, 0])}`
+  const webpX = (w: number, h: number) => { const a = w - 1, c = h - 1; return `data:image/webp;base64,${b64([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, 0, 0, 0, 0, a & 255, (a >> 8) & 255, (a >> 16) & 255, c & 255, (c >> 8) & 255, (c >> 16) & 255])}` }
+  const jpeg = (w: number, h: number) => `data:image/jpeg;base64,${b64([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 17, 8, h >> 8, h & 255, w >> 8, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1])}`
+
+  it('lê as medidas de png, webp (VP8X) e jpeg sem decodificar', () => {
+    expect(medidasDaImagem(png(300, 80))).toEqual({ w: 300, h: 80 })
+    expect(medidasDaImagem(webpX(640, 480))).toEqual({ w: 640, h: 480 })
+    expect(medidasDaImagem(jpeg(1200, 900))).toEqual({ w: 1200, h: 900 })
+    expect(medidasDaImagem('data:image/png;base64,@@@')).toBeNull()
+    expect(medidasDaImagem('sem virgula')).toBeNull()
+  })
+  it('aceita logo normal e foto de 24 MP; recusa PNG, WebP e JPEG que declaram pixels demais', () => {
+    expect(imagemSegura(png(512, 200))).not.toBeNull()
+    expect(imagemSegura(jpeg(6000, 4000))).not.toBeNull() // 24 MP
+    for (const bomba of [png(30000, 30000), png(8000, 8000), webpX(16000, 16000), jpeg(20000, 20000)]) expect(imagemSegura(bomba)).toBeNull()
+  })
+  it('recusa imagem sem medidas legíveis (cabeçalho ausente) e dimensão zero', () => {
+    expect(imagemSegura('data:image/png;base64,iVBORw0KGgo=')).toBeNull()
+    expect(imagemSegura(png(0, 100))).toBeNull()
   })
 })

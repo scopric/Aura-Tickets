@@ -177,17 +177,17 @@ describe('tela Certificados', () => {
     })
     it('modelo que já tem logo não espera a logo do organizador', async () => {
       banco.logoCarregando.current = true
-      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgo=' }, is_active: true }])
+      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }, is_active: true }])
       montar('/producer/certificados?eventId=e1&aba=emitidos')
       expect(screen.getByRole('button', { name: 'Baixar PDF de Ana' })).toBeEnabled()
     })
     it('modelo com logo própria mantém a dele no PDF, mesmo havendo logo do organizador', async () => {
       banco.logoOrg.current = ORG
-      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgo=' }, is_active: true }])
+      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }, is_active: true }])
       montar('/producer/certificados?eventId=e1&aba=emitidos')
       await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
       await waitFor(() => expect(imprimir).toHaveBeenCalledTimes(1))
-      expect(document.querySelector('#cert-print .cert-folha img')).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=')
+      expect(document.querySelector('#cert-print .cert-folha img')).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')
     })
     it('sem logo nenhuma, o PDF sai sem imagem (e sem erro)', async () => {
       comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
@@ -206,7 +206,7 @@ describe('tela Certificados', () => {
     it('espera as imagens decodificarem antes de imprimir', async () => {
       const decode = vi.fn().mockResolvedValue(undefined)
       Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: decode })
-      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgo=' }, is_active: true }])
+      comDados(); banco.modelos.current = q([{ id: 'c1', event_id: 'e1', template: { fields: camposPadrao(), logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }, is_active: true }])
       montar('/producer/certificados?eventId=e1&aba=emitidos')
       await userEvent.click(screen.getByRole('button', { name: 'Baixar PDF de Ana' }))
       await waitFor(() => expect(imprimir).toHaveBeenCalled())

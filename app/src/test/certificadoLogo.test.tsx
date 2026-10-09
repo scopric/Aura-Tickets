@@ -49,9 +49,9 @@ describe('logo no certificado', () => {
 
   it('modelo com logo própria mantém a dele e oferece voltar à do organizador', async () => {
     db.logo = SALVA
-    db.template = { logoUrl: 'data:image/png;base64,AAAA' }
+    db.template = { logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }
     montar()
-    await waitFor(() => expect(screen.getByAltText('Logo do evento')).toHaveAttribute('src', 'data:image/png;base64,AAAA'))
+    await waitFor(() => expect(screen.getByAltText('Logo do evento')).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))
     expect(screen.getByText('Logo enviada só para este modelo.')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Usar a logo do organizador'))
     await waitFor(() => expect(screen.getByAltText('Logo do evento')).toHaveAttribute('src', SALVA))
@@ -96,12 +96,12 @@ describe('logo no certificado', () => {
 
   it('logo própria é mantida ao salvar; voltar à do organizador grava a do organizador', async () => {
     db.logo = SALVA
-    db.template = { logoUrl: 'data:image/png;base64,AAAA' }
+    db.template = { logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }
     montar()
-    await waitFor(() => expect(screen.getByAltText('Logo do evento')).toHaveAttribute('src', 'data:image/png;base64,AAAA'))
+    await waitFor(() => expect(screen.getByAltText('Logo do evento')).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))
     fireEvent.click(botaoSalvar())
     await waitFor(() => expect(db.upserts).toHaveLength(1))
-    expect((db.upserts[0] as { template: { logoUrl: string } }).template.logoUrl).toBe('data:image/png;base64,AAAA')
+    expect((db.upserts[0] as { template: { logoUrl: string } }).template.logoUrl).toBe('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')
     fireEvent.click(screen.getByText('Usar a logo do organizador'))
     fireEvent.click(botaoSalvar())
     await waitFor(() => expect(db.upserts).toHaveLength(2))

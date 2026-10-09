@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, SearchX, WifiOff } from 'lucide-react'
+import { CheckCircle2, Printer, SearchX, WifiOff } from 'lucide-react'
 import { codigoValido, validarCertificado } from '../lib/certificadoValidar'
-import { dataLonga } from '../lib/certificados'
+import { dataLonga, modeloComCor, modeloPorId, sanearTemplate, type DadosCertificado } from '../lib/certificados'
+import { CertificadoDesenho, ImpressaoCertificados } from '../components/producer/CertificadoDesenho'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -21,6 +22,8 @@ export default function CertificadoValidacao() {
     document.title = 'Validar certificado | Evokaa'
     return () => { meta.remove(); document.title = titulo }
   }, [])
+
+  const [impressao, setImpressao] = useState(0) // 0 = fechado; a cada clique uma key nova (no Safari do iPhone o afterprint pode não vir)
 
   const q = useQuery({
     queryKey: ['certificado-validar', codigo],
@@ -51,7 +54,15 @@ export default function CertificadoValidacao() {
     )
   } else if (q.data?.valido) {
     const c = q.data
+    // O modelo vem do banco como JSON livre do produtor: passa pelo mesmo saneamento do editor (imagens só data: png/jpeg/webp ou bucket do projeto)
+    const t = c.modelo ? sanearTemplate(c.modelo) : null
+    const modelo = t ? modeloComCor(modeloPorId(t.selectedTemplate), t.accentColor) : null
+    const dados: DadosCertificado = {
+      nome: c.nome ?? '', evento: c.evento, data: dataLonga(c.data_evento), horas: c.horas || t?.horas || '___',
+      emissao: c.emitido_em.split('-').reverse().join('/'), codigo: codigo.trim().toLowerCase(),
+    }
     corpo = (
+      <>
       <div className="rounded-[10px] border border-border bg-card p-6">
         <div className="flex items-center gap-3">
           <CheckCircle2 aria-hidden="true" className="size-7 shrink-0 text-[var(--ev-success)]" />
@@ -68,6 +79,20 @@ export default function CertificadoValidacao() {
         </dl>
         <p className="mt-4 break-all text-xs text-muted-foreground">Código: <span className="font-mono">{codigo.trim().toLowerCase()}</span></p>
       </div>
+      {t && modelo && (
+        <section aria-labelledby="cert-ver" className="mt-6">
+          <h2 id="cert-ver" className="mb-3 text-base font-semibold text-foreground">Seu certificado</h2>
+          <div role="img" aria-label={`Certificado de ${dados.nome || 'participante'} no evento ${c.evento}`} className="overflow-hidden rounded-[10px] border border-border bg-card">
+            <CertificadoDesenho modelo={modelo} campos={t.fields} logoUrl={t.logoUrl} sigUrl={t.sigUrl} dados={dados} />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button onClick={() => setImpressao(n => n + 1)}><Printer aria-hidden="true" />Baixar PDF</Button>
+            <p className="text-xs text-muted-foreground">Na janela que abrir, escolha &quot;Salvar como PDF&quot; como impressora (A4 paisagem).</p>
+          </div>
+          {impressao > 0 && <ImpressaoCertificados key={impressao} itens={[{ dados }]} modelo={modelo} campos={t.fields} logoUrl={t.logoUrl} sigUrl={t.sigUrl} onFim={() => setImpressao(0)} />}
+        </section>
+      )}
+      </>
     )
   } else {
     corpo = (
