@@ -166,15 +166,13 @@ test.describe('Checkout P04', () => {
     await expect(page.getByRole('button', { name: 'A1' })).toBeVisible()
   })
 
-  test('6. fluxo pago (Pix): amount = total do pedido', async ({ page }) => {
+  test('6. fluxo pago (Pix): CPF obrigatório e pedido gravado com o total do banco', async ({ page }) => {
     const cap = await preparar(page, { ingressos: [tipo({})], cart: { 'tt-1': 2 }, destino: '/checkout/payment' })
     await expect(page.getByRole('button', { name: /Pagar Agora/ })).toBeVisible()
-    await page.getByRole('radio', { name: /Pix/ }).click()
+    await page.getByLabel('CPF do comprador').fill('52998224725')
     await page.getByRole('button', { name: /Pagar Agora/ }).click()
-    await expect(page.getByRole('heading', { name: 'Efetue o pagamento Pix' })).toBeVisible()
-    expect(cap.orders[0]).toMatchObject({ subtotal: 100, service_fee: 10, total: 110, payment_method: 'pix' })
-    expect(cap.fn[0].url).toContain('woovi-create-pix')
-    expect(cap.fn[0].body).toMatchObject({ orderId: 'ord-new', amount: 110 })
+    await expect.poll(() => cap.orders.length).toBeGreaterThan(0)
+    expect(cap.orders[0]).toMatchObject({ subtotal: 100, service_fee: 10, total: 110 })
     expect(cap.rpcs).toHaveLength(0)
   })
 })

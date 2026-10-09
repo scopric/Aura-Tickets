@@ -1,93 +1,67 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { usePayment } from '../../hooks/usePayment'
 import { supabase } from '../../lib/supabase'
 
-describe('usePayment', () => {
+const h = vi.hoisted(() => ({ token: vi.fn() }))
+vi.mock('@/lib/recaptcha', () => ({ tokenRecaptcha: h.token }))
+
+const http = (status: number, body?: unknown) => ({ data: null, error: { context: { status, json: async () => { if (body === undefined) throw new Error('sem corpo'); return body } } } })
+const pagar = async () => {
+  const { result } = renderHook(() => usePayment())
+  let r!: Awaited<ReturnType<typeof result.current.pagarPix>>
+  await act(async () => { r = await result.current.pagarPix({ orderId: 'o1', cpf: '529.982.247-25' }) })
+  return r
+}
+
+describe('usePayment.pagarPix', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    let n = 0
+    h.token.mockImplementation(async () => `tok-${++n}`)
   })
 
-  it('deve processar pagamento com cartão de crédito', async () => {
-    vi.mocked(supabase.functions.invoke).mockResolvedValue({
-      data: { transactionId: 'txn_123', clientSecret: 'secret_123' },
-      error: null,
-    })
-
-    const { result } = renderHook(() => usePayment())
-
-    const paymentResult = await result.current.processPayment({
-      orderId: 'order_123',
-      method: 'credit_card',
-      amount: 100,
-      customerName: 'João Silva',
-      customerEmail: 'joao@teste.com',
-      customerCpf: '12345678901',
-    })
-
-    expect(paymentResult.status).toBe('pending')
-    expect(paymentResult.transactionId).toBe('txn_123')
-    expect(paymentResult.clientSecret).toBe('secret_123')
-    expect(supabase.functions.invoke).toHaveBeenCalledWith('stripe-create-payment', expect.any(Object))
+  it('chama pagbank-criar-pedido com token novo a cada tentativa e só os dígitos do CPF', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: { order_id: 'o1', pix_copia_e_cola: '000201...', expira_em: '2026-10-08T15:00:00Z' }, error: null })
+    const r = await pagar()
+    await pagar()
+    expect(r).toEqual({ ok: true, pixCopiaECola: '000201...', expiraEm: '2026-10-08T15:00:00Z' })
+    const chamadas = vi.mocked(supabase.functions.invoke).mock.calls
+    expect(chamadas[0][0]).toBe('pagbank-criar-pedido')
+    expect(chamadas[0][1]).toEqual({ body: { order_id: 'o1', captcha_token: 'tok-1', customer: { tax_id: '52998224725' } } })
+    expect((chamadas[1][1] as { body: { captcha_token: string } }).body.captcha_token).toBe('tok-2')
   })
 
-  it('deve processar pagamento com Pix', async () => {
-    vi.mocked(supabase.functions.invoke).mockResolvedValue({
-      data: { chargeId: 'pix_123', qrCodeData: 'pix-copia-cola', qrCodeImageUrl: 'https://qr.pix/123' },
-      error: null,
-    })
-
-    const { result } = renderHook(() => usePayment())
-
-    const paymentResult = await result.current.processPayment({
-      orderId: 'order_456',
-      method: 'pix',
-      amount: 50,
-      customerName: 'Maria Souza',
-      customerEmail: 'maria@teste.com',
-      customerCpf: '98765432101',
-    })
-
-    expect(paymentResult.status).toBe('pending')
-    expect(paymentResult.qrCodeData).toBe('pix-copia-cola')
-    expect(paymentResult.qrCodeImageUrl).toBe('https://qr.pix/123')
-    expect(supabase.functions.invoke).toHaveBeenCalledWith('woovi-create-pix', expect.any(Object))
+  it('409: mensagem da função e refazerReserva', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue(http(409, { error: 'A reserva expirou. Refaça a reserva.' }) as never)
+    expect(await pagar()).toEqual({ ok: false, mensagem: 'A reserva expirou. Refaça a reserva.', refazerReserva: true })
   })
 
-  it('deve retornar erro quando o gateway falha', async () => {
-    vi.mocked(supabase.functions.invoke).mockResolvedValue({
-      data: null,
-      error: { message: 'Gateway timeout' },
-    })
-
-    const { result } = renderHook(() => usePayment())
-
-    const paymentResult = await result.current.processPayment({
-      orderId: 'order_789',
-      method: 'credit_card',
-      amount: 200,
-      customerName: 'Teste',
-      customerEmail: 'teste@teste.com',
-      customerCpf: '11122233344',
-    })
-
-    expect(paymentResult.status).toBe('error')
-    expect(paymentResult.message).toContain('Gateway timeout')
+  it('400: mensagem da função, sem refazer nem repetir', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue(http(400, { error: 'CPF inválido' }) as never)
+    expect(await pagar()).toEqual({ ok: false, mensagem: 'CPF inválido' })
   })
 
-  it('deve retornar erro para método não suportado', async () => {
-    const { result } = renderHook(() => usePayment())
+  it('401: sessão expirada, sem tentarDeNovo', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue(http(401, { error: 'jwt' }) as never)
+    expect(await pagar()).toEqual({ ok: false, mensagem: 'Sua sessão expirou, entre de novo.', sessaoExpirada: true })
+  })
 
-    const paymentResult = await result.current.processPayment({
-      orderId: 'order_000',
-      method: 'boleto' as any,
-      amount: 100,
-      customerName: 'Teste',
-      customerEmail: 'teste@teste.com',
-      customerCpf: '11122233344',
-    })
+  it.each([429, 502, 503])('%i: tentarDeNovo', async (status) => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue(http(status, { error: 'x' }) as never)
+    const r = await pagar()
+    expect(r).toMatchObject({ ok: false, tentarDeNovo: true })
+    expect(r).not.toHaveProperty('refazerReserva')
+  })
 
-    expect(paymentResult.status).toBe('error')
-    expect(paymentResult.message).toBe('Método de pagamento não suportado')
+  it('erro de rede (sem status): tentarDeNovo', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: null, error: { message: 'Failed to send a request' } } as never)
+    expect(await pagar()).toMatchObject({ ok: false, tentarDeNovo: true })
+  })
+
+  it('sem chave do reCAPTCHA: "Pagamento indisponível" e a função nem é chamada', async () => {
+    h.token.mockRejectedValue(new Error('Pagamento indisponível'))
+    expect(await pagar()).toEqual({ ok: false, mensagem: 'Pagamento indisponível' })
+    expect(supabase.functions.invoke).not.toHaveBeenCalled()
   })
 })

@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: h.toast }))
 vi.mock('../hooks/useCheckout', () => ({ useCreateOrder: () => ({ mutate: h.mutate, isPending: false }) }))
-vi.mock('../hooks/usePayment', () => ({ usePayment: () => ({ processPayment: vi.fn() }) }))
+vi.mock('../hooks/usePayment', () => ({ usePayment: () => ({ pagarPix: vi.fn(async () => ({ ok: false, mensagem: 'sem gateway no teste', tentarDeNovo: true })) }) }))
 vi.mock('../stores/authStore', () => ({ useAuthStore: (sel: (s: unknown) => unknown) => sel({ user: { email: 'a@a.com', full_name: 'Ana' } }) }))
 vi.mock('@/lib/supabase', () => ({
   supabase: {

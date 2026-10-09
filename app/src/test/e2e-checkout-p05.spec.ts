@@ -36,41 +36,27 @@ async function preparar(page: Page, preco: number | null = 50): Promise<Cap> {
 }
 
 test.describe('Checkout P05 (pagamento ainda mock)', () => {
-  test('sem textos falsos e com aviso de ambiente de teste', async ({ page }) => {
+  test('sem textos falsos; cartão em breve e só Pix', async ({ page }) => {
     await preparar(page)
     await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
-    await expect(page.getByText('Ambiente de teste: a cobrança ainda não está ativa')).toBeVisible()
+    await expect(page.getByRole('radio', { name: /Cartão de Crédito/ })).toHaveAttribute('aria-disabled', 'true')
     const txt = await page.locator('body').innerText()
     for (const falso of [/Woovi/i, /Stripe/i, /criptograf/i, /pagamento seguro/i, /compra segura/i, /SSL/i, /aprovad/i]) expect(txt).not.toMatch(falso)
     await page.screenshot({ path: 'test-results/p05-payment.png', fullPage: true })
   })
 
-  test('Pix: pedido gravado com total do banco e amount enviado = total do pedido', async ({ page }) => {
-    const cap = await preparar(page)
-    await page.getByRole('radio', { name: /Pix/ }).click()
-    await page.getByRole('button', { name: /Pagar Agora/ }).click()
-    await expect(page.getByRole('heading', { name: 'Efetue o pagamento Pix' })).toBeVisible()
-    expect(cap.orders[0]).toMatchObject({ subtotal: 100, service_fee: 10, total: 110, status: 'pending', payment_method: 'pix' })
-    expect(cap.items[0]).toEqual([expect.objectContaining({ ticket_type_id: 'tt-1', quantity: 2, unit_price: 50, subtotal: 100 })])
-    expect(cap.fn[0].url).toContain('woovi-create-pix')
-    expect(cap.fn[0].body).toMatchObject({ orderId: 'ord-new', amount: 110 })
-    await page.screenshot({ path: 'test-results/p05-pix.png', fullPage: true })
-  })
-
-  test('cartão: campos vazios barram; preenchido envia amount = total do pedido', async ({ page }) => {
+  test('Pix: pedido gravado com total do banco e CPF obrigatório', async ({ page }) => {
     const cap = await preparar(page)
     await page.getByRole('button', { name: /Pagar Agora/ }).click()
-    await expect(page.getByText('Por favor, preencha todos os campos do cartão.')).toBeVisible()
+    await expect(page.getByLabel('CPF do comprador')).toBeFocused()
     expect(cap.orders).toHaveLength(0)
-    await page.getByLabel('Número do Cartão').fill('4242424242424242')
-    await page.getByLabel('Nome no Cartão').fill('MARIA TESTE')
-    await page.getByLabel('Validade').fill('12/30')
-    await page.getByLabel('CVV').fill('123')
+    // a chamada a pagbank-criar-pedido exige reCAPTCHA real: aqui só se confere o pedido
+    await page.getByLabel('CPF do comprador').fill('52998224725')
     await page.getByRole('button', { name: /Pagar Agora/ }).click()
-    await expect.poll(() => cap.fn.length).toBeGreaterThan(0)
-    expect(cap.orders[0]).toMatchObject({ total: 110, payment_method: 'credit_card' })
-    expect(cap.fn[0].url).toContain('stripe-create-payment')
-    expect(cap.fn[0].body).toMatchObject({ orderId: 'ord-new', amount: 110 })
+    await expect.poll(() => cap.orders.length).toBeGreaterThan(0)
+    expect(cap.orders[0]).toMatchObject({ subtotal: 100, service_fee: 10, total: 110, status: 'pending' })
+    expect(cap.items[0]).toEqual([expect.objectContaining({ ticket_type_id: 'tt-1', quantity: 2, unit_price: 50, subtotal: 100 })])
+    await page.screenshot({ path: 'test-results/p05-pix.png', fullPage: true })
   })
 
   test('ingresso sem preço: erro amigável e nenhum pedido gravado', async ({ page }) => {
