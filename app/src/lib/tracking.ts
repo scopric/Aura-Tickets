@@ -15,11 +15,17 @@ export function ehAutomacao(): boolean {
   return navigator.webdriver === true || /\bClaude\//.test(navigator.userAgent)
 }
 
+/**
+ * O código do certificado (/certificado/<código>) é o segredo de quem o tem: quem sabe o código vê nome completo, evento e horas.
+ * Nenhuma métrica (Vercel Analytics, GA4, user_activities) nem formulário recebe o código: vira /certificado/:codigo.
+ */
+export const semSegredo = (s: string) => s.replace(/\/certificado\/[^/?#]+/g, '/certificado/:codigo')
+
 // Vercel Web Analytics envia a URL inteira; o Supabase devolve o token no #hash
 // (login social e redefinição de senha), então o hash nunca sai daqui. Fora do componente
 // para não re-registrar o script a cada render. null descarta o evento.
 export const semHash: BeforeSend = (event) =>
-  ehAutomacao() ? null : { ...event, url: event.url.split('#')[0] }
+  ehAutomacao() ? null : { ...event, url: semSegredo(event.url.split('#')[0]) }
 
 export const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
 // versão do formato salvo; useCookieConsent e camadas.ts leem daqui
@@ -72,8 +78,9 @@ export async function trackEvent(
   }
 
   // Google Analytics 4 recebe só as visualizações de página (mesma regra de consentimento)
+  const caminho = semSegredo(path || (typeof window !== 'undefined' ? window.location.pathname : '/'))
   if (eventType === 'page_view') {
-    gaPageView(path || (typeof window !== 'undefined' ? window.location.pathname : '/'))
+    gaPageView(caminho)
   }
 
   try {
@@ -100,7 +107,7 @@ export async function trackEvent(
         user_id: userId,
         session_id: sessionId,
         event_type: eventType,
-        path: path || (typeof window !== 'undefined' ? window.location.pathname : null),
+        path: caminho,
         metadata: extendedMetadata
       })
       .then(({ error }) => {

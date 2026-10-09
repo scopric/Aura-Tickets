@@ -281,7 +281,7 @@ export default function Certificates() {
               {participantesQ.data?.cortado && (
                 <p className="mt-3 text-xs text-muted-foreground">Lista parcial: este evento tem mais de 1.000 ingressos válidos.</p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código. A validação pública ainda não existe: o QR e o código ainda não confirmam o certificado. O participante ainda não vê o certificado no app. Para baixar o PDF, abra a aba Emitidos.</p>
+              <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código. O QR do certificado e o código impresso levam a uma página pública que confirma que ele é verdadeiro (nome, evento, data, organizador e carga horária; nada de e-mail, CPF ou telefone). O participante ainda não vê o certificado no app. Para baixar o PDF, abra a aba Emitidos.</p>
               <p className="mt-2 text-xs text-muted-foreground">O nome no certificado é o informado na compra do ingresso, que nem sempre é o de quem participou. Confira a lista antes de emitir.</p>
             </>
           ) : (
@@ -324,7 +324,6 @@ export default function Certificates() {
           <section aria-labelledby="cert-breve" className="mt-8">
             <SectionTitle id="cert-breve">Em breve</SectionTitle>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <EmBreve titulo="Página pública de validação" descricao="O QR e o código abrem uma página que confirma que o certificado é verdadeiro. Precisa de uma função pública nova no banco (RPC, SQL), ainda não aplicada." acao="Ativar validação" />
               <EmBreve titulo="Enviar por e-mail ou WhatsApp" descricao="Mandar o certificado para o participante. Precisa de um tipo novo na função de e-mails (send-email), que a Evokaa ainda não publicou; o WhatsApp depende de integração própria." acao="Enviar certificados" />
               <EmBreve titulo="Revogar com histórico" descricao="Guardar quem teve o certificado revogado e quando. Precisa de uma coluna nova no banco (revoked_at, SQL). Hoje revogar apaga o registro." acao="Ver histórico de revogações" />
               <EmBreve titulo="Carga horária automática" descricao="Calcular as horas a partir do evento. Hoje você digita a carga horária no editor; falta definir de onde vem o número." acao="Calcular carga horária" />

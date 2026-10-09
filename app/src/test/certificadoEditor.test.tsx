@@ -142,9 +142,10 @@ describe('editor de certificados', () => {
     expect((banco.upsert.mock.calls[0][0] as { template: { logoUrl: unknown } }).template.logoUrl).toBe('data:image/gif;base64,R0lGODlh')
   })
 
-  it('avisa que a validação pública ainda não existe', async () => {
+  it('diz que o QR e o código levam à página pública de validação (e não promete o que não existe)', async () => {
     montar(); await esperarPronto()
-    expect(screen.getByText(/validação pública ainda não existe: o QR e o código ainda não confirmam o certificado/)).toBeInTheDocument()
+    expect(screen.getByText(/O QR e o código do certificado levam a uma página pública que confirma que ele é verdadeiro/)).toBeInTheDocument()
+    expect(screen.queryByText(/validação pública ainda não existe/)).toBeNull()
   })
 
   it('arquivo de logo fora de png/jpeg/webp ou acima de 1 MB é recusado', async () => {

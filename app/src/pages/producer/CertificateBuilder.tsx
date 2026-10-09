@@ -497,7 +497,7 @@ export default function CertificateBuilder() {
                 selecionado={selectedField} onSelecionar={selecionar} onMoverTeclado={moverCampo} onArrastar={arrastar} papelRef={papelRef} />
             </div>
             <p className="mx-auto mt-2 max-w-[700px] text-xs text-muted-foreground">
-              O PDF abre o &quot;salvar como PDF&quot; do navegador (A4 paisagem). A validação pública ainda não existe: o QR e o código ainda não confirmam o certificado.
+              O PDF abre o &quot;salvar como PDF&quot; do navegador (A4 paisagem). O QR e o código do certificado levam a uma página pública que confirma que ele é verdadeiro.
             </p>
 
             {/* Variables help */}

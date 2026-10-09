@@ -1,0 +1,88 @@
+import { useEffect } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { CheckCircle2, SearchX, WifiOff } from 'lucide-react'
+import { codigoValido, validarCertificado } from '../lib/certificadoValidar'
+import { dataLonga } from '../lib/certificados'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// Página pública de validação (/certificado/<código>): confirma que o certificado existe e mostra só o mínimo.
+// Sem login. O código é um uuid aleatório (122 bits): quem o tem, tem o certificado nas mãos. Não é indexada por buscadores.
+export default function CertificadoValidacao() {
+  const { codigo = '' } = useParams()
+  const formatoOk = codigoValido(codigo.trim())
+
+  useEffect(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'robots'; meta.content = 'noindex, nofollow'
+    document.head.appendChild(meta)
+    const titulo = document.title
+    document.title = 'Validar certificado | Evokaa'
+    return () => { meta.remove(); document.title = titulo }
+  }, [])
+
+  const q = useQuery({
+    queryKey: ['certificado-validar', codigo],
+    queryFn: () => validarCertificado(codigo),
+    enabled: formatoOk,
+    retry: false,
+    staleTime: 60_000,
+  })
+
+  const linha = (rotulo: string, valor: string | null) => valor ? (
+    <div className="flex flex-col gap-0.5 border-b border-border py-3 last:border-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+      <dt className="text-sm text-muted-foreground">{rotulo}</dt>
+      <dd className="text-sm font-medium text-foreground sm:text-right">{valor}</dd>
+    </div>
+  ) : null
+
+  let corpo
+  if (formatoOk && q.isPending) {
+    corpo = <div aria-busy="true" role="status" aria-label="Consultando o certificado"><Skeleton className="h-8 w-2/3 rounded-md bg-muted" /><Skeleton className="mt-6 h-40 rounded-[10px] bg-muted" /></div>
+  } else if (formatoOk && q.isError) {
+    corpo = (
+      <div role="alert" className="rounded-[10px] border border-border bg-card p-6">
+        <WifiOff aria-hidden="true" className="size-6 text-muted-foreground" />
+        <h1 className="mt-3 text-xl font-semibold text-foreground">Não foi possível consultar agora</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Confira a conexão e tente de novo. Isso não quer dizer que o certificado seja inválido.</p>
+        <Button className="mt-4" variant="outline" onClick={() => q.refetch()} loading={q.isFetching}>Tentar de novo</Button>
+      </div>
+    )
+  } else if (q.data?.valido) {
+    const c = q.data
+    corpo = (
+      <div className="rounded-[10px] border border-border bg-card p-6">
+        <div className="flex items-center gap-3">
+          <CheckCircle2 aria-hidden="true" className="size-7 shrink-0 text-[var(--ev-success)]" />
+          <h1 className="text-xl font-semibold text-foreground">Certificado válido</h1>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">Este certificado foi emitido pela Evokaa para o evento abaixo. Compare os dados com os do documento que você recebeu.</p>
+        <dl className="mt-4">
+          {linha('Participante', c.nome)}
+          {linha('Evento', c.evento)}
+          {linha('Data do evento', dataLonga(c.data_evento))}
+          {linha('Organizador', c.organizador)}
+          {linha('Carga horária', c.horas ? `${c.horas} h` : null)}
+          {linha('Emitido em', dataLonga(c.emitido_em))}
+        </dl>
+        <p className="mt-4 break-all text-xs text-muted-foreground">Código: <span className="font-mono">{codigo.trim().toLowerCase()}</span></p>
+      </div>
+    )
+  } else {
+    corpo = (
+      <div className="rounded-[10px] border border-border bg-card p-6">
+        <SearchX aria-hidden="true" className="size-7 text-muted-foreground" />
+        <h1 className="mt-3 text-xl font-semibold text-foreground">Não encontramos este certificado</h1>
+        <p className="mt-1 text-sm text-muted-foreground">O código pode estar incompleto ou errado, ou o certificado não vale mais. Confira o código impresso no documento e tente de novo. Se continuar assim, fale com o organizador do evento.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-xl px-4 py-12 sm:py-16">
+      {corpo}
+      <p className="mt-6 text-xs text-muted-foreground">Mostramos só o necessário para conferir o certificado: não exibimos e-mail, CPF nem telefone. <Link to="/privacidade" className="underline underline-offset-4">Política de Privacidade</Link>.</p>
+    </div>
+  )
+}
