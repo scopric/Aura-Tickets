@@ -66,7 +66,7 @@ describe('Divulgação: Links e QR', () => {
     const blob = criar.mock.calls[0][0] as Blob
     expect(blob.type).toBe('image/svg+xml')
     expect(await new Promise<string>(ok => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.readAsText(blob) })).toContain('<svg')
-    await waitFor(() => expect(revogar).toHaveBeenCalled())
+    await waitFor(() => expect(revogar).toHaveBeenCalled(), { timeout: 3000 }) // baixarArquivo revoga após 1000 ms; o timeout padrão do waitFor também é 1000 ms
   })
 
   it('guarda o link na lista (no navegador, por usuário), copia de lá e remove', async () => {

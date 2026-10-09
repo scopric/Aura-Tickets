@@ -180,7 +180,7 @@ describe('Início do produtor', () => {
   it('sem venda há 5 dias de aprovado: "Copiar link" copia o link daquele evento', async () => {
     const escrever = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: escrever } })
-    preparar([{ ...noAr, slug: 'show-x', cover_image: 'https://x.supabase.co/capa.jpg', approved_at: ha(5) }], [], [], { empresa: true })
+    preparar([{ ...noAr, slug: 'show-x', visibility: 'public', cover_image: 'https://x.supabase.co/capa.jpg', approved_at: ha(5) }], [], [], { empresa: true })
     montar()
     const faixa = await screen.findByRole('region', { name: 'Evo sugere' })
     expect(faixa.textContent).toMatch(/está no ar há 5 dias e ainda não vendeu/)

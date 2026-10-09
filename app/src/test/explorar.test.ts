@@ -76,7 +76,7 @@ describe('cidades e categorias reais', () => {
   })
 
   it('categorias: mais eventos primeiro; empate em ordem alfabética', () => {
-    expect(categoriasDoCatalogo(todos).map(c => c.nome)).toEqual(['Show', 'Corporativo', 'Festa', 'Trilha na serra'])
+    expect(categoriasDoCatalogo(todos).map(c => c.nome)).toEqual(['Show ou apresentação', 'Corporativo', 'Festa', 'Trilha na serra'])
   })
 
   it('categoria em slug do formato aparece pelo rótulo, e o filtro acha o evento por ele', () => {
@@ -106,7 +106,9 @@ describe('filtros', () => {
   it('cidade e categoria pela chave', () => {
     expect(passa(e, { ...F, cidade: 'curitiba' }, hoje)).toBe(true)
     expect(passa(e, { ...F, cidade: 'sao paulo' }, hoje)).toBe(false)
-    expect(passa(e, { ...F, categoria: 'show' }, hoje)).toBe(true)
+    // a chave da categoria é a do rótulo do formato ('Show' vira 'Show ou apresentação'), a mesma do chip
+    const [chip] = categoriasDoCatalogo([e])
+    expect(passa(e, { ...F, categoria: chip.chave }, hoje)).toBe(true)
     expect(passa(e, { ...F, categoria: 'festa' }, hoje)).toBe(false)
   })
 

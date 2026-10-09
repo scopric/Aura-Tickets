@@ -1,20 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 
 // Mock do useAuthStore para isolar o hook
-vi.mock('../stores/authStore', () => ({
-  useAuthStore: vi.fn(() => ({
-    user: null,
-    isAuthenticated: false,
-    isLoading: false,
-    fetchProfile: vi.fn(),
-    setSession: vi.fn(),
-    setUser: vi.fn(),
-  })),
-}))
+// O hook também chama useAuthStore.getState() (login e logout), por isso o mock tem getState
+vi.mock('../stores/authStore', () => {
+  const acoes = { fetchProfile: vi.fn(() => Promise.resolve()), setSession: vi.fn(), setUser: vi.fn() }
+  const useAuthStore = Object.assign(
+    vi.fn(() => ({ user: null, isAuthenticated: false, isLoading: false, ...acoes })),
+    { getState: () => acoes },
+  )
+  return { useAuthStore }
+})
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -28,6 +27,13 @@ const createWrapper = () => {
 describe('useAuth Hook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // O login() para em 'não configurado' sem estas variáveis (e deixaria um mockResolvedValueOnce sem uso para o teste seguinte)
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://teste.local')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'chave-de-teste')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('deve retornar estado inicial não autenticado', () => {
@@ -78,9 +84,6 @@ describe('useAuth Hook', () => {
   })
 
   it('entrega a causa traduzida a quem chamou (e-mail não confirmado, erro desconhecido)', async () => {
-    // O login() para em 'não configurado' sem estas variáveis; o mock do setup.ts não as define de verdade
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://teste.local')
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'chave-de-teste')
     const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() })
     for (const [msg, esperado] of [
       ['Email not confirmed', /Confirme seu e-mail/],
@@ -94,7 +97,6 @@ describe('useAuth Hook', () => {
       expect(await result.current.login('a@b.com', 'x', onErro)).toBe(false)
       expect(onErro).toHaveBeenCalledWith(expect.stringMatching(esperado))
     }
-    vi.unstubAllEnvs()
   })
 
   it('deve chamar supabase.auth.signInWithPassword para login real', async () => {

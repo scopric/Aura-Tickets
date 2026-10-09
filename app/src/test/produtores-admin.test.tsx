@@ -21,7 +21,9 @@ describe('Admin: produtores', () => {
   it('CNPJ nulo não quebra e não há botão "Completar cadastro"', async () => {
     render(<AdminProducers />)
     expect(await screen.findByText('Bia Eventos')).toBeInTheDocument()
-    expect(screen.getByText('CNPJ a preencher')).toBeInTheDocument()
+    // a lista não seleciona mais o CNPJ (só company_name): nada de "CNPJ a preencher"; o texto de cadastro incompleto é outro
+    expect(screen.queryByText('CNPJ a preencher')).toBeNull()
+    expect(screen.getByText('cadastro incompleto')).toBeInTheDocument() // Ana, sem producer_profiles
     expect(screen.getByText('aguardando cadastro do produtor')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Completar cadastro' })).toBeNull()
   })
