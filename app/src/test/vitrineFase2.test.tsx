@@ -9,39 +9,18 @@ import EventoConteudo from '../components/EventoConteudo'
 import MapaEvento from '../components/MapaEvento'
 import Atracoes from '../components/Atracoes'
 import SeloClassificacao from '../components/SeloClassificacao'
-import { coordenadasValidas, ehApple, linksDeMapa, pecasDoMapa } from '../lib/mapaEvento'
+import { coordenadasValidas, ehApple, linksDeMapa } from '../lib/mapaEvento'
 
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) } }))
 
 const CWB = { lat: -25.4310044, lng: -49.2484121 }
 
 describe('mapa: contas e links', () => {
-  it('pecasDoMapa: valores conhecidos', () => {
-    const o = pecasDoMapa(0, 0, 1)
-    expect([o.x0, o.y0, o.fx, o.fy]).toEqual([1, 1, 0, 0])
-    const c = pecasDoMapa(CWB.lat, CWB.lng, 15) // conta feita à parte: xt 11901,3001 e yt 18778,7632
-    expect([c.x0, c.y0]).toEqual([11901, 18778])
-    expect(c.fx).toBeCloseTo(0.3001, 3)
-    expect(c.fy).toBeCloseTo(0.7632, 3)
-    expect(c.pecas).toHaveLength(6)
-    expect(c.pecas[0].url).toBe('https://tile.openstreetmap.org/15/11900/18778.png')
-    expect(c.pinoX).toBeCloseTo(332.9, 0)
-    expect(c.pinoY).toBeCloseTo(195.4, 0)
-  })
-
   it('coordenadasValidas: texto numérico passa; o resto (vazio, 0x10, 1e999, vírgula, polos, ilha nula) não', () => {
     expect(coordenadasValidas('-25.43', '-49.24')).toEqual({ lat: -25.43, lng: -49.24 })
     expect(coordenadasValidas(' 12 ', ' -3.5 ')).toEqual({ lat: 12, lng: -3.5 })
     expect(coordenadasValidas(85.05, 180)).not.toBeNull()
     for (const [a, b] of [['', ''], [null, null], [NaN, 1], ['x', '1'], [91, 0], [0, 181], [undefined, 3], [85.06, 0], [-85.06, 0], [90, 0], [-90, 0], [0, 0], ['0', '0'], ['0x10', '5'], ['1e999', '5'], ['-25,43', '-49'], [Infinity, 0]]) expect(coordenadasValidas(a, b), `${a} ${b}`).toBeNull()
-  })
-
-  it('pecasDoMapa: lng +-180 e latitudes altas ficam dentro de 0..2^z-1, sem NaN', () => {
-    for (const [lat, lng] of [[10, 180], [10, -180], [85.05, 0], [-85.05, 0], [85.05, 180]]) {
-      const o = pecasDoMapa(lat, lng, 15)
-      for (const p of o.pecas) { expect(p.x).toBeGreaterThanOrEqual(0); expect(p.x).toBeLessThan(2 ** 15); expect(p.y).toBeGreaterThanOrEqual(0); expect(p.y).toBeLessThan(2 ** 15); expect(p.url).not.toMatch(/Infinity|NaN/) }
-      expect(Number.isFinite(o.pinoY)).toBe(true)
-    }
   })
 
   it('links dos três apps, com e sem coordenadas, tudo codificado', () => {
@@ -68,81 +47,54 @@ describe('mapa: contas e links', () => {
   })
 })
 
-describe('MapaEvento', () => {
-  const props = { nome: 'Clube Morgenau', endereco: 'Av. Senador Souza Naves 945 · Curitiba', consulta: 'Clube Morgenau, Curitiba', mapaUrl: 'https://g/x' }
+describe('MapaEvento: pílula "Abrir no mapa"', () => {
+  const props = { nome: 'Clube Morgenau', consulta: 'Clube Morgenau, Curitiba', mapaUrl: 'https://g/x' }
   afterEach(() => vi.restoreAllMocks())
 
-  it('coordenadas válidas (mesmo como texto): 6 peças e a atribuição OSM com link seguro', () => {
-    const { container } = render(<MapaEvento {...props} lat="-25.4310044" lng="-49.2484121" />)
-    expect(container.querySelectorAll('img')).toHaveLength(6)
-    const osm = screen.getByRole('link', { name: /OpenStreetMap/ })
-    expect(osm).toHaveAttribute('href', 'https://www.openstreetmap.org/copyright')
-    expect(osm).toHaveAttribute('rel', 'noopener noreferrer')
-  })
-
-  it('coordenada inválida ou ausente: cartão estilizado, sem peças e sem atribuição; sem endereço: nada', () => {
-    for (const [lat, lng] of [[null, null], ['', ''], [NaN, 5], [95, 5]]) {
-      const { container, unmount } = render(<MapaEvento {...props} lat={lat} lng={lng} />)
-      expect(container.querySelectorAll('img')).toHaveLength(0)
-      expect(container.querySelector('.evv-mapa-grade')).not.toBeNull()
-      expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull()
-      unmount()
-    }
-    const { container } = render(<MapaEvento {...props} endereco="" />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it('peça que falha ao carregar: troca para o cartão estilizado e mantém botão e endereço', () => {
-    const { container } = render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
-    fireEvent.error(container.querySelector('img')!)
-    expect(container.querySelectorAll('img')).toHaveLength(0)
-    expect(container.querySelector('.evv-mapa-grade')).not.toBeNull()
-    expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull()
-    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toHaveTextContent('Av. Senador Souza Naves 945')
-  })
-
-  it('folha: abre, mostra os 3 apps (Apple primeiro no iPhone), Esc fecha e o foco volta ao cartão', async () => {
+  it('folha: abre, mostra os 3 apps (Apple primeiro no iPhone), Esc fecha e o foco volta à pílula', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
-    render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
-    const cartao = screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })
-    fireEvent.click(cartao)
+    const { container } = render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
+    expect(container.querySelectorAll('img')).toHaveLength(0) // nada de mapa desenhado
+    const pilula = screen.getByRole('button', { name: 'Abrir no mapa' })
+    fireEvent.click(pilula)
     const links = await screen.findAllByRole('link', { name: /Google Maps|Waze|Apple Mapas/ })
     expect(links.map((l) => l.textContent?.replace(' (abre em nova aba)', ''))).toEqual(['Apple Mapas', 'Google Maps', 'Waze'])
     for (const l of links) { expect(l).toHaveAttribute('target', '_blank'); expect(l).toHaveAttribute('rel', 'noopener noreferrer') }
     const dialogo = screen.getByRole('dialog')
-    expect(dialogo).toHaveAttribute('data-state', 'open')
     fireEvent.keyDown(dialogo, { key: 'Escape', code: 'Escape' })
     // o Vaul espera a animação de saída para desmontar (o jsdom não a dispara): vale o estado "closed"
     await waitFor(() => expect(dialogo).toHaveAttribute('data-state', 'closed'))
-    await waitFor(() => expect(cartao).toHaveFocus())
+    await waitFor(() => expect(pilula).toHaveFocus())
   })
 
   it('no Android o Google vem primeiro', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 14; Pixel 8)')
     render(<MapaEvento {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir no mapa' }))
     const links = await screen.findAllByRole('link', { name: /Google Maps|Waze|Apple Mapas/ })
     expect(links[0].textContent).toMatch(/Google Maps/)
   })
 })
 
-describe('Atracoes', () => {
+describe('Atracoes (lista)', () => {
   it('escondida quando vazia; no máximo 12', () => {
     const { container, unmount } = render(<Atracoes atracoes={[]} />)
     expect(container.firstChild).toBeNull()
     unmount()
-    const muitas = Array.from({ length: 20 }, (_, i) => ({ id: `a${i}`, nome: `Atração ${i}` }))
-    render(<Atracoes atracoes={muitas} />)
+    render(<Atracoes atracoes={Array.from({ length: 20 }, (_, i) => ({ id: `a${i}`, nome: `Atração ${i}` }))} />)
     expect(screen.getAllByRole('listitem')).toHaveLength(12)
   })
 
-  it('Instagram inválido não vira link; válido vira, com rel certo', () => {
+  it('o Instagram fica EMBAIXO do nome; inválido não vira link; válido tem rel certo', () => {
     const ruins = ['com espaço', 'a/b', '<x>', 'a'.repeat(31), '']
-    render(<Atracoes atracoes={[...ruins.map((instagram, i) => ({ id: `r${i}`, nome: `Ruim ${i}`, instagram })), { id: 'ok', nome: 'Boa', instagram: 'trio.forro' }]} />)
+    const { container } = render(<Atracoes atracoes={[...ruins.map((instagram, i) => ({ id: `r${i}`, nome: `Ruim ${i}`, instagram })), { id: 'ok', nome: 'Boa', instagram: 'trio.forro' }]} />)
     const links = screen.getAllByRole('link')
     expect(links).toHaveLength(1)
     expect(links[0]).toHaveAttribute('href', 'https://instagram.com/trio.forro')
     expect(links[0]).toHaveAttribute('rel', 'noopener noreferrer nofollow')
+    const nome = screen.getByText('Boa')
+    expect(nome.compareDocumentPosition(links[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(container.querySelector('.snap-x, .overflow-x-auto')).toBeNull() // sem carrossel
   })
 
   it('nome com HTML aparece como texto; foto http: ou javascript: é rejeitada; https: aceita', () => {
@@ -153,8 +105,7 @@ describe('Atracoes', () => {
     ]} />)
     expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument()
     expect(container.querySelector('script')).toBeNull()
-    const imgs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))
-    expect(imgs).toEqual(['https://x.com/c.jpg'])
+    expect([...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['https://x.com/c.jpg'])
   })
 })
 
@@ -188,18 +139,22 @@ describe('SeloClassificacao e página', () => {
   it('a área de compra nunca é escondida pela entrada ao rolar', () => {
     const { container } = montar(evento())
     expect(container.querySelector('#ingressos')?.hasAttribute('data-entra')).toBe(false)
-    expect(container.querySelector('[data-entra] #ingressos, [data-entra] button')).toBeNull()
+    expect(container.querySelector('[data-entra] #ingressos')).toBeNull()
+    for (const b of container.querySelectorAll('[data-entra] button')) expect(b.textContent).not.toMatch(/Comprar|Finalizar|Adicionar|Tirar/) // só o que não é compra pode entrar rolando
   })
 
   it('com previa nada novo aparece (mapa, selo, atrações)', () => {
     const { container } = montar(evento({ classificacao: 'A18' }), 'moldura')
-    expect(container.querySelector('.evv-selo, .evv-mapa, #h-atracoes')).toBeNull()
+    expect(container.querySelector('.evv-selo, #h-atracoes')).toBeNull()
   })
 
-  it('na página, com endereço, o cartão do mapa aparece e o link "Como chegar" da linha Local continua', () => {
-    montar(evento())
-    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toBeInTheDocument()
+  it('na página, com endereço, a pílula "Abrir no mapa" aparece e o link "Como chegar" da linha Local continua; sem endereço, sem pílula', () => {
+    const { unmount } = montar(evento())
+    expect(screen.getByRole('button', { name: 'Abrir no mapa' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^Como chegar: Clube/ })).toBeInTheDocument()
+    unmount()
+    montar(evento({ venue_address: null, venue_city: null }))
+    expect(screen.queryByRole('button', { name: 'Abrir no mapa' })).toBeNull()
   })
 })
 

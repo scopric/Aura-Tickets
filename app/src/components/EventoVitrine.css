@@ -1,91 +1,42 @@
-/* Vitrine do evento: hero imersivo na cor do evento, capa que inclina, "pop" do contador e entrada ao rolar.
-   Tudo desligado com "reduzir movimento"; a inclinação só existe onde há mouse (hover: hover). Sem vidro aqui. */
+/* Vitrine do evento: capa que inclina de leve, "pop" do contador, selo da faixa etária, bilhete de ingressos e entrada ao
+   rolar. Contenção: nada de decoração além disto. Tudo desligado com "reduzir movimento"; a inclinação só com mouse. */
 
-/* ---- Hero ------------------------------------------------------------------------------------------------------
-   Camadas, de baixo para cima: fundo do evento (--evento-fundo, já contrastado com o texto) > lavagem da cor
-   > capa desfocada (só no computador) > granulação > escurecimento (só no tema escuro) > esmaecer para a página.
-   Contraste do texto sobre o pior caso destas camadas: test/heroContraste.test.ts (lê os números daqui). */
-.evv-hero {
-  --h-fg: #0b0d12; --h-fg2: #1e293b;   /* texto e texto secundário do hero, tema claro */
-  --h-lav-a: 0.12; --h-lav-b: 0.08;    /* força da lavagem (cor do evento) */
-  --h-img: 0.08;                       /* opacidade da capa desfocada */
-  --h-esc: 0;                          /* escurecimento (0 no claro) */
-  --giro: 2deg;
-  position: relative; isolation: isolate; overflow: hidden;
-  background-color: var(--evento-fundo); color: var(--h-fg);
-}
-.dark .evv-hero { --h-fg: #ffffff; --h-fg2: #e6e8ec; --h-lav-a: 0.22; --h-lav-b: 0.14; --h-img: 0.14; --h-esc: 0.5; }
-@media (min-width: 768px) { .evv-hero { --giro: 3deg; } }
-.evv-hero-fundo { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-.evv-lav {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(70% 90% at 85% 8%, color-mix(in srgb, var(--evento) calc(var(--h-lav-a) * 100%), transparent), transparent 70%),
-    radial-gradient(60% 80% at 4% 100%, color-mix(in srgb, var(--evento) calc(var(--h-lav-b) * 100%), transparent), transparent 70%);
-}
-.evv-fundo-img { position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover; opacity: var(--h-img); filter: blur(48px) saturate(1.2); display: none; }
-@media (min-width: 1024px) { .evv-fundo-img { display: block; } }
-.evv-gr { /* fora da conta de contraste (0,04 em overlay: impacto desprezível) */
-  position: absolute; inset: 0; opacity: 0.04; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.evv-esc { position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(11 13 18 / var(--h-esc)) 0%, rgb(11 13 18 / var(--h-esc)) 62%, hsl(var(--background)) 100%); }
-
-/* Bloquinho da data: dia grande em Archivo tabular, mês pequeno em maiúsculas espaçadas */
-.evv-data { display: inline-grid; justify-items: center; min-width: 3.5rem; padding: 0.5rem 0.75rem; border: 1px solid color-mix(in srgb, var(--h-fg) 28%, transparent); border-radius: 12px; }
-.evv-data b { font: 800 1.75rem/1 'Archivo', 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; }
-.evv-data span { margin-top: 0.25rem; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
-
-/* Chip fino: borda de 1px, sem preenchimento */
-.evv-chip { display: inline-flex; align-items: center; padding: 0.2rem 0.7rem; border: 1px solid color-mix(in srgb, var(--h-fg) 32%, transparent); border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--h-fg2); }
-
-/* ---- Capa como objeto: pilha de papéis, entalhes + picote, foil, carimbo ------------------------------------------
-   .evv-capa (perspectiva) > .evv-capa-obj (inclina; leva o drop-shadow, que o mask do filho cortaria) > .evv-capa-in (mask). */
-.evv-capa-obj {
-  --cut: 64%; --r: 13px; --foil-o: 0.2;
-  transform: rotate(var(--giro, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.35)) drop-shadow(0 0 40px color-mix(in oklab, var(--evento) 45%, transparent));
-}
-.dark .evv-capa-obj { --foil-o: 0.38; }
-/* dois papéis atrás do cartão: um tingido com a cor do evento, outro neutro; sem área de toque (pointer-events: none) */
-.evv-capa-obj::before, .evv-capa-obj::after {
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: 26px;
-  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
-}
-.evv-capa-obj::before { transform: rotate(-5.5deg) translate(-10px, 6px); opacity: 0.55; background: color-mix(in oklab, var(--evento) 35%, hsl(var(--card))); }
-.evv-capa-obj::after { transform: rotate(4deg) translate(9px, 3px); opacity: 0.8; }
-.evv-capa-in {
-  z-index: 1; isolation: isolate;
-  -webkit-mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
-  mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
-}
-.evv-picote { position: absolute; left: 22px; right: 22px; top: var(--cut); height: 0; border-top: 1.5px dashed rgb(255 255 255 / 0.55); mix-blend-mode: overlay; pointer-events: none; }
-.evv-luz, .evv-foil { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
-.evv-luz { background: radial-gradient(320px circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 0.18), transparent 60%); }
-/* foil holográfico: pontos iridescentes cujo centro e ângulo seguem o ponteiro; só aparece com o movimento */
-.evv-foil {
-  mix-blend-mode: color-dodge;
-  background: conic-gradient(from calc(var(--fx, 50) * 3.6deg) at var(--gx, 50%) var(--gy, 40%), #ff6fb5, #ffd36b, #6bffd0, #6ba8ff, #c46bff, #ff6fb5);
-  -webkit-mask: radial-gradient(circle, #000 1.1px, #0000 1.6px) 0 0 / 7px 7px;
-  mask: radial-gradient(circle, #000 1.1px, #0000 1.6px) 0 0 / 7px 7px;
-}
+/* Capa: retângulo de cantos suaves, giro de repouso de 2°, sombra neutra */
+.evv-capa-obj { transform: rotate(2deg) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.evv-capa-in { box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.35), 0 0 0 1px hsl(var(--border)); }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .evv-capa { perspective: 1100px; }
   .evv-capa-obj { transition: transform 400ms var(--curva-sai, ease-out); will-change: transform; }
   .evv-capa-obj[data-inclina] { transition: transform 80ms linear; }
-  .evv-luz, .evv-foil { transition: opacity 240ms; }
-  .evv-capa-obj[data-inclina] .evv-luz { opacity: 1; }
-  .evv-capa-obj[data-inclina] .evv-foil { opacity: var(--foil-o); }
 }
-/* carimbo de borracha: decorativo, branco com halo escuro (escurece o fundo junto às letras; não há prova de leitura sobre foto branca, é só enfeite) */
-.evv-carimbo {
-  position: absolute; z-index: 5; left: -6px; top: -14px; width: 84px; height: 84px; transform: rotate(-14deg); color: #fff; pointer-events: none;
-  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.85)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.9)) drop-shadow(0 0 5px rgb(0 0 0 / 0.6));
-}
-.evv-carimbo svg { width: 100%; height: 100%; overflow: visible; }
 
-/* ---- Coluna de ingressos como bilhete (computador): entalhes, picote e canhoto. Opaca; o drop-shadow fica no pai ---- */
-.evv-mono { font: 500 10.5px/1.7 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.14em; text-transform: uppercase; }
+/* Bloquinho da data do hero */
+.evv-data { display: inline-grid; justify-items: center; min-width: 3.5rem; padding: 0.5rem 0.75rem; border: 1px solid hsl(var(--border)); border-radius: 12px; }
+.evv-data b { font: 600 1.75rem/1 'Archivo', 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; }
+.evv-data span { margin-top: 0.25rem; font-size: 12px; font-weight: 500; color: hsl(var(--muted-foreground)); }
+
+/* Chip fino: borda de 1px, sem preenchimento */
+.evv-chip { display: inline-flex; align-items: center; padding: 0.2rem 0.7rem; border: 1px solid hsl(var(--border)); border-radius: 999px; font-size: 12px; font-weight: 500; color: hsl(var(--muted-foreground)); }
+
+/* Contador: o número dá um "pop" curto quando muda */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes evv-pop { 50% { transform: scale(1.12); } }
+  .evv-pop { display: inline-block; animation: evv-pop 140ms var(--curva-sai, ease-out); }
+}
+
+/* Selo da faixa etária: anel que se desenha, número que entra, "respiração" nas faixas 14, 16 e 18 */
+.evv-selo-anel { stroke-dasharray: 107; stroke-dashoffset: 0; }
+.evv-selo-ar { transform-origin: 22px 22px; opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes evv-desenha { from { stroke-dashoffset: 107; } to { stroke-dashoffset: 0; } }
+  @keyframes evv-entra-n { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+  @keyframes evv-respira { 0%, 100% { opacity: 0; transform: scale(0.94); } 50% { opacity: 0.7; transform: scale(1.04); } }
+  .evv-selo-anel { animation: evv-desenha 700ms ease-out both; }
+  .evv-selo-n { transform-origin: 22px 22px; animation: evv-entra-n 360ms ease-out 300ms both; }
+  .evv-selo-ar { animation: evv-respira 1800ms ease-in-out 900ms 3; }
+}
+
+/* Coluna de ingressos como bilhete (computador): entalhes e canhoto. Opaca; o drop-shadow fica no pai */
 .evv-canhoto { display: none; }
 @media (min-width: 1024px) {
   .evv-bilhete { filter: drop-shadow(0 20px 30px rgb(0 0 0 / 0.22)); }
@@ -96,55 +47,14 @@
     -webkit-mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
     mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
   }
-  .evv-lista { min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; padding-inline: 20px; } /* o recuo fica na área que rola: a linha selecionada (-8px) e o anel de foco do + e do ? cabem inteiros */
-  .evv-canhoto { position: relative; display: flex; flex: none; height: 118px; padding: 30px 20px 0; justify-content: space-between; align-items: flex-start; }
+  .evv-lista { min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; padding-inline: 20px; } /* o recuo fica na área que rola: a linha selecionada (-8px) e o anel de foco cabem inteiros */
+  .evv-canhoto { position: relative; display: flex; flex: none; height: 118px; padding: 30px 20px 0; justify-content: space-between; align-items: flex-start; font-size: 13px; color: hsl(var(--muted-foreground)); }
   .evv-canhoto::before { content: ""; position: absolute; left: 20px; right: 20px; top: 0; border-top: 1.5px dashed hsl(var(--border)); }
-  .evv-total { font: 800 28px/1.1 'Archivo', 'Plus Jakarta Sans', sans-serif; font-stretch: 112%; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .evv-total { font: 700 28px/1.1 'Archivo', 'Plus Jakarta Sans', sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: hsl(var(--foreground)); }
 }
 
-/* ---- Contador: o número dá um "pop" curto quando muda; a linha do ingresso ganha fio na cor do evento ------------ */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes evv-pop { 50% { transform: scale(1.12); } }
-  .evv-pop { display: inline-block; animation: evv-pop 140ms var(--curva-sai, ease-out); }
-}
-
-/* ---- Entrada ao rolar: o JS liga data-evv só quando há IntersectionObserver e movimento permitido -------------- */
+/* Entrada ao rolar: o JS liga data-evv só quando há IntersectionObserver e movimento permitido */
 @media (prefers-reduced-motion: no-preference) {
   [data-evv] [data-entra] { transition: opacity 400ms var(--curva-entra, ease-out), transform 400ms var(--curva-entra, ease-out); }
   [data-evv] [data-entra]:not([data-vista]) { opacity: 0; transform: translateY(12px); }
-}
-
-/* ---- Mapa do evento: cartão opaco com peças do OpenStreetMap (ou grade estilizada), pino com pulso ---------------- */
-.evv-mapa-vista { position: relative; display: block; height: 176px; overflow: hidden; container-type: size; background: hsl(var(--muted)); }
-.evv-mapa-pecas { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: repeat(3, 256px); filter: saturate(0.55) contrast(0.96); }
-.dark .evv-mapa-pecas { filter: invert(1) hue-rotate(180deg) saturate(0.55) brightness(0.92) contrast(0.92); }
-.evv-mapa-pecas img { display: block; width: 256px; height: 256px; max-width: none; }
-.evv-mapa-grade {
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(60% 80% at 50% 50%, color-mix(in srgb, var(--evento) 14%, transparent), transparent 75%),
-    linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px);
-  background-size: auto, 32px 32px, 32px 32px;
-}
-.evv-mapa-tinta { position: absolute; inset: 0; background: color-mix(in srgb, var(--evento) 12%, transparent); pointer-events: none; }
-.evv-pino { position: absolute; left: 50%; top: 50%; width: 28px; height: 36px; transform: translate(-50%, -100%); filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.35)); }
-.evv-pino::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid var(--evento); opacity: 0; }
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes evv-pulso { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(3); opacity: 0; } }
-  .evv-pino::after { animation: evv-pulso 1600ms ease-out 3; }
-}
-
-/* ---- Monograma das atrações (sem foto) ---- */
-.evv-monograma { background: linear-gradient(135deg, var(--evento-fundo), color-mix(in srgb, var(--evento-fundo) 78%, hsl(var(--background)))); color: var(--evento-texto); }
-
-/* ---- Selo da faixa etária: anel que se desenha, número que entra, "respiração" nas faixas 14, 16 e 18 ------------ */
-.evv-selo-anel { stroke-dasharray: 107; stroke-dashoffset: 0; }
-.evv-selo-ar { transform-origin: 22px 22px; opacity: 0; }
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes evv-desenha { from { stroke-dashoffset: 107; } to { stroke-dashoffset: 0; } }
-  @keyframes evv-entra-n { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
-  @keyframes evv-respira { 0%, 100% { opacity: 0; transform: scale(0.94); } 50% { opacity: 0.7; transform: scale(1.04); } }
-  .evv-selo-anel { animation: evv-desenha 700ms ease-out both; }
-  .evv-selo-n { transform-origin: 22px 22px; animation: evv-entra-n 360ms ease-out 300ms both; }
-  .evv-selo-ar { animation: evv-respira 1800ms ease-in-out 900ms 3; }
 }

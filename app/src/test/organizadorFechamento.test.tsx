@@ -83,17 +83,18 @@ describe('organizador: canais e redes', () => {
 })
 
 describe('organizador: números, bio e outros eventos', () => {
-  it('números inválidos somem; válidos aparecem', () => {
-    const { unmount } = montar({ ...base, eventos_realizados: 184, desde: 2023 })
-    expect(screen.getByText('184')).toBeInTheDocument(); expect(screen.getByText('2023')).toBeInTheDocument()
-    expect(screen.getByText('eventos realizados')).toBeInTheDocument(); expect(screen.getByText('no ar desde')).toBeInTheDocument()
+  it('números viram UMA linha de texto; inválidos somem', () => {
+    const { container, unmount } = montar({ ...base, eventos_realizados: 184, desde: 2023 })
+    expect(screen.getByText('184 eventos realizados · no ar desde 2023')).toBeInTheDocument()
+    expect(container.querySelector('dl')).toBeNull()
     unmount()
     for (const [a, b] of [[-1, 1989], [NaN, 3000], [1e9, 2023.5], ['12', '2020'], [0, 0], [Infinity, null]]) {
       const r = montar({ ...base, eventos_realizados: a, desde: b })
-      expect(screen.queryByText('eventos realizados'), String(a)).toBeNull()
-      expect(screen.queryByText('no ar desde'), String(b)).toBeNull()
+      expect(r.container.textContent, `${a} ${b}`).not.toMatch(/eventos realizados|no ar desde/)
       r.unmount()
     }
+    montar({ ...base, desde: 2023 })
+    expect(screen.getByText('no ar desde 2023')).toBeInTheDocument()
   })
   it('bio longa é cortada em 280 caracteres e aparece como texto; Ler mais alterna aria-expanded', () => {
     montar({ ...base, bio: `<script>alert(1)</script> ${'a'.repeat(400)}` })
@@ -121,6 +122,7 @@ describe('organizador: números, bio e outros eventos', () => {
     const { container } = montar(base)
     expect(container.querySelector('dl')).toBeNull()
     expect(container.querySelector('#organizador-bio')).toBeNull()
+    expect(container.textContent).not.toMatch(/eventos realizados|no ar desde/)
     expect(screen.queryByText('Outros eventos')).toBeNull()
   })
 })
@@ -138,11 +140,6 @@ describe('organizador: datas inválidas e semântica dos números', () => {
     const { container } = montar({ ...base, outros_eventos: [{ id: UUID, title: 'Baile', date: '2026-11-07', time: '21:00:00' }] })
     expect(container.textContent).toMatch(/sáb.*21h/i)
   })
-  it('rótulo (dt) vem antes do valor (dd) no DOM', () => {
-    const { container } = montar({ ...base, eventos_realizados: 184, desde: 2023 })
-    for (const dl of container.querySelectorAll('dl > div')) expect(dl.firstElementChild?.tagName).toBe('DT')
-    expect(container.querySelector('dl > div')?.textContent).toBe('eventos realizados184')
-  })
 })
 
 describe('organizador na página', () => {
@@ -153,10 +150,11 @@ describe('organizador na página', () => {
     const i = (t: string) => fonte.indexOf(t)
     expect(i('id="h-sobre"')).toBeLessThan(i('<Atracoes'))
     expect(i('<Atracoes')).toBeLessThan(i('id="h-galeria"'))
-    expect(i('id="h-galeria"')).toBeLessThan(i('titulo={event.title} fino />'))
+    expect(i('id="h-galeria"')).toBeLessThan(i('id="h-politica"'))
+    expect(i('id="h-politica"')).toBeLessThan(i('titulo={event.title} fino />'))
     expect(i('titulo={event.title} fino />')).toBeLessThan(i('id="h-aparencia"'))
     const q = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { container } = render(<QueryClientProvider client={q}><MemoryRouter><ThemeProvider><EventoConteudo evento={evento()} previa="moldura" /></ThemeProvider></MemoryRouter></QueryClientProvider>)
-    expect(container.querySelector('.evv-mono, dl')).toBeNull()
+    expect(container.querySelector('dl, #h-politica')).toBeNull()
   })
 })
