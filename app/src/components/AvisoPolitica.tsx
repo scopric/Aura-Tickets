@@ -4,7 +4,7 @@ import { PRIVACY_VERSION } from '../lib/legal'
 import { fecharPolitica, useCamada } from '../lib/camadas'
 import { useAuthStore } from '../stores/authStore'
 
-// Aviso da mudança da Política de Privacidade (a própria política, seção 9, promete avisar).
+// Aviso da mudança da Política de Privacidade (a própria política, seção 10, promete avisar).
 // Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar. Só aparece quando a camada aberta é a
 // da Política (depois da decisão de cookies; conta que aceitou a versão vigente no cadastro não vê: ver lib/camadas.ts).
 // ponytail: o texto fala da mudança de 05/10/2026 (favoritos e leitor de planta); trocar junto com a próxima versão.
