@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sugestaoDoEvo, type DadosSugestao } from '../lib/inicioProdutor'
+import { sugestaoDoEvo, temPortaria, type DadosSugestao } from '../lib/inicioProdutor'
 import type { DbEvent } from '../hooks/useEvents'
 
 const DIA = 86400000
@@ -130,6 +130,29 @@ describe('Evo sugere: uma regra por vez', () => {
       chave: 'sugestao:empresa:perfil', texto: 'Faltam os dados da empresa em Configurações.', acao: { to: '/producer/settings' },
     })
     expect(chaveDe(dados([ev()], { empresa: undefined }))).toBeUndefined()
+  })
+
+  it('2b. portaria: no ar, começa em até 7 dias, sem equipe com acesso; undefined não dispara', () => {
+    const d = (n: number, o: Partial<DadosSugestao> = {}) => dados([ev({ date: dia(n) })], { portaria: false, ...o })
+    expect(sugestaoDoEvo(d(7), nada, agora)).toMatchObject({ chave: 'dica:portaria', acao: { texto: 'Convidar equipe', to: '/producer/team' } })
+    expect(chaveDe(d(8))).toBeUndefined()
+    expect(chaveDe(d(7, { portaria: true }))).toBeUndefined()
+    expect(chaveDe(d(7, { portaria: undefined }))).toBeUndefined()
+    expect(chaveDe(dados([ev({ date: dia(0), time: '11:00:00' })], { portaria: false }))).toBeUndefined() // já começou
+    // vem antes do teste de check-in (3)
+    expect(chaveDe(d(3, { checkinFeito: false }))).toBe('dica:portaria')
+    expect(chaveDe(d(3, { checkinFeito: false }), new Set(['dica:portaria']))).toBe('dica:checkin:e1')
+  })
+
+  it('temPortaria: só membro aceito, sem bloqueio, admin ou editor', () => {
+    const m = (o: Partial<{ role: string; accepted_at: string | null; blocked_at: string | null }> = {}) => ({ role: 'editor', accepted_at: '2026-10-01', blocked_at: null, ...o })
+    expect(temPortaria([m()])).toBe(true)
+    expect(temPortaria([m({ role: 'admin' })])).toBe(true)
+    expect(temPortaria([])).toBe(false)
+    expect(temPortaria([m({ role: 'viewer' })])).toBe(false)
+    expect(temPortaria([m({ accepted_at: null })])).toBe(false) // convite pendente
+    expect(temPortaria([m({ blocked_at: '2026-10-05' })])).toBe(false)
+    expect(temPortaria([m({ role: 'viewer' }), m()])).toBe(true)
   })
 
   it('prioridade: duas valendo, vale a primeira da ordem', () => {
