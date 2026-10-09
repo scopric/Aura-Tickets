@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { cn } from '@/lib/utils'
 import AviseMe from './AviseMe'
+import Atracoes, { type Atracao } from './Atracoes'
 import BlocoOrganizador from './BlocoOrganizador'
+import MapaEvento from './MapaEvento'
+import SeloClassificacao from './SeloClassificacao'
+import type { OrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
 import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
@@ -56,13 +60,16 @@ function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo:
 }
 
 // Linha fina da vitrine (computador e celular): rótulo pequeno em maiúsculas + valor, fio de 1px entre linhas
-function LinhaFina({ rotulo, titulo, sub, href, aria }: { rotulo: string; titulo: string; sub?: string; href?: string; aria?: string }) {
+function LinhaFina({ rotulo, titulo, sub, href, aria, extra }: { rotulo: string; titulo: string; sub?: string; href?: string; aria?: string; extra?: ReactNode }) {
   const corpo = (
     <>
       <span className="text-[11px] font-semibold uppercase leading-6 tracking-[0.08em] text-muted-foreground">{rotulo}</span>
-      <span className="min-w-0">
-        <span className="block break-words text-base leading-6">{titulo}</span>
-        {sub && <span className="block break-words text-[13px] leading-5 text-muted-foreground">{sub}</span>}
+      <span className={cn('min-w-0', extra && 'flex items-center justify-between gap-3')}>
+        <span className="min-w-0">
+          <span className="block break-words text-base leading-6">{titulo}</span>
+          {sub && <span className="block break-words text-[13px] leading-5 text-muted-foreground">{sub}</span>}
+        </span>
+        {extra}
       </span>
       {href && <I.AbrirExterno size={16} className="mt-1 shrink-0 text-muted-foreground" />}
     </>
@@ -85,6 +92,13 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   const location = useLocation()
   const heroRef = useRef<HTMLDivElement>(null)
   const raiz = useRef<HTMLDivElement>(null)
+  // Modo demonstração: só em desenvolvimento e com ?demo=1. O ramo import.meta.env.DEV some do build de produção.
+  const [demo, setDemo] = useState<null | { faixa: string; coords: { lat: number; lng: number }; atracoes: Atracao[]; organizador: OrganizadorDoEvento }>(null)
+  useEffect(() => {
+    if (import.meta.env.DEV && !previa && new URLSearchParams(window.location.search).get('demo') === '1') {
+      import('../lib/demoVitrine').then((m) => setDemo({ faixa: m.DEMO_FAIXA, ...m.demoVitrine }))
+    }
+  }, [previa])
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [rolou, setRolou] = useState(false)
@@ -249,6 +263,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         </div>
       </header>}
 
+      {demo && <div className="fixed inset-x-0 top-0 z-50 bg-foreground py-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-background">{demo.faixa}</div>}
       {!previa && (
         <section ref={heroRef} className="evv-hero">
           <div aria-hidden="true" className="evv-hero-fundo">
@@ -319,11 +334,22 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <LinhaFina rotulo="Data" titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'} />
             {hora && <LinhaFina rotulo="Horário" titulo={hora} />}
             <LinhaFina rotulo="Local" titulo={local} sub={endereco || undefined} href={mapaUrl} aria={`Como chegar: ${local} (abre o mapa)`} />
-            <LinhaFina rotulo="Faixa etária" titulo={classificacaoTexto} />
+            <LinhaFina rotulo="Faixa etária" titulo={classificacaoTexto} extra={<SeloClassificacao valor={event.classificacao} />} />
           </div>
         )}
 
-        <BlocoOrganizador organizador={organizador} titulo={event.title} />
+        {!previa && (
+          <MapaEvento
+            lat={demo?.coords.lat ?? event.venue_lat}
+            lng={demo?.coords.lng ?? event.venue_lng}
+            nome={local}
+            endereco={endereco}
+            consulta={[event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local}
+            mapaUrl={mapaUrl}
+          />
+        )}
+
+        <BlocoOrganizador organizador={demo?.organizador ?? organizador} titulo={event.title} fino={!previa} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
@@ -466,6 +492,8 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             )}
           </section>
         )}
+
+        {!previa && <Atracoes atracoes={demo?.atracoes ?? []} />}
 
         {gallery.length > 0 && (
           <section aria-labelledby="h-galeria" data-entra={previa ? undefined : ''} className="border-t border-border px-5 py-6">

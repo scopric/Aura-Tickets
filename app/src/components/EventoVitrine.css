@@ -113,3 +113,38 @@
   [data-evv] [data-entra] { transition: opacity 400ms var(--curva-entra, ease-out), transform 400ms var(--curva-entra, ease-out); }
   [data-evv] [data-entra]:not([data-vista]) { opacity: 0; transform: translateY(12px); }
 }
+
+/* ---- Mapa do evento: cartão opaco com peças do OpenStreetMap (ou grade estilizada), pino com pulso ---------------- */
+.evv-mapa-vista { position: relative; display: block; height: 176px; overflow: hidden; container-type: size; background: hsl(var(--muted)); }
+.evv-mapa-pecas { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: repeat(3, 256px); filter: saturate(0.55) contrast(0.96); }
+.dark .evv-mapa-pecas { filter: invert(1) hue-rotate(180deg) saturate(0.55) brightness(0.92) contrast(0.92); }
+.evv-mapa-pecas img { display: block; width: 256px; height: 256px; max-width: none; }
+.evv-mapa-grade {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(60% 80% at 50% 50%, color-mix(in srgb, var(--evento) 14%, transparent), transparent 75%),
+    linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+}
+.evv-mapa-tinta { position: absolute; inset: 0; background: color-mix(in srgb, var(--evento) 12%, transparent); pointer-events: none; }
+.evv-pino { position: absolute; left: 50%; top: 50%; width: 28px; height: 36px; transform: translate(-50%, -100%); filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.35)); }
+.evv-pino::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid var(--evento); opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes evv-pulso { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(3); opacity: 0; } }
+  .evv-pino::after { animation: evv-pulso 1600ms ease-out 3; }
+}
+
+/* ---- Monograma das atrações (sem foto) ---- */
+.evv-monograma { background: linear-gradient(135deg, var(--evento-fundo), color-mix(in srgb, var(--evento-fundo) 78%, hsl(var(--background)))); color: var(--evento-texto); }
+
+/* ---- Selo da faixa etária: anel que se desenha, número que entra, "respiração" nas faixas 14, 16 e 18 ------------ */
+.evv-selo-anel { stroke-dasharray: 107; stroke-dashoffset: 0; }
+.evv-selo-ar { transform-origin: 22px 22px; opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes evv-desenha { from { stroke-dashoffset: 107; } to { stroke-dashoffset: 0; } }
+  @keyframes evv-entra-n { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+  @keyframes evv-respira { 0%, 100% { opacity: 0; transform: scale(0.94); } 50% { opacity: 0.7; transform: scale(1.04); } }
+  .evv-selo-anel { animation: evv-desenha 700ms ease-out both; }
+  .evv-selo-n { transform-origin: 22px 22px; animation: evv-entra-n 360ms ease-out 300ms both; }
+  .evv-selo-ar { animation: evv-respira 1800ms ease-in-out 900ms 3; }
+}
