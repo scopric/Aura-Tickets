@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import { useLogoProdutor } from '../../hooks/useLogoProdutor'
+import { enviarCertificadoPorEmail, enviarEmLote } from '../../lib/certificadoEnviar'
 import {
   useEventCertificates,
   useParticipantesCertificado,
@@ -65,6 +66,7 @@ export default function Certificates() {
   const [somenteCheckin, setSomenteCheckin] = useState(true)
   const [revogando, setRevogando] = useState<{ id: string; nome: string } | null>(null)
   const [impressao, setImpressao] = useState<{ id: number; itens: DadosCertificado[] } | null>(null)
+  const [enviandoEmail, setEnviandoEmail] = useState<string | 'lote' | null>(null)
   const pedidos = useRef(0) // cada clique é um pedido novo (key do contêiner): imprime de novo mesmo sem o afterprint (Safari do iPhone)
   const imprimir = (itens: DadosCertificado[]) => setImpressao({ id: ++pedidos.current, itens })
 
@@ -139,6 +141,24 @@ export default function Certificates() {
   const comNome = emitidos.filter(c => nomeDe.has(c.user_id))
   const semNome = emitidos.length - comNome.length
   const partes = partesDoLote(comNome)
+
+  const enviarEmail = async (c: CertificadoEmitido) => {
+    setEnviandoEmail(c.id)
+    try {
+      const r = await enviarCertificadoPorEmail(c.id)
+      if (r.ok) toast.success(`Certificado enviado por e-mail para ${nomeEmitido(c)}.`)
+      else toast.error(r.erro)
+    } finally { setEnviandoEmail(null) }
+  }
+  const enviarEmailTodos = async () => {
+    if (!window.confirm(`Enviar o certificado por e-mail para ${comNome.length} pessoa(s)? Cada certificado só pode ser enviado uma vez por hora e cada produtor envia até 30 por hora.`)) return
+    setEnviandoEmail('lote')
+    try {
+      const r = await enviarEmLote(comNome.map(c => c.id))
+      if (r.naoEnviados === 0) toast.success(`${r.enviados} certificado(s) enviado(s) por e-mail.`)
+      else toast.error(`${r.enviados} enviado(s) e ${r.naoEnviados} não enviado(s). ${r.motivo ?? ''}${r.parouNoLimite ? ' Os que sobraram podem ser enviados daqui a uma hora.' : ''}`.trim())
+    } finally { setEnviandoEmail(null) }
+  }
 
   const exportar = () => {
     const csv = csvEmitidos(emitidos.map(c => ({ nome: nomeEmitido(c), codigo: c.code, emitidoEm: dataDe(c.issued_at) })))
@@ -281,7 +301,7 @@ export default function Certificates() {
               {participantesQ.data?.cortado && (
                 <p className="mt-3 text-xs text-muted-foreground">Lista parcial: este evento tem mais de 1.000 ingressos válidos.</p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código. O QR do certificado e o código impresso levam a uma página pública que confirma que ele é verdadeiro (nome, evento, data, organizador e carga horária; nada de e-mail, CPF ou telefone). O participante ainda não vê o certificado no app. Para baixar o PDF, abra a aba Emitidos.</p>
+              <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código. O QR do certificado e o código impresso levam a uma página pública que confirma que ele é verdadeiro (nome, evento, data, organizador e carga horária; nada de e-mail, CPF ou telefone). Você pode enviar o certificado por e-mail ao participante (aba Emitidos); ele abre a página do certificado pelo link. Para baixar o PDF, abra a aba Emitidos.</p>
               <p className="mt-2 text-xs text-muted-foreground">O nome no certificado é o informado na compra do ingresso, que nem sempre é o de quem participou. Confira a lista antes de emitir.</p>
             </>
           ) : (
@@ -290,6 +310,9 @@ export default function Certificates() {
                 <SectionTitle>Certificados emitidos</SectionTitle>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0}><I.Baixar aria-hidden="true" />Exportar CSV</Button>
+                  <Button variant="outline" className="min-h-11" onClick={enviarEmailTodos} disabled={comNome.length === 0 || enviandoEmail !== null} loading={enviandoEmail === 'lote'}>
+                    <I.Enviar aria-hidden="true" />Enviar por e-mail a todos ({comNome.length})
+                  </Button>
                   {partes.map((parte, i) => (
                     <Button key={i} className="min-h-11" onClick={() => imprimir(parte.map(dadosDe))} disabled={esperandoLogo}>
                       <I.Imprimir aria-hidden="true" />{partes.length === 1 ? `Baixar PDF de todos (${parte.length})` : `Baixar PDF: ${i * LIMITES.loteMax + 1} a ${i * LIMITES.loteMax + parte.length}`}
@@ -312,6 +335,7 @@ export default function Certificates() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Button variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id) || esperandoLogo} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</Button>
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => enviarEmail(c)} disabled={!nomeDe.has(c.user_id) || enviandoEmail !== null} loading={enviandoEmail === c.id} aria-label={`Enviar o certificado de ${nomeEmitido(c)} por e-mail`}><I.Enviar aria-hidden="true" />E-mail</Button>
                         <Button variant="ghost" size="sm" className={`min-h-11 ${icone}`} onClick={() => setRevogando({ id: c.id, nome: nomeEmitido(c) })} disabled={revogar.isPending} aria-label={`Revogar o certificado de ${nomeEmitido(c)}`}>Revogar</Button>
                       </div>
                     </li>
@@ -324,7 +348,7 @@ export default function Certificates() {
           <section aria-labelledby="cert-breve" className="mt-8">
             <SectionTitle id="cert-breve">Em breve</SectionTitle>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <EmBreve titulo="Enviar por e-mail ou WhatsApp" descricao="Mandar o certificado para o participante. Precisa de um tipo novo na função de e-mails (send-email), que a Evokaa ainda não publicou; o WhatsApp depende de integração própria." acao="Enviar certificados" />
+              <EmBreve titulo="Enviar por WhatsApp" descricao="Mandar o certificado para o participante pelo WhatsApp. Depende de integração própria; o envio por e-mail já funciona na aba Emitidos." acao="Enviar pelo WhatsApp" />
               <EmBreve titulo="Revogar com histórico" descricao="Guardar quem teve o certificado revogado e quando. Precisa de uma coluna nova no banco (revoked_at, SQL). Hoje revogar apaga o registro." acao="Ver histórico de revogações" />
               <EmBreve titulo="Carga horária automática" descricao="Calcular as horas a partir do evento. Hoje você digita a carga horária no editor; falta definir de onde vem o número." acao="Calcular carga horária" />
               <EmBreve titulo="Emissão automática ao fim do evento" descricao="Emitir sozinho para quem fez check-in quando o evento termina. Precisa de uma rotina agendada no banco (SQL)." acao="Ativar emissão automática" />

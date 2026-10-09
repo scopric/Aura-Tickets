@@ -10,9 +10,10 @@ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect()
 const q = (data: unknown, extra: Record<string, unknown> = {}) => ({ data, isLoading: false, isError: false, isFetching: false, refetch: vi.fn(), ...extra })
 const banco = vi.hoisted(() => ({
   eventos: { current: {} as Record<string, unknown> }, modelos: { current: {} as Record<string, unknown> }, parts: { current: {} as Record<string, unknown> },
-  emitidos: { current: {} as Record<string, unknown> }, logoOrg: { current: null as string | null }, logoCarregando: { current: false }, fator: vi.fn(), baixar: vi.fn(), emitir: vi.fn(), revogar: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  emitidos: { current: {} as Record<string, unknown> }, logoOrg: { current: null as string | null }, logoCarregando: { current: false }, fator: vi.fn(), enviarEmail: vi.fn(), enviarLote: vi.fn(), baixar: vi.fn(), emitir: vi.fn(), revogar: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('sonner', () => ({ toast: banco.toast }))
+vi.mock('../lib/certificadoEnviar', () => ({ enviarCertificadoPorEmail: banco.enviarEmail, enviarEmLote: banco.enviarLote }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../hooks/useLogoProdutor', () => ({ useLogoProdutor: () => ({ logo: { data: banco.logoOrg.current, isLoading: banco.logoCarregando.current } }) }))
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => banco.eventos.current }))
@@ -52,7 +53,7 @@ describe('tela Certificados', () => {
     expect(kpi('Elegíveis (presentes)')).toHaveTextContent('2')
     expect(kpi('Emitidos')).toHaveTextContent('1')
     expect(kpi('Pendentes')).toHaveTextContent('1')
-    for (const n of ['Enviar certificados', 'Ver histórico de revogações', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
+    for (const n of ['Enviar pelo WhatsApp', 'Ver histórico de revogações', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
       expect(screen.getByRole('button', { name: n })).toBeDisabled()
     expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(5)
   })
@@ -228,5 +229,53 @@ describe('QR do certificado impresso', () => {
   it('leva à página pública de validação com o código do certificado', async () => {
     const { urlDoCertificado } = await import('../lib/certificadoValidar')
     expect(urlDoCertificado('cod-ana')).toBe('https://app.evokaa.com.br/certificado/cod-ana')
+  })
+})
+
+describe('enviar o certificado por e-mail', () => {
+  beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co'); banco.fator.mockResolvedValue(false); banco.emitir.mockResolvedValue([]) })
+  afterEach(() => vi.unstubAllEnvs())
+  const abrir = () => { comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos') }
+
+  it('botão por pessoa: chama a função com o id do certificado emitido e confirma na tela', async () => {
+    banco.enviarEmail.mockResolvedValue({ ok: true })
+    abrir()
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar o certificado de Ana por e-mail' }))
+    await waitFor(() => expect(banco.enviarEmail).toHaveBeenCalledWith('i1'))
+    await waitFor(() => expect(banco.toast.success).toHaveBeenCalledWith('Certificado enviado por e-mail para Ana.'))
+  })
+  it('erro do servidor aparece como veio (limite, sem ingresso...), sem dizer que enviou', async () => {
+    banco.enviarEmail.mockResolvedValue({ ok: false, status: 429, erro: 'Este certificado já foi enviado na última hora. Tente de novo mais tarde.' })
+    abrir()
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar o certificado de Ana por e-mail' }))
+    await waitFor(() => expect(banco.toast.error).toHaveBeenCalledWith('Este certificado já foi enviado na última hora. Tente de novo mais tarde.'))
+    expect(banco.toast.success).not.toHaveBeenCalled()
+  })
+  it('quem não está mais na lista de participantes não tem botão de e-mail', async () => {
+    comDados([emi('i1', 'p1', 'cod-ana'), emi('i9', 'sumiu', 'cod-x')]); montar('/producer/certificados?eventId=e1&aba=emitidos')
+    expect(screen.getByRole('button', { name: 'Enviar o certificado de Nome indisponível por e-mail' })).toBeDisabled()
+  })
+  it('em lote: pede confirmação com o aviso de limite e só envia os que têm nome', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    banco.enviarLote.mockResolvedValue({ enviados: 1, naoEnviados: 0, motivo: null, parouNoLimite: false })
+    comDados([emi('i1', 'p1', 'cod-ana'), emi('i9', 'sumiu', 'cod-x')]); montar('/producer/certificados?eventId=e1&aba=emitidos')
+    await userEvent.click(screen.getByRole('button', { name: /Enviar por e-mail a todos \(1\)/ }))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('até 30 por hora'))
+    await waitFor(() => expect(banco.enviarLote).toHaveBeenCalledWith(['i1']))
+    await waitFor(() => expect(banco.toast.success).toHaveBeenCalledWith('1 certificado(s) enviado(s) por e-mail.'))
+  })
+  it('em lote que parou no limite: diz quantos foram e que o resto pode ir daqui a uma hora', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    banco.enviarLote.mockResolvedValue({ enviados: 30, naoEnviados: 5, motivo: 'Limite de 30 envios de certificado por hora atingido.', parouNoLimite: true })
+    abrir()
+    await userEvent.click(screen.getByRole('button', { name: /Enviar por e-mail a todos/ }))
+    await waitFor(() => expect(banco.toast.error).toHaveBeenCalledWith(expect.stringContaining('30 enviado(s) e 5 não enviado(s)')))
+    expect(banco.toast.error).toHaveBeenCalledWith(expect.stringContaining('daqui a uma hora'))
+  })
+  it('sem confirmar, nada é enviado', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    abrir()
+    await userEvent.click(screen.getByRole('button', { name: /Enviar por e-mail a todos/ }))
+    expect(banco.enviarLote).not.toHaveBeenCalled()
   })
 })
