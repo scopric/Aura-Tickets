@@ -59,7 +59,8 @@ Deno.test("calcularLiberacao: fim do evento + dias, teto de 364 dias a partir da
 Deno.test("chaveIdempotencia: HMAC estável, sem CPF, muda com CPF/telefone/segredo", async () => {
   const k = await chaveIdempotencia("O1", "52998224725", "11999999999", "seg");
   assertEquals(k, await chaveIdempotencia("O1", "52998224725", "11999999999", "seg"));
-  assert(!k.includes("52998224725") && /^O1:[0-9a-f]{12}$/.test(k));
+  assert(/^[\w-]+$/.test(await chaveIdempotencia("5b1f1a6c-0000-4000-8000-000000000001", "52998224725", "", "seg"))); // padrão do PagBank: sem ":"
+  assert(!k.includes("52998224725") && /^O1-[0-9a-f]{12}$/.test(k));
   assert(k !== await chaveIdempotencia("O1", "11144477735", "11999999999", "seg"));
   assert(k !== await chaveIdempotencia("O1", "52998224725", "", "seg"));
   assert(k !== await chaveIdempotencia("O1", "52998224725", "11999999999", "outro"));

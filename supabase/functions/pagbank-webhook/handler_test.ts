@@ -5,8 +5,9 @@ import { PagbankErro } from "../_shared/pagbank.ts";
 
 const TOKEN = "TOK-123456789";
 const ENV: Record<string, string> = {
-  PAGBANK_TOKEN: TOKEN, PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com", SUPABASE_URL: "https://p.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "srk",
+  PAGBANK_TOKEN: TOKEN, PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com", PAGBANK_WEBHOOK_SEM_ASSINATURA: "1", SUPABASE_URL: "https://p.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "srk",
 };
+const PROD = { ...ENV, PAGBANK_BASE_URL: "https://api.pagseguro.com", PAGBANK_WEBHOOK_SEM_ASSINATURA: "" };
 const OID = "11111111-1111-4111-8111-111111111111";
 const ORDE = "ORDE_052C2EE2-E469-47CD-8815-F0CF04D24FE6";
 const CHAR = "CHAR_63D0ADD3-AEEF-4E15-97F7-CD54DE47E3F9";
@@ -61,12 +62,45 @@ for (const [nome, h] of [
   ["ausente", { "content-type": "application/json" }],
   ["errada", { "x-authenticity-token": "0".repeat(64) }],
 ] as const) {
-  Deno.test(`assinatura ${nome} -> 401 sem PagBank nem banco`, async () => {
-    const m = montar();
+  Deno.test(`assinatura ${nome} -> 401 sem PagBank nem banco (produção)`, async () => {
+    const m = montar({ env: PROD });
     assertEquals((await handler(await req(CORPO, { ...h }), m.deps)).status, 401);
     assertEquals([m.pagbank.length, m.rpc.length], [0, 0]);
   });
 }
+Deno.test("sandbox: sem cabeçalho de assinatura segue e a consulta ao PagBank decide; com cabeçalho errado ainda é 401", async () => {
+  const m = montar();
+  assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 200);
+  assertEquals([m.pagbank.length, m.rpc.length], [1, 1]); // consultou o PagBank e confirmou pelo valor DELE
+  assert(m.logs.some(l => l.includes("ALERTA_PAGBANK SANDBOX")));
+  const e = montar();
+  assertEquals((await handler(await req(CORPO, { "x-authenticity-token": "0".repeat(64) }), e.deps)).status, 401);
+  assertEquals([e.pagbank.length, e.rpc.length], [0, 0]);
+});
+Deno.test("sem cabeçalho só passa com a URL exata do sandbox (prefixo, maiúsculas, http e userinfo dão 401)", async () => {
+  for (const base of ["https://sandbox.evil.com", "https://sandbox.api.pagseguro.com@evil.com", "HTTPS://SANDBOX.API.PAGSEGURO.COM", "http://sandbox.api.pagseguro.com"]) {
+    const m = montar({ env: { ...ENV, PAGBANK_BASE_URL: base } });
+    assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 401, base);
+    assertEquals(m.pagbank.length, 0, base);
+  }
+  const barra = montar({ env: { ...ENV, PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com/" } });
+  assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), barra.deps)).status, 200);
+});
+Deno.test("sandbox sem o interruptor PAGBANK_WEBHOOK_SEM_ASSINATURA=1: sem cabeçalho dá 401", async () => {
+  const m = montar({ env: { ...ENV, PAGBANK_WEBHOOK_SEM_ASSINATURA: "" } });
+  assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 401);
+  assertEquals(m.pagbank.length, 0);
+});
+Deno.test("produção: aviso com assinatura válida continua sendo aceito", async () => {
+  const m = montar({ env: PROD });
+  assertEquals((await handler(await req(), m.deps)).status, 200);
+  assertEquals(m.rpc.length, 1);
+});
+Deno.test("sandbox sem assinatura: aviso falso (pedido não pago no PagBank) não confirma nada", async () => {
+  const m = montar({ consulta: consulta("WAITING") });
+  assertEquals((await handler(await req(CORPO, { "content-type": "application/json" }), m.deps)).status, 200);
+  assertEquals(m.rpc.length, 0);
+});
 Deno.test("corpo adulterado depois de assinado -> 401", async () => {
   const m = montar();
   const sig = await assinatura(TOKEN, CORPO);

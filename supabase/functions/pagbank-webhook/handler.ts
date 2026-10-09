@@ -108,7 +108,14 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
   const bytes = await lerCorpo(req)
   if (bytes === null) return ok(413)
   const recebida = (req.headers.get('x-authenticity-token') ?? '').trim().toLowerCase()
-  if (!recebida || !iguais(await assinatura(token, bytes), recebida)) { d.log('pagbank-webhook: assinatura ausente ou inválida'); return ok(401) }
+  // Sandbox: o PagBank manda o aviso SEM x-authenticity-token (verificado em 09/10/2026, 4 avisos reais, nenhum com o cabeçalho).
+  // Só lá (e com PAGBANK_WEBHOOK_SEM_ASSINATURA=1) aceitamos sem assinatura; em produção ela segue obrigatória. Cabeçalho presente e errado = 401 em qualquer ambiente.
+  // Sem assinatura nada vale por si: o corpo só dá o id ORDE_ e tudo o mais vem da consulta ao PagBank (abaixo).
+  // ponytail: sem limite de taxa no sandbox (cada aviso falso custa uma consulta ao PagBank); se virar abuso, limitar por IP.
+  // duas travas: URL exata do sandbox (prefixo aceitaria https://sandbox.evil.com) E interruptor explícito, que se cadastra só para testar
+  const sandbox = d.env('PAGBANK_BASE_URL').trim().replace(/\/+$/, '') === 'https://sandbox.api.pagseguro.com' && d.env('PAGBANK_WEBHOOK_SEM_ASSINATURA').trim() === '1'
+  if (recebida ? !iguais(await assinatura(token, bytes), recebida) : !sandbox) { d.log('pagbank-webhook: assinatura ausente ou inválida'); return ok(401) }
+  if (!recebida) d.log('ALERTA_PAGBANK SANDBOX aviso aceito sem assinatura (se isto aparecer em produção, PAGBANK_BASE_URL está errado); a consulta ao PagBank decide')
   const corpo = new TextDecoder().decode(bytes)
 
   let j: Record<string, unknown>

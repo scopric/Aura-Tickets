@@ -16,7 +16,7 @@
 // O front (fatia 4) tem de chamar grecaptcha.execute('...', { action: 'pagbank_checkout' }) de novo a cada clique em pagar.
 //
 // Corpo estável: o corpo enviado ao PagBank só depende do pedido (banco), do CPF/telefone e de reservado_ate, nunca do relógio.
-// Assim a chave de idempotência `<order.id>:<hash(cpf|telefone)>` devolve o MESMO pedido nas repetições. O Pix vence em
+// Assim a chave de idempotência `<order.id>-<hash(cpf|telefone)>` devolve o MESMO pedido nas repetições. O Pix vence em
 // reservado_ate − 15 s; a reserva é de 10 min em `reservar_ingressos` (se ela mudar, mudar aqui junto): dá no máximo 9m45s.
 // Dependências do corpo fora da reserva: e-mail do login (quando customer_email é nulo), env PAGBANK_CUSTODIA_DIAS_APOS_EVENTO e
 // payout_account_id do produtor. Mudar qualquer uma no meio de um pedido gera 409 IDEMPOTENCY_CONFLICT (vira 409 genérico "refaça a reserva").
@@ -90,10 +90,16 @@ export async function verificarRecaptcha(
     const corpo = new URLSearchParams({ secret, response: token })
     if (ip) corpo.set('remoteip', ip)
     const r = await fetchFn('https://www.google.com/recaptcha/api/siteverify', { method: 'POST', body: corpo, signal: ctl.signal })
-    if (!r.ok) return false
+    if (!r.ok) { console.error('[pagbank-criar-pedido] recaptcha: Google respondeu HTTP', r.status); return false }
     const j = await r.json()
-    return j.success === true && j.action === 'pagbank_checkout' && (HOSTS.includes(String(j.hostname)) || (env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && j.hostname === 'localhost')) // localhost só em desenvolvimento
+    // localhost só em desenvolvimento (RECAPTCHA_ALLOW_LOCALHOST=1 e PagBank no sandbox; em produção real não passa): o app roda em app.localhost e o painel em alpha.localhost
+    const dev = env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && /^https:\/\/sandbox\./.test(env('PAGBANK_BASE_URL')) && ['localhost', 'app.localhost', 'alpha.localhost'].includes(String(j.hostname))
+    const ok = j.success === true && j.action === 'pagbank_checkout' && (HOSTS.includes(String(j.hostname)) || dev)
        && typeof j.score === 'number' && j.score >= minimo
+    // diagnóstico: só campos que o Google devolve (nenhum segredo nem token)
+    if (ok && dev && !HOSTS.includes(String(j.hostname))) console.error('[pagbank-criar-pedido] ALERTA_PAGBANK RECAPTCHA_LOCALHOST token de localhost aceito (desligar RECAPTCHA_ALLOW_LOCALHOST depois do teste)')
+    if (!ok) console.error('[pagbank-criar-pedido] recaptcha recusado', JSON.stringify({ success: j.success, erros: j['error-codes'], host: j.hostname, acao: j.action, score: j.score }))
+    return ok
   } catch {
     return false
   } finally {

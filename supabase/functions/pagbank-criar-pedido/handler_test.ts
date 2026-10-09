@@ -41,7 +41,7 @@ Deno.test("caminho feliz: cria com split, grava e devolve só 3 campos", async (
   assertEquals(Object.keys(j).sort(), ["expira_em", "order_id", "pix_copia_e_cola"]);
   assertEquals(j.pix_copia_e_cola, "000201PIX");
   const c = chamadas[0];
-  assert(/^11111111-1111-4111-8111-111111111111:[0-9a-f]{12}$/.test(c.init.idempotencia!));
+  assert(/^11111111-1111-4111-8111-111111111111-[0-9a-f]{12}$/.test(c.init.idempotencia!));
   assert(!c.init.idempotencia!.includes("52998224725"));
   assertEquals(c.init.body.reference_id, OID);
   assertEquals(c.init.body.charges[0].amount.value, 11000);
@@ -233,7 +233,12 @@ Deno.test("reCAPTCHA: localhost só com RECAPTCHA_ALLOW_LOCALHOST=1", async () =
   const f = (() => Promise.resolve(new Response(JSON.stringify({ success: true, score: 0.9, action: "pagbank_checkout", hostname: "localhost" })))) as unknown as typeof fetch;
   const e = (extra: Record<string, string>) => (k: string) => ({ RECAPTCHA_SECRET: "s", ...extra } as Record<string, string>)[k] ?? "";
   assertEquals(await verificarRecaptcha("t", null, e({}), f), false);
-  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1" }), f), true);
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), f), true);
+  const sub = (hostname: string) => (() => Promise.resolve(new Response(JSON.stringify({ success: true, score: 0.9, action: "pagbank_checkout", hostname })))) as unknown as typeof fetch;
+  assertEquals(await verificarRecaptcha("t", null, e({}), sub("app.localhost")), false);
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), sub("app.localhost")), true);
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://sandbox.api.pagseguro.com" }), sub("evil.localhost")), false);
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1", PAGBANK_BASE_URL: "https://api.pagseguro.com" }), sub("app.localhost")), false); // produção real: localhost nunca passa
 });
 
 Deno.test("custódia: evento a 400 dias = sem split; a 30 dias = com split e custódia", async () => {
