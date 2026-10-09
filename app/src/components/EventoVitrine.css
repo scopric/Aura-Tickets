@@ -25,7 +25,7 @@
 }
 .evv-fundo-img { position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover; opacity: var(--h-img); filter: blur(48px) saturate(1.2); display: none; }
 @media (min-width: 1024px) { .evv-fundo-img { display: block; } }
-.evv-gr {
+.evv-gr { /* fora da conta de contraste (0,04 em overlay: impacto desprezível) */
   position: absolute; inset: 0; opacity: 0.04; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }

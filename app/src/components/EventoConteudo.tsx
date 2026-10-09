@@ -67,7 +67,7 @@ function LinhaFina({ rotulo, titulo, sub, href, aria }: { rotulo: string; titulo
       {href && <I.AbrirExterno size={16} className="mt-1 shrink-0 text-muted-foreground" />}
     </>
   )
-  const classe = cn('grid min-h-14 grid-cols-[6.5rem_minmax(0,1fr)] items-start gap-x-4 border-t border-border px-5 py-3 first:border-t-0 lg:px-0', href && 'grid-cols-[6.5rem_minmax(0,1fr)_auto]')
+  const classe = cn('grid min-h-14 grid-cols-[6.5rem_minmax(0,1fr)] items-start gap-x-4 border-t border-border px-5 py-3 first:border-t-0', href && 'grid-cols-[6.5rem_minmax(0,1fr)_auto]')
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" aria-label={aria} className={cn(classe, 'transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none')}>{corpo}</a>
   ) : (
@@ -195,6 +195,8 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   const endereco = [event.venue_address, [event.venue_city, event.venue_state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
   const mapaUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local)}`
   const classificacaoTexto = event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'
+  // subtítulo igual ao local não repete
+  const subtituloUtil = event.subtitle?.trim() && event.subtitle.trim().toLowerCase() !== local.trim().toLowerCase() ? event.subtitle : null
   const descricao = event.description?.trim()
   const descricaoLonga = (descricao?.length ?? 0) > 240
 
@@ -262,12 +264,15 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <div className="min-w-0">
               <div className="flex items-center gap-4">
                 {dataEvento && (
-                  <span className="evv-data" aria-hidden="true"><b>{dataEvento.getDate()}</b><span>{mesCurto}</span></span>
+                  <>
+                    <span className="evv-data" aria-hidden="true"><b>{dataEvento.getDate()}</b><span>{mesCurto}</span></span>
+                    <span className="sr-only">{dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}</span>
+                  </>
                 )}
                 <p className="text-[15px] font-semibold leading-5">{dataEvento ? `${semana}${hora ? ` · ${hora}` : ''}` : 'Data a definir'}</p>
               </div>
               <h1 className="font-display wide mt-6 break-words text-[clamp(2.25rem,9vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.04em] [text-wrap:balance] lg:text-[clamp(3rem,6.2vw,6rem)]">{event.title}</h1>
-              {event.subtitle && <p className="mt-3 max-w-xl text-base leading-6 text-[color:var(--h-fg2)]">{event.subtitle}</p>}
+              {subtituloUtil && <p className="mt-3 max-w-xl text-base leading-6 text-[color:var(--h-fg2)]">{event.subtitle}</p>}
               <p className="mt-4 flex items-center gap-2 text-[15px] leading-5 text-[color:var(--h-fg2)]">
                 <I.Local size={16} className="shrink-0" />
                 <span className="min-w-0 break-words">{local}</span>
@@ -296,7 +301,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <section className="bg-[var(--evento-fundo)] px-5 pb-5 pt-[22px]">
               <p className="text-[15px] font-semibold leading-5 text-[var(--evento-texto)]">{dataLonga}{hora && ` · ${hora}`}</p>
               <h1 className="font-display wide mt-1.5 break-words text-[34px] font-extrabold leading-9 tracking-[-0.02em]">{event.title}</h1>
-              {event.subtitle && <p className="mt-2 text-base leading-6">{event.subtitle}</p>}
+              {subtituloUtil && <p className="mt-2 text-base leading-6">{event.subtitle}</p>}
               <p className="mt-2 text-sm leading-5">{local}</p>
             </section>
             <div className="py-2">
@@ -314,14 +319,14 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <LinhaFina rotulo="Data" titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'} />
             {hora && <LinhaFina rotulo="Horário" titulo={hora} />}
             <LinhaFina rotulo="Local" titulo={local} sub={endereco || undefined} href={mapaUrl} aria={`Como chegar: ${local} (abre o mapa)`} />
-            <LinhaFina rotulo="Classificação" titulo={classificacaoTexto} />
+            <LinhaFina rotulo="Faixa etária" titulo={classificacaoTexto} />
           </div>
         )}
 
         <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
+        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
           <h2 id="h-ingressos" className={titulo}>Ingressos</h2>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
 
@@ -462,7 +467,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         {/* Aparência (2.8.9): a troca de tema fica no rodapé da página pública; padrão Automático */}
         {!previa && (
         <section className="border-t border-border px-5 pb-6 pt-6">
-          <h2 id="h-aparencia" className="mb-2 text-[15px] font-semibold leading-5">Aparência</h2>
+          <h2 id="h-aparencia" className={cn(titulo, 'mb-2')}>Aparência</h2>
           <ThemeToggle />
           <p className="mt-6 text-sm leading-5 text-muted-foreground">
             Dúvidas sobre a compra? <Link to="/contato" className="font-semibold text-primary underline underline-offset-4">Fale com a gente</Link>.

@@ -25,6 +25,16 @@ const sobre = (base: string, topo: string, a: number) => hex(rgb(base).map((b, i
 
 const CORES = ['#f2a61d', '#ffd400', '#fdfdf5', '#f5f5f5', '#0a0a0a', '#111111', '#1d4ed8', '#2563eb', '#dc2626', '#a55c65', '#00ff88', '#ff00cc']
 
+// Fora da conta: a granulação (.evv-gr, opacidade 0,04 em overlay), de impacto desprezível.
+// Cartão "Próximo evento" do painel: texto branco sobre foto branca (pior caso) com o degradê de PainelEventos
+describe('painel de eventos: texto branco sobre capa branca', () => {
+  it('a faixa do texto (parte de baixo do degradê) passa de 4,5:1', () => {
+    const fonte = readFileSync(resolve(__dirname, '../components/PainelEventos.tsx'), 'utf8')
+    const via = +fonte.match(/via-black\/(\d+)/)![1] / 100 // o texto fica entre o meio e a base do degradê
+    expect(contraste('#ffffff', sobre('#ffffff', '#000000', via))).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 describe('hero do evento: contraste do texto', () => {
   for (const cor of CORES) for (const intensidade of [100, 40]) for (const t of ['claro', 'escuro'] as const) {
     it(`${cor} a ${intensidade}% no tema ${t}`, () => {

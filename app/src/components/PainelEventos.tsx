@@ -43,10 +43,10 @@ export default function PainelEventos({ aoNavegar }: { aoNavegar: () => void }) 
         {proximo ? (
           <Link to={`/event/${proximo.id}`} onClick={aoNavegar} className="alvo-44 group relative flex min-h-[200px] flex-1 flex-col justify-end overflow-hidden rounded-ev-xl border border-border bg-background p-4 text-white transition-transform duration-rapido hover:-translate-y-px focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none motion-reduce:hover:translate-y-0">
             <EventoCapa evento={proximo} tamanho="faixa" />
-            <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
-            <span className="relative text-[11px] font-semibold uppercase tracking-widest text-white/80">Próximo evento</span>
+            <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/20" />
+            <span className="relative text-[11px] font-semibold uppercase tracking-widest text-white">Próximo evento</span>
             <span className="font-display relative mt-1 text-lg font-extrabold leading-tight tracking-tight">{proximo.title}</span>
-            <span className="relative mt-1 text-[13px] text-white/85">{[rotuloDia(proximo.date!, hoje).curto, proximo.venue_city].filter(Boolean).join(' · ')}</span>
+            <span className="relative mt-1 text-[13px] text-white">{[rotuloDia(proximo.date!, hoje).curto, proximo.venue_city].filter(Boolean).join(' · ')}</span>
           </Link>
         ) : (
           <div className="flex min-h-[160px] flex-1 items-end rounded-ev-xl border border-border bg-background p-4 text-sm text-muted-foreground">
