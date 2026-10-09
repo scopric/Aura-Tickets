@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { contraste, derivarCor } from '../lib/corEvento'
+import { contraste, derivarCor, misturaOklab } from '../lib/corEvento'
 
 // Contraste do texto do hero do evento (>= 4,5:1) no PIOR caso das camadas de EventoVitrine.css, nos dois temas.
 // Os números (texto, lavagem, capa desfocada, escurecimento) saem do próprio CSS, para o teste acompanhar o design.
@@ -61,6 +61,28 @@ describe('hero do evento: contraste do texto', () => {
         expect(contraste(tema[t].fg, final), `título ${cor} ${t} capa ${pixel}`).toBeGreaterThanOrEqual(4.5)
         expect(contraste(tema[t].fg2, final), `meta ${cor} ${t} capa ${pixel}`).toBeGreaterThanOrEqual(4.5)
       }
+    })
+  }
+})
+
+// Cartão de fechamento do organizador: fundo = card misturado com a cor do evento (a % sai do próprio componente).
+// Valores dos tokens do index.css: card, foreground e muted-foreground (o anel dos ícones usa muted-foreground; com --input
+// o caso #0a0a0a no tema claro dava 2,93:1, por isso o anel foi trocado).
+describe('cartão do organizador: contraste sobre o fundo misturado', () => {
+  const fonte = readFileSync(resolve(__dirname, '../components/BlocoOrganizador.tsx'), 'utf8')
+  const pct = +fonte.match(/color-mix\(in oklab, var\(--evento\) (\d+)%, hsl\(var\(--card\)\)\)/)![1] / 100
+  const tokens = {
+    claro: { card: '#ffffff', fg: '#0b0d12', muted: '#5b6472', input: '#5b6472' },
+    escuro: { card: '#14171d', fg: '#e6e8ec', muted: '#9aa1ad', input: '#9aa1ad' },
+  }
+  for (const cor of ['#f2a61d', '#ffd400', '#0a0a0a', '#fdfdf5', '#1d68c4', '#ff2d55']) for (const intensidade of [100, 40]) for (const t of ['claro', 'escuro'] as const) {
+    it(`${cor} a ${intensidade}% no tema ${t}`, () => {
+      const k = tokens[t]
+      const fundo = misturaOklab(derivarCor(cor, intensidade).cor, k.card, pct) // --evento é sempre a cor cheia
+      expect(contraste(k.muted, fundo), 'muted').toBeGreaterThanOrEqual(4.5)
+      expect(contraste(k.fg, fundo), 'foreground').toBeGreaterThanOrEqual(4.5)
+      expect(contraste(k.fg, fundo), 'borda do botão Mostrar contato (border-foreground)').toBeGreaterThanOrEqual(3)
+      expect(contraste(k.input, fundo), 'anel dos ícones redondos (muted-foreground)').toBeGreaterThanOrEqual(3)
     })
   }
 })

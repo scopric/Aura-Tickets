@@ -68,7 +68,7 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
       accent_color: typeof e.accent_color === 'string' ? e.accent_color : null,
     }))
 
-  const canal = 'alvo-44 grid size-11 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))] transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] hover:text-foreground focus-visible:bg-[var(--ev-tint-hover)] focus-visible:text-foreground focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none'
+  const canal = 'alvo-44 grid size-11 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--muted-foreground))] transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] hover:text-foreground focus-visible:bg-[var(--ev-tint-hover)] focus-visible:text-foreground focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none'
   const botao = 'alvo-44 inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-transform duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0'
   const reconhecidas = redes.map((r) => ({ r, rede: iconeDaRede(r.url) }))
   const comIcone = reconhecidas.filter((x) => x.rede)
@@ -108,8 +108,8 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
 
         {(realizados || desde) && (
           <dl className="mt-5 flex divide-x divide-border border-y border-border py-3">
-            {realizados && <div className="flex-1 pr-4"><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{realizados}</dd><dt className={rotuloMono}>eventos realizados</dt></div>}
-            {desde && <div className={cn('flex-1', realizados && 'pl-4')}><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{desde}</dd><dt className={rotuloMono}>no ar desde</dt></div>}
+            {realizados && <div className="flex flex-1 flex-col-reverse justify-end pr-4"><dt className={rotuloMono}>eventos realizados</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{realizados}</dd></div>}
+            {desde && <div className={cn('flex flex-1 flex-col-reverse justify-end', realizados && 'pl-4')}><dt className={rotuloMono}>no ar desde</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{desde}</dd></div>}
           </dl>
         )}
 
@@ -128,9 +128,9 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
           <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1">
             {ig && <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer nofollow" aria-label="Instagram (abre em nova aba)" title={`instagram.com/${ig}`} className={canal}><IconeInstagram size={20} /></a>}
             {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" aria-label="Site (abre em nova aba)" title={dominio(site)!} className={canal}><I.Globo size={20} /></a>}
-            {comIcone.map(({ r, rede }) => {
+            {comIcone.map(({ r, rede }, i) => {
               const Icone = rede!.Icone
-              return <a key={r.url} href={r.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`${rede!.nome} (abre em nova aba)`} title={dominio(r.url)!} className={canal}><Icone size={20} /></a>
+              return <a key={`${i}-${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`${rede!.nome} (abre em nova aba)`} title={dominio(r.url)!} className={canal}><Icone size={20} /></a>
             })}
             {emTexto.length > 0 && (temCanais || comIcone.length > 0) && <span aria-hidden="true" className="mx-2 h-5 w-px bg-border" />}
             {emTexto.map(({ r }, i) => (
@@ -152,8 +152,10 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
             <h3 className={rotuloMono}>Outros eventos</h3>
             <ul className="mt-2">
               {outros.map((e, i) => {
-                const d = e.date ? new Date(`${e.date}T00:00:00`) : null
-                const hora = e.time?.match(/^(\d{1,2}):(\d{2})/)
+                // data REAL: "2026-13-45", "0000-00-00" e "2026-02-30" não passam; sem data válida o item fica só com título e link
+                const bruta = e.date ? new Date(`${e.date}T00:00:00`) : null
+                const d = bruta && !isNaN(bruta.getTime()) && `${bruta.getFullYear()}-${String(bruta.getMonth() + 1).padStart(2, '0')}-${String(bruta.getDate()).padStart(2, '0')}` === e.date ? bruta : null
+                const hora = d ? e.time?.match(/^(\d{1,2}):(\d{2})/) : null
                 const quando = d ? [d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''), hora && `${+hora[1]}h${hora[2] === '00' ? '' : hora[2]}`].filter(Boolean).join(' · ') : ''
                 return (
                   <li key={`${e.id}-${i}`}>

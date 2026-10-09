@@ -125,6 +125,26 @@ describe('organizador: números, bio e outros eventos', () => {
   })
 })
 
+describe('organizador: datas inválidas e semântica dos números', () => {
+  it('data impossível não mostra NaN nem Invalid Date: o item fica só com título e link', () => {
+    for (const date of ['2026-13-45', '0000-00-00', '2026-02-30', 'abc', null]) {
+      const { container, unmount } = montar({ ...base, outros_eventos: [{ id: UUID, title: 'Baile', date, time: '21:00:00' }] })
+      const link = screen.getByRole('link', { name: /Baile/ })
+      expect(link).toHaveAttribute('href', `/event/${UUID}`)
+      expect(container.textContent, String(date)).not.toMatch(/NaN|Invalid Date/)
+      expect(link.textContent).toBe('Baile') // sem bloquinho de data nem linha de hora
+      unmount()
+    }
+    const { container } = montar({ ...base, outros_eventos: [{ id: UUID, title: 'Baile', date: '2026-11-07', time: '21:00:00' }] })
+    expect(container.textContent).toMatch(/sáb.*21h/i)
+  })
+  it('rótulo (dt) vem antes do valor (dd) no DOM', () => {
+    const { container } = montar({ ...base, eventos_realizados: 184, desde: 2023 })
+    for (const dl of container.querySelectorAll('dl > div')) expect(dl.firstElementChild?.tagName).toBe('DT')
+    expect(container.querySelector('dl > div')?.textContent).toBe('eventos realizados184')
+  })
+})
+
 describe('organizador na página', () => {
   const evento = () => ({ id: UUID, title: 'Noite', date: '2026-12-12', time: '22:00:00', venue_name: 'Clube', description: 'Texto sobre.', gallery: ['https://x.com/a.jpg'], cover_image: null, accent_color: '#a55c65', visibility: 'public', ticket_types: [] }) as never
   beforeEach(() => { window.scrollTo = vi.fn() as unknown as typeof window.scrollTo })
