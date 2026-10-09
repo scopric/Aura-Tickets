@@ -28,18 +28,20 @@ insert into public.events (id, producer_id, title, slug, status, approval_status
   ('fb000000-0000-4000-8000-0000000000e1', 'fb000000-0000-4000-8000-000000000001', 'Do P1', 'tar-e1', 'draft', 'pending'),
   ('fb000000-0000-4000-8000-0000000000e2', 'fb000000-0000-4000-8000-000000000002', 'Do P2', 'tar-e2', 'draft', 'pending');
 insert into public.producer_tasks (id, producer_id, event_id, title) values
+  ('fb000000-0000-4000-8000-0000000000a1', 'fb000000-0000-4000-8000-000000000001', 'fb000000-0000-4000-8000-0000000000e1', 'Tarefa do evento'),
   ('fb000000-0000-4000-8000-0000000000a3', 'fb000000-0000-4000-8000-000000000003', null, 'Tarefa do P3');
 
 -- Estrutura -------------------------------------------------------------------------------------------------------
-select policies_are('public', 'producer_tasks', array['Produtor gerencia tasks', 'gf_mfa_aal2'],
-  'producer_tasks: as duas regras esperadas (a de 2FA continua)');
+-- Desde 20261103_equipe_quadro_f01.sql a regra única virou uma por operação; o 2FA continua
+select policies_are('public', 'producer_tasks', array['gf_mfa_aal2', 'tasks_apagar', 'tasks_criar', 'tasks_editar', 'tasks_ver'],
+  'producer_tasks: as regras esperadas (a de 2FA continua)');
 select is((select confdeltype::text from pg_constraint where conname = 'producer_tasks_event_id_fkey'), 'n',
   'producer_tasks_event_id_fkey é ON DELETE SET NULL');
 
 -- P1 -----------------------------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-000000000001');
-select lives_ok($$insert into public.producer_tasks (id, producer_id, event_id, title) values
-  ('fb000000-0000-4000-8000-0000000000a1', 'fb000000-0000-4000-8000-000000000001', 'fb000000-0000-4000-8000-0000000000e1', 'Tarefa do evento')$$,
+select lives_ok($$insert into public.producer_tasks (producer_id, event_id, title) values
+  ('fb000000-0000-4000-8000-000000000001', 'fb000000-0000-4000-8000-0000000000e1', 'Outra do evento')$$,
   'P1 cria tarefa ligada ao próprio evento');
 select lives_ok($$insert into public.producer_tasks (producer_id, event_id, title) values
   ('fb000000-0000-4000-8000-000000000001', null, 'Tarefa solta')$$, 'P1 cria tarefa sem evento');
@@ -47,10 +49,10 @@ select throws_ok($$insert into public.producer_tasks (producer_id, event_id, tit
   ('fb000000-0000-4000-8000-000000000001', 'fb000000-0000-4000-8000-0000000000e2', 'Evento alheio')$$,
   '42501', null, 'P1 não liga tarefa a evento de outro produtor');
 select throws_ok($$update public.producer_tasks set event_id = 'fb000000-0000-4000-8000-0000000000e2'
-  where id = 'fb000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'P1 não troca a tarefa para evento de outro produtor');
+  where id = 'fb000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'P1 não troca a tarefa para evento de outro produtor (event_id nem é gravável no UPDATE)');
 select throws_ok($$insert into public.producer_tasks (producer_id, title) values
   ('fb000000-0000-4000-8000-000000000002', 'Em nome do P2')$$, '42501', null, 'P1 não cria tarefa em nome de P2');
-select is((select count(*) from public.producer_tasks), 2::bigint, 'P1 enxerga só as 2 tarefas dele');
+select is((select count(*) from public.producer_tasks), 3::bigint, 'P1 enxerga só as 3 tarefas dele');
 
 -- P2 não vê as do P1 ------------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-000000000002');
@@ -68,7 +70,7 @@ select lives_ok($$delete from public.events where id = 'fb000000-0000-4000-8000-
   'o evento com tarefa ligada pode ser apagado');
 select is((select event_id from public.producer_tasks where id = 'fb000000-0000-4000-8000-0000000000a1'), null,
   'a tarefa continua, com event_id nulo');
-select is((select count(*) from public.producer_tasks where producer_id = 'fb000000-0000-4000-8000-000000000001'), 2::bigint,
+select is((select count(*) from public.producer_tasks where producer_id = 'fb000000-0000-4000-8000-000000000001'), 3::bigint,
   'nenhuma tarefa de P1 foi apagada junto');
 
 select * from finish();

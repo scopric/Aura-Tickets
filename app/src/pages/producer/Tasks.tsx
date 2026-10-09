@@ -6,16 +6,21 @@ import {
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
+  useQuadro,
+  useMoverTarefa,
+  ConflitoCartao,
+  type ColunaQuadro,
   type DbTask,
   type StatusTarefa,
   type PrioridadeTarefa,
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
-import { atrasada, prazoDoDia } from '../../lib/tarefas'
+import { PRODUTORA, atrasada, prazoDoDia } from '../../lib/tarefas'
 import { diaBR } from '../../lib/visaoEvento'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState, selectNativo, chipOk, chipAviso, chipErro } from '@/components/producer/ui'
+import Quadro from '@/components/producer/quadro/Quadro'
+import { PageHeader, Stat, EmptyState, selectNativo, chipAviso, chipErro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -29,13 +34,18 @@ import {
 } from '@/components/ui/alert-dialog'
 
 // Status e prioridade são os valores do CHECK de producer_tasks; o português só existe na tela.
-const STATUS: StatusTarefa[] = ['todo', 'in_progress', 'done']
 const rotuloStatus: Record<StatusTarefa, string> = { todo: 'Pendente', in_progress: 'Em andamento', done: 'Concluída' }
 const proximo: Record<StatusTarefa, StatusTarefa> = { todo: 'in_progress', in_progress: 'done', done: 'todo' }
 const rotuloPrioridade: Record<PrioridadeTarefa, string> = { low: 'Baixa', medium: 'Média', high: 'Alta' }
 // Só alta e média ganham cor; baixa fica neutra
 const corPrioridade: Record<PrioridadeTarefa, string> = { low: '', medium: chipAviso, high: chipErro }
-const corColuna: Record<StatusTarefa, string> = { todo: chipAviso, in_progress: 'border-border bg-[var(--ev-brand-soft)] text-primary', done: chipOk }
+// Colunas do quadro por status ("Todos os eventos" e banco sem o SQL do quadro); mover grava só o status
+const COLUNAS_STATUS: ColunaQuadro[] = [
+  { id: 'todo', name: 'A fazer', kind: 'todo' },
+  { id: 'in_progress', name: 'Em andamento', kind: 'doing' },
+  { id: 'done', name: 'Feito', kind: 'done' },
+]
+const COLUNA_REVISAO: ColunaQuadro = { id: 'review', name: 'Em revisão', kind: 'doing', dica: 'Disponível após a atualização do banco' }
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const emptyForm = { title: '', description: '', priority: 'medium' as PrioridadeTarefa, dueDate: '', eventId: '' }
@@ -59,11 +69,16 @@ export default function ProducerTasks() {
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
   const [filtroEvento] = useFiltroEvento()
-  const tasks = doEvento(todas, filtroEvento)
+  const soProdutora = filtroEvento === PRODUTORA
+  const tasks = soProdutora ? todas.filter(t => !t.event_id) : doEvento(todas, filtroEvento)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'quadro'>('list')
+  const moverTarefa = useMoverTarefa()
+  // Quadro com colunas do banco só quando há um evento (ou a produtora) escolhido; em "Todos" o quadro é por status
+  const quadro = useQuadro(filtroEvento && !soProdutora ? filtroEvento : null, viewMode === 'quadro' && !!filtroEvento)
+  const modoNovo = !!filtroEvento && !!quadro.data
   const [apagar, setApagar] = useState<DbTask | null>(null)
 
   const total = tasks.length
@@ -101,6 +116,17 @@ export default function ProducerTasks() {
     }
   }
 
+  const mover = async (t: DbTask, colunaId: string, posicao?: number) => {
+    try {
+      // modo novo: o status vai junto (pelo tipo da coluna, como o gatilho grava) para os contadores certos já no otimista
+      const kind = quadro.data?.colunas.find(c => c.id === colunaId)?.kind
+      const status: StatusTarefa | undefined = kind && (kind === 'doing' ? 'in_progress' : kind)
+      await moverTarefa.mutateAsync({ tarefa: t, mudanca: modoNovo ? { column_id: colunaId, position: posicao, ...(status && { status }) } : { status: colunaId as StatusTarefa } })
+    } catch (err) {
+      toast.error(err instanceof ConflitoCartao ? 'Outra pessoa mexeu neste cartão. O quadro foi atualizado.' : `Não foi possível mover a tarefa: ${causa(err)}`)
+    }
+  }
+
   const confirmarApagar = async () => {
     if (!apagar) return
     try {
@@ -123,7 +149,7 @@ export default function ProducerTasks() {
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'list' ? '' : icone} aria-label="Ver em lista" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>
               <I.Lista aria-hidden="true" />
             </Button>
-            <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'kanban' ? '' : icone} aria-label="Ver em colunas por status" aria-pressed={viewMode === 'kanban'} onClick={() => setViewMode('kanban')}>
+            <Button variant={viewMode === 'quadro' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'quadro' ? '' : icone} aria-label="Ver em quadro" aria-pressed={viewMode === 'quadro'} onClick={() => setViewMode('quadro')}>
               <I.Colunas aria-hidden="true" />
             </Button>
           </div>
@@ -199,7 +225,7 @@ export default function ProducerTasks() {
   return (
     <div>
       {header}
-      <FiltroEvento />
+      <FiltroEvento comProdutora />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total" value={total} />
@@ -217,18 +243,27 @@ export default function ProducerTasks() {
           />
         ) : viewMode === 'list' ? (
           <div className="grid gap-3">{tasks.map(cartao)}</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {STATUS.map(col => {
-              const doStatus = tasks.filter(t => t.status === col)
-              return (
-                <section key={col} aria-label={rotuloStatus[col]} className="grid content-start gap-3">
-                  <h2 className={`rounded-md border p-2 text-center text-xs font-medium ${corColuna[col]}`}>{rotuloStatus[col]} ({doStatus.length})</h2>
-                  {doStatus.map(cartao)}
-                </section>
-              )
-            })}
+        ) : quadro.isPending && viewMode === 'quadro' && !!filtroEvento ? (
+          <Skeleton className="h-64 rounded-[10px] bg-muted" />
+        ) : quadro.isError ? (
+          <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-foreground">Não foi possível carregar o quadro. {causa(quadro.error)}</p>
+            <Button variant="outline" size="sm" onClick={() => quadro.refetch()} loading={quadro.isFetching}>Tentar de novo</Button>
           </div>
+        ) : (
+          <Quadro
+            tarefas={modoNovo ? tasks.filter(t => t.board_id === quadro.data!.boardId) : tasks}
+            colunas={modoNovo ? quadro.data!.colunas : filtroEvento ? [...COLUNAS_STATUS.slice(0, 2), COLUNA_REVISAO, COLUNAS_STATUS[2]] : COLUNAS_STATUS}
+            colunaDe={modoNovo ? t => t.column_id ?? '' : t => t.status}
+            ordenavel={modoNovo}
+            onMover={mover}
+            extras={t => (
+              <>
+                <Badge variant="secondary" className={corPrioridade[t.priority]}>{rotuloPrioridade[t.priority]}</Badge>
+                {t.event_id && <span className="min-w-0 truncate">{events.find(ev => ev.id === t.event_id)?.title ?? 'Evento'}</span>}
+              </>
+            )}
+          />
         )}
       </div>
 

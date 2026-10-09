@@ -38,6 +38,18 @@ describe('CRM: editar lead', () => {
     expect(m.eq).toHaveBeenCalledWith('id', 'l1')
     expect(m.eq).toHaveBeenCalledWith('producer_id', 'u1')
   })
+
+  it('cartão: um alvo de Tab para abrir (o li, com anel de foco); Enter abre o lead', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><MemoryRouter><ProducerCRM /></MemoryRouter></QueryClientProvider>)
+    const abrir = (await screen.findByText('Lead Teste')).closest('button')!
+    const cartao = abrir.closest('li')!
+    expect(abrir).toHaveAttribute('tabindex', '-1')
+    expect(cartao).toHaveAttribute('tabindex', '0')
+    expect(cartao.className).toContain('focus-visible:ring-2')
+    fireEvent.keyDown(cartao, { key: 'Enter' })
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument()
+  })
 })
 
 describe('numeroWhatsApp', () => {

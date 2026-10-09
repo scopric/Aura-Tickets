@@ -1,10 +1,11 @@
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import { PRODUTORA } from '../../lib/tarefas'
 import { cn } from '@/lib/utils'
 import { selectNativo } from '@/components/producer/ui'
 
 // Seletor do filtro por evento das telas de lista (V4a2): mostra o evento ativo e "Todos os eventos" tira o filtro.
-export default function FiltroEvento() {
+export default function FiltroEvento({ comProdutora = false }: { comProdutora?: boolean }) {
   const [id, trocar] = useFiltroEvento()
   const { data: eventos = [], isPending } = useProducerEvents()
   return (
@@ -17,7 +18,8 @@ export default function FiltroEvento() {
         className={cn(selectNativo, 'w-auto min-w-48')}
       >
         <option value="">Todos os eventos</option>
-        {id && !eventos.some(e => e.id === id) && <option value={id}>{isPending ? 'Carregando…' : 'Evento não encontrado'}</option>}
+        {comProdutora && <option value={PRODUTORA}>Só da produtora (sem evento)</option>}
+        {id && !(comProdutora && id === PRODUTORA) && !eventos.some(e => e.id === id) && <option value={id}>{isPending ? 'Carregando…' : 'Evento não encontrado'}</option>}
         {eventos.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
       </select>
     </div>

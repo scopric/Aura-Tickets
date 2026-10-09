@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import type { KindColuna } from '../lib/tarefas'
 
 // ─── Tasks ───
-// Só as colunas reais de producer_tasks (conferido em produção em 04/10/2026); sem updated_at.
+// Só as colunas reais de producer_tasks (conferido em produção em 04/10/2026). As quatro últimas (opcionais) só existem
+// depois de docs/sql/20261103_equipe_quadro_f01.sql: antes dele a tela cai no "modo antigo" (ver useQuadro).
 export type StatusTarefa = 'todo' | 'in_progress' | 'done'
 export type PrioridadeTarefa = 'low' | 'medium' | 'high'
 export interface DbTask {
@@ -17,8 +19,12 @@ export interface DbTask {
   status: StatusTarefa
   priority: PrioridadeTarefa
   created_at: string
+  board_id?: string | null
+  column_id?: string | null
+  position?: number | null
+  updated_at?: string
 }
-type CamposTarefa = Omit<DbTask, 'id' | 'producer_id' | 'created_at'>
+type CamposTarefa = Omit<DbTask, 'id' | 'producer_id' | 'created_at' | 'board_id' | 'column_id' | 'position' | 'updated_at'>
 
 export function useProducerTasks() {
   const { user } = useAuth()
@@ -67,7 +73,8 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<CamposTarefa>) => {
+    // event_id fora: o UPDATE de producer_tasks não tem permissão nessa coluna (SQL 20261103); a tarefa muda de evento pelo quadro
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<Omit<CamposTarefa, 'event_id'>>) => {
       const { data, error } = await supabase
         .from('producer_tasks')
         .update(updates)
@@ -105,6 +112,75 @@ export function useDeleteTask() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-tasks', user?.id] })
     },
+  })
+}
+
+export interface ColunaQuadro {
+  id: string
+  name: string
+  kind: KindColuna
+  /** Coluna que ainda não existe (modo por status): aparece, mas não recebe cartão */
+  dica?: string
+}
+
+// Erros do PostgREST quando o SQL 20261103 ainda não foi aplicado (conferidos em PostgREST v16.3: função inexistente
+// = PGRST202, tabela inexistente = PGRST205)
+const SEM_SQL_DO_QUADRO = ['PGRST202', 'PGRST205', '42883', '42P01']
+
+/**
+ * Quadro do evento (ou da produtora, eventoId nulo). Devolve null no "modo antigo" (banco sem o SQL do quadro: a tela
+ * usa colunas fixas por status). Com o SQL aplicado a mesma tela passa ao modo novo sem novo deploy.
+ */
+export function useQuadro(eventoId: string | null, ativo: boolean) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['quadro', user?.id, eventoId],
+    enabled: !!user?.id && ativo,
+    queryFn: async (): Promise<{ boardId: string; colunas: ColunaQuadro[] } | null> => {
+      const garantir = await supabase.rpc('quadro_garantir' as never, { p_produtor: user!.id, p_evento: eventoId } as never) // ponytail: `as never`, tipos do banco desatualizados (como nas outras telas)
+      if (garantir.error) {
+        if (SEM_SQL_DO_QUADRO.includes(garantir.error.code)) return null
+        throw garantir.error
+      }
+      const boardId = garantir.data as unknown as string
+      const { data, error } = await supabase.from('task_columns').select('id, name, kind').eq('board_id', boardId).order('position')
+      if (error) throw error
+      return { boardId, colunas: data ?? [] }
+    },
+  })
+}
+
+export class ConflitoCartao extends Error {}
+
+/** Move um cartão (coluna e posição no modo novo; só o status no modo antigo). Otimista, com volta se o banco recusar */
+export function useMoverTarefa() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const chave = ['producer-tasks', user?.id]
+
+  return useMutation({
+    // um movimento por vez: o seguinte usa o updated_at que o anterior gravou (senão dois movimentos seguidos dariam conflito falso)
+    scope: { id: 'mover-tarefa' },
+    mutationFn: async ({ tarefa, mudanca }: { tarefa: DbTask; mudanca: Partial<Pick<DbTask, 'column_id' | 'position' | 'status'>> }) => {
+      const lido = queryClient.getQueryData<DbTask[]>(chave)?.find(t => t.id === tarefa.id)?.updated_at ?? tarefa.updated_at
+      let q = supabase.from('producer_tasks').update(mudanca as never).eq('id', tarefa.id).eq('producer_id', tarefa.producer_id)
+      // duas pessoas no mesmo cartão: só grava se ninguém mexeu desde que a tela leu (0 linhas = alguém mexeu)
+      if (lido) q = q.eq('updated_at', lido)
+      const { data, error } = await q.select('*') // '*' e não 'id, updated_at': no modo antigo a coluna ainda não existe
+      if (error) throw error
+      if (!data?.length) throw new ConflitoCartao('Outra pessoa mexeu neste cartão')
+      const gravado = (data[0] as { updated_at?: string }).updated_at
+      if (gravado) queryClient.setQueryData<DbTask[]>(chave, old => old?.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)))
+    },
+    onMutate: async ({ tarefa, mudanca }) => {
+      await queryClient.cancelQueries({ queryKey: chave })
+      const antes = queryClient.getQueryData<DbTask[]>(chave)
+      queryClient.setQueryData<DbTask[]>(chave, old => old?.map(t => (t.id === tarefa.id ? { ...t, ...mudanca } : t)))
+      return { antes }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.antes) queryClient.setQueryData(chave, ctx.antes) },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: chave }),
   })
 }
 
