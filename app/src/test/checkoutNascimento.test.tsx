@@ -21,7 +21,8 @@ vi.mock('../hooks/useEvents', () => ({
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      // .eq(...).eq(...).maybeSingle(): o Checkout encadeia 2 filtros ao carregar o mapa de lugares
+      select: () => { const cadeia: any = { eq: () => cadeia, maybeSingle: async () => ({ data: null, error: null }) }; return cadeia },
       update: (v: unknown) => ({ eq: () => ({ select: async () => { h.update(v); return { data: [{ id: 'u1' }], error: null } } }) }),
     }),
   },
