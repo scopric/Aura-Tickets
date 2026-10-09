@@ -4,7 +4,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mesa de produção, v8: Evo e automações</title>
+<title>Mesa de produção, v9: botões, modelos, dependências e repetição</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="leaflet/leaflet.min.css"><script src="leaflet/leaflet.min.js"></script>
@@ -268,6 +268,11 @@ input[type=range]{accent-color:var(--violet);width:100%}
 .rec .pin{width:64px;border:1px solid var(--line2);background:var(--input);border-radius:7px;padding:2px 6px;font:inherit;color:var(--ink)}
 .rec .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font:500 11px var(--mono)}.rec .meta .btn{margin-left:auto;min-height:28px;padding:0 10px}.rec .dep{border:1px solid var(--line2);border-radius:99px;padding:1px 8px}
 .regras-det{margin-top:10px;border-top:1px dashed var(--line2);padding-top:8px}.regras-det summary{cursor:pointer;font:500 12.5px var(--sans);color:var(--ink2);margin-bottom:8px}.regras-det[open]>*:not(summary){margin-bottom:8px}
+.cartao.bloqueado .bilhete{opacity:.72}.bq{display:inline-flex;align-items:center;gap:3px;color:var(--bad);font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.plan{display:flex;flex-direction:column;gap:12px}.plan .linha{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.plan .lb .x{border:0;background:transparent;color:#fff;padding:0 0 0 4px}.plan select{max-width:340px}
+.chk{display:flex;gap:9px;align-items:flex-start;font-size:13px;cursor:pointer}.chk input{accent-color:var(--violet);margin-top:3px}
+#evo textarea#evi{flex:1;border:1px solid var(--line);background:var(--input);border-radius:10px;padding:8px 12px;outline:0;min-height:44px;max-height:120px;resize:vertical;font:inherit;color:var(--ink)}#evo textarea#evi:focus{border-color:var(--brand)}
+#evo .sug .cola{border-color:var(--violet);color:var(--brand)}
 </style>
 </head>
 <body>
@@ -293,6 +298,6 @@ input[type=range]{accent-color:var(--violet);width:100%}
 <div id="evoVeu"></div><button class="evo-fab dica" id="evoFab" aria-label="Falar com o Evo"><span class="lab">Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.</span><span class="evo-corpo"><img src="/evo/evo-corpo-acenando.webp" alt="" width="60" height="108"><i></i></span></button>
 <section class="evo" id="evo" aria-label="Evo, assistente"></section>
 <div class="live" id="live" aria-live="polite"></div>
-<script src="app.js"></script><script src="receitas.js"></script>
+<script src="app.js"></script><script src="receitas.js"></script><script src="v9.js"></script>
 </body>
 </html>
