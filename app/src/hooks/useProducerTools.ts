@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { KindColuna } from '../lib/tarefas'
+import type { LocalCartao } from './useCartao'
 
 // ─── Tasks ───
 // Só as colunas reais de producer_tasks (conferido em produção em 04/10/2026). As quatro últimas (opcionais) só existem
@@ -23,6 +24,14 @@ export interface DbTask {
   column_id?: string | null
   position?: number | null
   updated_at?: string
+  // Fatia 2A (docs/sql/20261105_quadro_f2a_cartao.sql): só existem depois dele
+  cover?: string | null
+  location?: LocalCartao | null
+  start_date?: string | null
+  fields?: Record<string, unknown>
+  archived_at?: string | null
+  recur_days?: number | null
+  recur_next?: string | null
 }
 type CamposTarefa = Omit<DbTask, 'id' | 'producer_id' | 'created_at' | 'board_id' | 'column_id' | 'position' | 'updated_at'>
 
@@ -125,7 +134,7 @@ export interface ColunaQuadro {
 
 // Erros do PostgREST quando o SQL 20261103 ainda não foi aplicado (conferidos em PostgREST v16.3: função inexistente
 // = PGRST202, tabela inexistente = PGRST205)
-const SEM_SQL_DO_QUADRO = ['PGRST202', 'PGRST205', '42883', '42P01']
+export const SEM_SQL_DO_QUADRO = ['PGRST202', 'PGRST205', '42883', '42P01']
 
 /**
  * Quadro do evento (ou da produtora, eventoId nulo). Devolve null no "modo antigo" (banco sem o SQL do quadro: a tela

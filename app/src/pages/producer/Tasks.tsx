@@ -16,10 +16,13 @@ import {
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
-import { PRODUTORA, atrasada, prazoDoDia } from '../../lib/tarefas'
+import { RESUMO_VAZIO, useResumoCartoes } from '../../hooks/useCartao'
+import { PRODUTORA, atrasada, posicaoNaColuna, prazoDoDia } from '../../lib/tarefas'
 import { diaBR } from '../../lib/visaoEvento'
 import FiltroEvento from '@/components/producer/FiltroEvento'
+import CartaoVerso from '@/components/producer/quadro/CartaoVerso'
 import Quadro from '@/components/producer/quadro/Quadro'
+import { useEquipeCartao } from '@/components/producer/quadro/useEquipe'
 import { PageHeader, Stat, EmptyState, selectNativo, chipAviso, chipErro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -70,7 +73,8 @@ export default function ProducerTasks() {
   const deleteTask = useDeleteTask()
   const [filtroEvento] = useFiltroEvento()
   const soProdutora = filtroEvento === PRODUTORA
-  const tasks = soProdutora ? todas.filter(t => !t.event_id) : doEvento(todas, filtroEvento)
+  // arquivado sai da lista, do quadro e dos contadores (a tela de restaurar fica para depois)
+  const tasks = (soProdutora ? todas.filter(t => !t.event_id) : doEvento(todas, filtroEvento)).filter(t => !t.archived_at)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -80,6 +84,12 @@ export default function ProducerTasks() {
   const quadro = useQuadro(filtroEvento && !soProdutora ? filtroEvento : null, viewMode === 'quadro' && !!filtroEvento)
   const modoNovo = !!filtroEvento && !!quadro.data
   const [apagar, setApagar] = useState<DbTask | null>(null)
+  const [versoId, setVersoId] = useState<string | null>(null)
+  // Cartões do quadro novo (sem os arquivados); o resumo é uma consulta por tabela para o quadro todo
+  const tarefasQuadro = modoNovo ? tasks.filter(t => t.board_id === quadro.data!.boardId && !t.archived_at) : tasks
+  const quadroVisivel = modoNovo && viewMode === 'quadro'
+  const resumo = useResumoCartoes(quadroVisivel ? quadro.data!.boardId : null, tarefasQuadro.map(t => t.id))
+  const pessoas = useEquipeCartao(quadroVisivel)
 
   const total = tasks.length
   const done = tasks.filter(t => t.status === 'done').length
@@ -125,6 +135,12 @@ export default function ProducerTasks() {
     } catch (err) {
       toast.error(err instanceof ConflitoCartao ? 'Outra pessoa mexeu neste cartão. O quadro foi atualizado.' : `Não foi possível mover a tarefa: ${causa(err)}`)
     }
+  }
+
+  // Mover pelo verso: vai para o fim da coluna, como soltar o cartão nela
+  const moverParaFim = (t: DbTask, colunaId: string) => {
+    const fim = tarefasQuadro.filter(x => x.column_id === colunaId).map(x => x.position ?? 0).sort((a, b) => a - b)
+    mover(t, colunaId, posicaoNaColuna(fim, fim.length))
   }
 
   const confirmarApagar = async () => {
@@ -252,11 +268,16 @@ export default function ProducerTasks() {
           </div>
         ) : (
           <Quadro
-            tarefas={modoNovo ? tasks.filter(t => t.board_id === quadro.data!.boardId) : tasks}
+            tarefas={tarefasQuadro}
             colunas={modoNovo ? quadro.data!.colunas : filtroEvento ? [...COLUNAS_STATUS.slice(0, 2), COLUNA_REVISAO, COLUNAS_STATUS[2]] : COLUNAS_STATUS}
             colunaDe={modoNovo ? t => t.column_id ?? '' : t => t.status}
             ordenavel={modoNovo}
             onMover={mover}
+            nomeDe={modoNovo ? t => pessoas.find(p => p.id === t.assigned_to)?.nome : undefined}
+            resumo={modoNovo ? resumo.data : undefined}
+            nomePessoa={id => pessoas.find(p => p.id === id)?.nome ?? 'Sem nome'}
+            onAbrir={modoNovo ? t => setVersoId(t.id) : undefined}
+            furos={modoNovo ? t => { const r = resumo.data?.get(t.id); return r?.checkTotal ? [r.checkFeitos, r.checkTotal] : undefined } : undefined}
             extras={t => (
               <>
                 <Badge variant="secondary" className={corPrioridade[t.priority]}>{rotuloPrioridade[t.priority]}</Badge>
@@ -265,7 +286,13 @@ export default function ProducerTasks() {
             )}
           />
         )}
+        {quadroVisivel && resumo.isError && <p role="status" className="mt-2 text-xs text-muted-foreground">Não foi possível carregar etiquetas e contadores dos cartões.</p>}
       </div>
+
+      {modoNovo && (
+        <CartaoVerso tarefaId={versoId} tarefas={tarefasQuadro} boardId={quadro.data!.boardId} colunas={quadro.data!.colunas} pessoas={pessoas}
+          resumo={versoId && resumo.data ? resumo.data.get(versoId) ?? RESUMO_VAZIO : undefined} onFechar={() => setVersoId(null)} onMover={moverParaFim} />
+      )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

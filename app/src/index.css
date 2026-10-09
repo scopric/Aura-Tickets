@@ -1386,3 +1386,51 @@ body.cor-produtor .vidro :is([aria-current="page"], [data-state="active"]) { col
   .cert-print .cert-folha { width: 297mm; height: 210mm; overflow: hidden; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .cert-print .cert-folha:last-child { break-after: auto; page-break-after: auto; }
 }
+
+/* Quadro de tarefas: cartão-ingresso (modelo v3 aprovado em 09/10/2026). Cores só dos tokens do painel; âmbar, vermelho e
+   verde do canhoto são fixos nos dois temas. Recortes por máscara e sombra por drop-shadow (box-shadow some com a máscara). */
+.ev-ingresso {
+  --stub: 92px; --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%;
+  position: relative; cursor: grab; touch-action: pan-y;
+  filter: drop-shadow(0 6px 8px rgb(12 35 64 / 0.16));
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform .4s cubic-bezier(.2, 1.15, .3, 1), filter .3s;
+}
+.dark .ev-ingresso { filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.55)); }
+.ev-ingresso:hover { transform: perspective(700px) translateY(-3px) rotateX(var(--rx)) rotateY(var(--ry)); filter: drop-shadow(0 12px 14px rgb(143 51 245 / 0.28)); }
+.ev-ingresso[data-pegado="true"] { z-index: 50; cursor: grabbing; filter: drop-shadow(0 28px 24px rgb(0 0 0 / 0.4)); }
+.ev-bilhete {
+  display: grid; grid-template-columns: 1fr var(--stub); overflow: hidden; border-radius: 14px;
+  background: hsl(var(--card)); color: hsl(var(--card-foreground));
+  -webkit-mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 96%, #000), radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 96%, #000), radial-gradient(circle 9px at 0 50%, #0000 96%, #000), radial-gradient(circle 9px at 100% 50%, #0000 96%, #000);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 96%, #000), radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 96%, #000), radial-gradient(circle 9px at 0 50%, #0000 96%, #000), radial-gradient(circle 9px at 100% 50%, #0000 96%, #000);
+  mask-composite: intersect;
+}
+.ev-furos { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ev-furos i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid hsl(var(--muted-foreground) / 0.6); }
+.ev-furos i.p { background: hsl(var(--primary)); border-color: hsl(var(--primary)); box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.3); }
+.ev-canhoto {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 14px 8px 12px; background: var(--ev-brand-soft); color: hsl(var(--primary-text));
+}
+.ev-canhoto::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; border-left: 2px dashed currentColor; opacity: .4; }
+.ev-canhoto::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(120px 120px at var(--mx) var(--my), rgb(255 255 255 / 0.45), transparent 70%);
+}
+.ev-ingresso[data-brilho="true"]:hover .ev-canhoto::after { opacity: 1; }
+.ev-canhoto[data-estado="logo"] { background: linear-gradient(165deg, #e8a100, #ffc83d); color: #2b1c00; }
+.ev-canhoto[data-estado="vence"] { background: linear-gradient(165deg, #a82821, #c8322b); color: #fff; }
+.ev-canhoto[data-estado="feito"] { background: linear-gradient(165deg, #115c38, #17784a); color: #fff; }
+/* Pílula do prazo: no estado normal o véu preto de 16% derrubava o violeta (#7f25e0) a 3,85:1 no claro; sem véu e com contorno dá 5,55:1 (claro) e 5,79:1 (escuro). Nos outros estados o véu fica (mínimo 5,36:1, calculado). */
+.ev-canhoto[data-estado="normal"] .ev-data small { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+.ev-data { text-align: center; line-height: 1; }
+.ev-data b { display: block; font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
+.ev-data span { display: block; margin-top: 5px; font: 600 10px ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.ev-data small { display: block; margin-top: 7px; padding: 2px 7px; border-radius: 99px; background: rgb(0 0 0 / 0.16); font: 600 10px ui-monospace, Menlo, monospace; letter-spacing: 0; white-space: nowrap; text-transform: uppercase; }
+.ev-cod { width: 100%; height: 20px; margin: 6px 0; opacity: .6; background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 4px, currentColor 4px 5px, transparent 5px 8px, currentColor 8px 11px, transparent 11px 12px); }
+.ev-canhoto[data-estado="feito"] .ev-cod { opacity: .25; }
+.ev-av { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; font-weight: 700; color: #fff; background: hsl(var(--primary)); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.55); }
+.ev-valido { position: absolute; left: 50%; top: 62%; transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none; white-space: nowrap; opacity: .9; border: 2px solid currentColor; border-radius: 6px; padding: 3px 6px; font: 700 9px ui-monospace, Menlo, monospace; letter-spacing: .2em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) { .ev-ingresso, .ev-canhoto::after { transition-duration: .01ms; } .ev-ingresso:hover { transform: none; } }
