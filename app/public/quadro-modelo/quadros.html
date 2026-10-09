@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR" data-skin="claro">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meus quadros: protótipo da equipe (dados fictícios)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--sans:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;--ease:cubic-bezier(.2,.7,.2,1);--violet:#8f33f5;--navy:#0c2340}
+[data-skin=claro]{--bg:#f3f5fa;--ink:#0c2340;--ink2:#2d4160;--muted:#56657f;--line:rgba(12,35,64,.12);--line2:rgba(12,35,64,.22);--tk:#fff;--tk2:#f7f8fc;--input:rgba(12,35,64,.05);--brand:#7f25e0;--ok:#1f7a5a;--bad:#b3392f;--btn:#0c2340;--btn-ink:#fff;--veu:rgba(12,35,64,.45);--sh:0 1px 2px rgba(12,35,64,.08),0 6px 14px rgba(12,35,64,.07)}
+[data-skin=escuro]{--bg:#071225;--ink:#eaf0fb;--ink2:#c3cfe6;--muted:#9aabc8;--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.2);--tk:#0e1e3a;--tk2:#12264a;--input:rgba(255,255,255,.06);--brand:#b690f5;--ok:#58c19b;--bad:#ee8a83;--btn:#eaf0fb;--btn-ink:#0c2340;--veu:rgba(2,6,14,.7);--sh:0 1px 2px rgba(0,0,0,.5),0 6px 14px rgba(0,0,0,.4)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;color:var(--ink);background:var(--bg);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+body.trava{overflow:hidden}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:8px}
+svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.topo,main{max-width:1240px;margin:auto;padding-inline:24px}
+.topo{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-top:20px}
+.topo a{color:var(--brand);font-weight:500}
+.topo .lado{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+h1{margin:18px 0 2px;font:600 clamp(26px,3vw,34px)/1.1 var(--sans);letter-spacing:-.035em}
+.sub{margin:0 0 16px;color:var(--muted)}
+.aviso-proto{font-size:12.5px;color:var(--muted)}
+.seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--input);border:1px solid var(--line);flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:7px;min-height:34px;font-weight:500;font-size:13px;color:var(--muted)}
+.seg button[aria-checked=true],.seg button[aria-pressed=true]{background:var(--tk);color:var(--ink);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.1)}
+.btn{border:1px solid var(--line2);background:transparent;color:var(--ink);border-radius:9px;padding:6px 14px;min-height:36px;font-weight:500;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;transition:.18s var(--ease)}
+.btn:hover:not(:disabled){border-color:var(--ink2)}.btn.p{background:var(--violet);color:#fff;border-color:transparent}.btn.p:hover:not(:disabled){opacity:.9}
+.btn.n{background:var(--btn);color:var(--btn-ink);border-color:transparent}
+.barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.busca{position:relative;flex:1 1 240px;max-width:380px}.busca svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.campo{width:100%;min-height:38px;border:1px solid var(--line2);background:var(--tk);border-radius:9px;padding:6px 12px;color:var(--ink)}
+.busca .campo{padding-left:34px}
+select.campo{width:auto}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:8px 0 14px}
+.abas button{border:0;background:transparent;padding:8px 14px;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:40px}
+.abas button[aria-selected=true]{color:var(--ink);border-color:var(--violet)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chip{border:1px solid var(--line2);background:transparent;color:var(--ink2);border-radius:99px;padding:4px 13px;min-height:32px;font-weight:500;font-size:13px}
+.chip[aria-pressed=true]{background:color-mix(in srgb,var(--violet) 14%,var(--tk));border-color:color-mix(in srgb,var(--violet) 45%,transparent);color:var(--ink)}
+.secao{margin-top:26px}.secao h2{margin:0 0 12px;font:600 15px var(--sans);display:flex;gap:8px;align-items:center}
+.secao h2 span{font-weight:500;color:var(--muted);font-size:13px}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px 16px}
+.vazio{border:1px dashed var(--line2);border-radius:14px;padding:22px;text-align:center;color:var(--muted)}.vazio p{margin:0 0 10px}
+/* cartao de pasta */
+.pasta{position:relative;margin-top:14px;background:var(--tk);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:16px 14px 12px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:9px;transition:transform .2s var(--ease),border-color .2s}
+.pasta::before{content:"";position:absolute;left:-1px;top:-13px;width:84px;height:14px;background:var(--cor);border-radius:8px 8px 0 0}
+.pasta:hover,.pasta:focus-within{transform:translateY(-2px);border-color:var(--line2)}
+.pasta.novo{animation:destaque 1.8s var(--ease)}@keyframes destaque{0%,60%{box-shadow:0 0 0 3px var(--violet),var(--sh)}}
+.pasta.arq{opacity:.8}
+.pasta h3{margin:0;font:600 15px/1.3 var(--sans);letter-spacing:-.01em;padding-right:36px;overflow-wrap:anywhere}
+.pasta h3 a{color:inherit;text-decoration:none}.pasta h3 a::after{content:"";position:absolute;inset:-13px 0 0 0}
+.pasta .tit{display:flex;gap:9px;align-items:flex-start}.pasta .tit svg{color:var(--cor);margin-top:2px;width:20px;height:20px;stroke:var(--cor)}
+.linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.selo{border:1px solid var(--line2);border-radius:99px;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--ink2)}
+.vis{display:inline-flex;align-items:center;gap:4px}
+.pilha{display:flex}.pilha .av+.av{margin-left:-7px}
+.av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 10.5px var(--sans);color:#fff;box-shadow:0 0 0 2px var(--tk);flex:none}.av.mais{background:var(--tk2);color:var(--ink2);box-shadow:0 0 0 2px var(--tk),inset 0 0 0 1px var(--line2)}
+.prog{height:4px;border-radius:9px;background:var(--line);overflow:hidden}.prog i{display:block;height:100%;width:var(--w);background:var(--ok)}
+.atr{color:var(--bad);font-weight:600}
+.tres{position:absolute;top:12px;right:8px;z-index:2;width:36px;height:36px;border:0;background:transparent;border-radius:8px;color:var(--ink2);display:grid;place-items:center}.tres:hover{background:var(--input)}
+/* menu */
+.menu{position:fixed;z-index:300;min-width:200px;background:var(--tk);border:1px solid var(--line2);border-radius:10px;box-shadow:0 14px 34px -10px rgba(0,0,0,.45);padding:5px}
+.menu a,.menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--ink);padding:8px 12px;min-height:36px;border-radius:7px;text-decoration:none;font-size:13.5px}
+.menu a:hover,.menu button:hover:not(:disabled),.menu :focus-visible{background:var(--input)}
+/* modal */
+.veu{position:fixed;inset:0;z-index:200;background:var(--veu);display:grid;place-items:center;padding:16px}
+.caixa{background:var(--tk);border:1px solid var(--line2);border-radius:16px;width:min(1040px,100%);height:min(720px,94vh);display:flex;flex-direction:column;box-shadow:0 30px 70px -20px rgba(0,0,0,.6);animation:entra .2s var(--ease)}
+.caixa.peq{width:min(520px,100%);height:auto;max-height:94vh}
+@keyframes entra{from{opacity:0;transform:translateY(8px)}}
+.caixa>header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.caixa h2{margin:0;font:600 18px var(--sans);letter-spacing:-.02em}.caixa header small{color:var(--muted);font-size:12.5px}
+.fechar{margin-left:auto;width:40px;height:40px;border:0;background:transparent;border-radius:8px;display:grid;place-items:center;color:var(--ink2)}.fechar:hover{background:var(--input)}
+.caixa>footer{display:flex;gap:10px;justify-content:flex-end;align-items:center;padding:12px 20px;border-top:1px solid var(--line)}
+.caixa>footer .esq{margin-right:auto;color:var(--muted);font-size:12.5px}
+.corpo{flex:1;min-height:0;display:grid;grid-template-columns:210px 1fr}
+.cats{padding:14px 10px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;overflow:auto}
+.cats button{display:flex;justify-content:space-between;gap:8px;border:0;background:transparent;border-radius:8px;padding:8px 12px;min-height:38px;text-align:left;color:var(--ink2);font-weight:500}
+.cats button[aria-pressed=true]{background:var(--input);color:var(--ink)}.cats span{color:var(--muted)}
+.dir{display:flex;flex-direction:column;min-width:0;min-height:0}
+.dir .topo2{padding:14px 18px 6px}
+.rola{flex:1;overflow:auto;padding:8px 18px 14px}
+.zero{width:100%;display:flex;gap:16px;align-items:center;text-align:left;border:1px solid var(--line2);background:var(--tk2);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.zero strong{display:block}.zero span{color:var(--muted);font-size:12.5px}
+.modelos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.mod{text-align:left;border:1px solid var(--line2);background:var(--tk);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:7px;transition:.18s var(--ease)}
+.mod:hover{border-color:var(--ink2)}
+.mod[aria-pressed=true],.zero[aria-pressed=true]{border-color:var(--violet);box-shadow:0 0 0 2px color-mix(in srgb,var(--violet) 35%,transparent)}
+.mod strong{font-size:14px}.mod .d{color:var(--muted);font-size:12.5px;line-height:1.4}.mod .n{font-size:12px;color:var(--ink2);font-weight:600}
+.mini{display:flex;gap:4px}.mini i{flex:1;min-width:0;font-style:normal;font-size:10px;line-height:1.2;padding:5px 4px;border-radius:5px;background:color-mix(in srgb,var(--c) 20%,var(--tk));border-top:3px solid var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.previa{border-top:1px solid var(--line);padding:10px 18px;max-height:200px;overflow:auto;background:var(--tk2);font-size:12.5px;border-radius:0 0 0 0}
+.previa h3{margin:0 0 6px;font:600 13px var(--sans)}.previa ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2px 16px}
+.previa li{color:var(--ink2)}.previa .cols{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.previa .cols span{border:1px solid var(--line2);border-radius:99px;padding:0 9px}
+/* passo 2 */
+.form{flex:1;overflow:auto;padding:18px 24px;display:flex;flex-direction:column;gap:16px;max-width:720px;width:100%;margin:auto}
+.f label,.f .rot{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+.f small{display:block;color:var(--muted);margin-top:5px;font-size:12.5px}
+.erro{color:var(--bad);font-size:12.5px;font-weight:500;margin-top:5px;min-height:0}
+.campo[aria-invalid=true]{border-color:var(--bad)}
+.pessoas{border:1px solid var(--line);border-radius:12px;max-height:240px;overflow:auto}
+.pes{display:flex;align-items:center;gap:10px;padding:6px 12px;min-height:48px;border-bottom:1px solid var(--line)}.pes:last-child{border:0}
+.pes input[type=checkbox]{width:20px;height:20px;accent-color:var(--violet);flex:none}
+.pes .nm{flex:1;min-width:0}.pes .nm b{display:block;font-weight:600}.pes .nm span{color:var(--muted);font-size:12.5px}
+.pes .campo{min-height:36px;padding:2px 8px}
+.resumo{background:var(--tk2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--ink2)}
+.aviso{background:color-mix(in srgb,var(--violet) 9%,var(--tk));border:1px solid color-mix(in srgb,var(--violet) 28%,transparent);border-radius:10px;padding:9px 12px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:400;background:var(--btn);color:var(--btn-ink);padding:10px 16px;border-radius:10px;display:flex;gap:14px;align-items:center;font-weight:500;max-width:min(560px,92vw);box-shadow:0 14px 30px -12px rgba(0,0,0,.5);animation:entra .2s var(--ease)}
+.toast a{color:inherit;font-weight:700;min-height:24px}
+@media (max-width:720px){
+ .topo,main{padding-inline:14px}
+ .veu{padding:0}.caixa,.caixa.peq{width:100%;height:100%;max-height:none;border-radius:0;border:0}.caixa.peq{height:auto;margin-top:auto;border-radius:16px 16px 0 0}
+ .corpo{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+ .cats{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px}.cats button{flex:none;border:1px solid var(--line2);border-radius:99px;gap:6px}
+ .modelos,.grade{grid-template-columns:1fr}.previa ul{grid-template-columns:1fr}.previa{max-height:150px}
+ .btn,.chip,.seg button,.abas button,.menu a,.menu button,.campo,.cats button,.tres,.mod,.zero{min-height:44px}.tres{width:44px;height:44px;top:8px;right:4px}
+ .pes{min-height:56px;flex-wrap:wrap}
+ .caixa>footer{padding:10px 14px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topo">
+  <a href="./index.html">Modelo do kanban (v9)</a>
+  <span class="aviso-proto">Protótipo com dados fictícios: nada é salvo nem enviado.</span>
+  <div class="lado">
+    <a href="./index.html">Abrir kanban de exemplo</a>
+    <div class="seg" id="tema" aria-label="Tema"></div>
+  </div>
+</header>
+<main>
+  <h1>Meus quadros</h1>
+  <p class="sub">Seus quadros de trabalho, organizados como pastas de projeto.</p>
+  <div class="barra">
+    <div class="busca"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" class="campo" type="search" placeholder="Buscar quadro" aria-label="Buscar quadro" maxlength="60"></div>
+    <select id="ordem" class="campo" aria-label="Ordenar por"><option value="recentes">Mais recentes</option><option value="az">A–Z</option><option value="prazo">Por prazo</option></select>
+    <button class="btn p" id="criar" type="button" style="margin-left:auto">Criar quadro</button>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+  <div class="abas" id="abas" role="tablist" aria-label="Situação dos quadros"></div>
+  <div id="secoes" role="tabpanel"></div>
+</main>
+
+<div class="veu" id="dlgCriar" hidden>
+  <div class="caixa" role="dialog" aria-modal="true" aria-labelledby="criarT">
+    <header><div><h2 id="criarT">Criar quadro</h2><small id="passoTxt"></small></div><button class="fechar" type="button" data-fechar aria-label="Fechar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+    <div class="corpo" id="passo1">
+      <nav class="cats" id="cats" aria-label="Categorias de modelo"></nav>
+      <div class="dir">
+        <div class="topo2"><div class="busca" style="max-width:none"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaMod" class="campo" type="search" placeholder="Buscar modelo" aria-label="Buscar modelo" maxlength="60"></div></div>
+        <div class="rola"><div id="zeroBox"></div><div class="modelos" id="modelos"></div><p id="semMod" class="vazio" hidden>Nenhum modelo encontrado.</p></div>
+        <div class="previa" id="previa" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="form f" id="passo2" hidden>
+      <div class="f"><label for="nome">Nome do quadro</label><input id="nome" class="campo" maxlength="60" autocomplete="off" aria-describedby="nomeErro"><div class="erro" id="nomeErro" role="alert"></div></div>
+      <div class="f"><span class="rot" id="tipoRot">Tipo</span><div class="seg" id="tipoSeg" aria-labelledby="tipoRot"></div></div>
+      <div class="f" id="evBox"><label for="evento">Evento</label><select id="evento" class="campo" style="width:100%"></select><div class="aviso" style="margin-top:8px">Os prazos dos cartões iniciais usam a data do evento (D-n significa n dias antes dela).</div><div class="erro" id="evErro" role="alert"></div></div>
+      <div class="f"><span class="rot" id="visRot">Quem pode ver</span><div class="seg" id="visSeg" aria-labelledby="visRot"></div><small id="visDica"></small></div>
+      <div class="f" id="pesBox"><span class="rot">Pessoas escolhidas</span><div class="pessoas" id="pessoas" role="group" aria-label="Pessoas da equipe"></div><div class="erro" id="pesErro" role="alert"></div></div>
+      <div class="resumo" id="resumo" aria-live="polite"></div>
+    </div>
+    <footer><span class="esq" id="rodaEsq"></span><button class="btn" type="button" id="voltar" hidden>Voltar</button><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn p" type="button" id="avancar">Continuar</button></footer>
+  </div>
+</div>
+
+<div class="veu" id="dlgMembros" hidden>
+  <div class="caixa peq" role="dialog" aria-modal="true" aria-labelledby="memT">
+    <header><div><h2 id="memT">Membros do quadro</h2><small id="memSub"></small></div><button class="fechar" type="button" data-fechar aria-label="Fechar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+    <div class="form f" style="margin:0;max-width:none">
+      <div class="aviso" id="memAviso" hidden></div>
+      <div class="f"><span class="rot" id="mvisRot">Quem pode ver</span><div class="seg" id="mvisSeg" aria-labelledby="mvisRot"></div></div>
+      <div class="f"><span class="rot">Pessoas</span><div class="pessoas" id="memLista"></div></div>
+      <div class="f" id="memAdd" style="display:flex;gap:8px"><select id="memSel" class="campo" style="flex:1" aria-label="Pessoa a adicionar"></select><button class="btn" type="button" id="memBtn">Adicionar</button></div>
+    </div>
+    <footer><button class="btn n" type="button" data-fechar>Fechar</button></footer>
+  </div>
+</div>
+
+<div class="veu" id="dlgNome" hidden>
+  <div class="caixa peq" role="dialog" aria-modal="true" aria-labelledby="nomeT">
+    <header><h2 id="nomeT"></h2><button class="fechar" type="button" data-fechar aria-label="Fechar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+    <div class="form f" style="margin:0;max-width:none"><div class="f"><label for="nome2" id="nome2Rot">Nome</label><input id="nome2" class="campo" maxlength="60" autocomplete="off" aria-describedby="nome2Erro"><div class="erro" id="nome2Erro" role="alert"></div></div></div>
+    <footer><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn p" type="button" id="nomeOk">Confirmar</button></footer>
+  </div>
+</div>
+
+<div class="menu" id="menu" role="menu" hidden></div>
+<div id="avisos" role="status" aria-live="polite"></div>
+<script src="quadros.js"></script>
+</body>
+</html>
