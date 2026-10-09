@@ -61,7 +61,7 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
            where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'task\_%' and not c.relrowsecurity), 0::bigint,
   'toda tabela task_* tem RLS ligada');
 select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE'
-           and tablename like 'task\_%'), 17::bigint, 'gf_mfa_aal2 RESTRICTIVE nas 17 tabelas task_* (15 + prefs e avisos de prazo da 2B)');
+           and tablename like 'task\_%'), 20::bigint, 'gf_mfa_aal2 RESTRICTIVE nas 20 tabelas task_* (15 + prefs e avisos de prazo da 2B + papéis, botões e modelos da 2C)');
 select is((select count(*) from information_schema.role_table_grants where grantee in ('anon', 'public') and table_schema = 'public'
            and table_name like 'task\_%'), 0::bigint, 'anon sem privilégio em tabela task_*');
 select is((select count(*) from information_schema.columns where table_schema = 'public'
