@@ -34,11 +34,13 @@ serve(async (req) => {
     const issuedId = corpo?.issuedId;
     if (!uuidValido(issuedId)) return json({ error: "Certificado inválido." }, 400);
 
-    const { data: emitido } = await admin.from("issued_certificates").select("id, code, user_id, certificate_id").eq("id", issuedId).maybeSingle();
+    const { data: emitido } = await admin.from("issued_certificates").select("id, code, user_id, certificate_id, revoked_at").eq("id", issuedId).maybeSingle();
     const { data: modelo } = emitido ? await admin.from("certificates").select("event_id, template").eq("id", emitido.certificate_id).maybeSingle() : { data: null };
     const { data: ev } = modelo ? await admin.from("events").select("title, start_date, producer_id, approval_status").eq("id", modelo.event_id).maybeSingle() : { data: null };
     // Mesma resposta para "não existe" e "não é do seu evento"
     if (!emitido || !modelo || !ev || ev.producer_id !== u.user.id) return json({ error: "Você não tem acesso a este certificado." }, 403);
+    // Revogado não se envia: o link só mostraria "revogado"
+    if (emitido.revoked_at) return json({ error: "Este certificado foi revogado e não pode ser enviado." }, 409);
     // A página só valida certificado de evento aprovado: sem isso o participante receberia um link que diz "não encontramos"
     if (ev.approval_status !== "approved") return json({ error: "O evento ainda não foi aprovado. O certificado só pode ser conferido depois da aprovação." }, 409);
 

@@ -246,10 +246,10 @@ export function partesDoLote<T>(lista: T[], tamanho = LIMITES.loteMax): T[][] {
   return partes
 }
 
-export interface LinhaEmitida { nome: string; codigo: string; emitidoEm: string }
-/** Só nome, código e data: nenhum outro dado pessoal sai no arquivo. */
+export interface LinhaEmitida { nome: string; codigo: string; emitidoEm: string; /** "Ativo" (padrão) ou "Revogado em DD/MM/AAAA" */ situacao?: string }
+/** Só nome, código, data e situação: nenhum outro dado pessoal sai no arquivo. */
 export const csvEmitidos = (linhas: LinhaEmitida[]): string =>
-  toCsv(linhas.map(l => ({ Nome: l.nome, 'Código': l.codigo, 'Emitido em': l.emitidoEm })), ['Nome', 'Código', 'Emitido em'])
+  toCsv(linhas.map(l => ({ Nome: l.nome, 'Código': l.codigo, 'Emitido em': l.emitidoEm, 'Situação': l.situacao ?? 'Ativo' })), ['Nome', 'Código', 'Emitido em', 'Situação'])
 
 /** "2026-06-15" -> "15 de junho de 2026"; data ausente ou inválida -> "" */
 export function dataLonga(iso: string | null | undefined): string {

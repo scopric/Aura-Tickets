@@ -66,6 +66,20 @@ describe('página /certificado/<código>', () => {
     expect(await screen.findByRole('heading', { name: 'Não encontramos este certificado' })).toBeInTheDocument()
     expect(screen.queryByText(/revogad/i)).toBeNull()
   })
+  it('revogado: diz que foi revogado e quando, sem nome nem evento', async () => {
+    rpc.mockResolvedValue({ data: { valido: false, revogado: true, revogado_em: '2026-06-20' }, error: null })
+    montar(COD)
+    expect(await screen.findByRole('heading', { name: 'Certificado revogado' })).toBeInTheDocument()
+    expect(document.body.textContent).toContain('revogado em 20 de junho de 2026')
+    expect(screen.queryByText('Certificado válido')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Seu certificado' })).toBeNull()
+    expect(screen.getByText(COD)).toBeInTheDocument()
+  })
+  it('revogado vindo malformado (sem data) cai em "não encontramos", sem inventar', async () => {
+    rpc.mockResolvedValue({ data: { valido: false, revogado: true, revogado_em: 'ontem' }, error: null })
+    montar(COD)
+    expect(await screen.findByRole('heading', { name: 'Não encontramos este certificado' })).toBeInTheDocument()
+  })
   it('código fora do formato: não consulta o banco e mostra "não encontramos"', async () => {
     montar('lixo')
     expect(await screen.findByRole('heading', { name: 'Não encontramos este certificado' })).toBeInTheDocument()

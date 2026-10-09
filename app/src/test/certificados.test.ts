@@ -166,12 +166,12 @@ describe('lote', () => {
 })
 
 describe('csvEmitidos', () => {
-  it('só nome, código e data; fórmula de planilha é neutralizada', () => {
+  it('só nome, código, data e situação; fórmula de planilha é neutralizada', () => {
     const csv = csvEmitidos([{ nome: '=HYPERLINK("x")', codigo: 'c-1', emitidoEm: '16/06/2026' }, { nome: 'Ana', codigo: 'c-2', emitidoEm: '17/06/2026' }])
     const linhas = csv.replace('﻿', '').split('\r\n')
-    expect(linhas[0]).toBe('Nome;Código;Emitido em')
+    expect(linhas[0]).toBe('Nome;Código;Emitido em;Situação')
     expect(linhas[1].startsWith("\"'=HYPERLINK")).toBe(true)
-    expect(linhas[2]).toBe('Ana;c-2;17/06/2026')
+    expect(linhas[2]).toBe('Ana;c-2;17/06/2026;Ativo')
     expect(linhas).toHaveLength(3)
   })
 })

@@ -29,7 +29,7 @@ vi.mock('../hooks/useProducerTools', () => ({
 
 const evento = { id: 'e1', title: 'Festa Um', date: '2026-06-15', status: 'draft', ticket_types: [] }
 const part = (id: string, nome: string, checkin: boolean) => ({ user_id: id, nome, checkin })
-const emi = (id: string, user_id: string, code: string) => ({ id, user_id, issued_at: '2026-06-16T15:00:00Z', code })
+const emi = (id: string, user_id: string, code: string, revoked_at: string | null = null) => ({ id, user_id, issued_at: '2026-06-16T15:00:00Z', code, revoked_at })
 const Local = () => <span data-testid="url">{useLocation().pathname + useLocation().search}</span>
 const montar = (url = '/producer/certificados?eventId=e1') => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -53,9 +53,9 @@ describe('tela Certificados', () => {
     expect(kpi('Elegíveis (presentes)')).toHaveTextContent('2')
     expect(kpi('Emitidos')).toHaveTextContent('1')
     expect(kpi('Pendentes')).toHaveTextContent('1')
-    for (const n of ['Enviar pelo WhatsApp', 'Ver histórico de revogações', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
+    for (const n of ['Enviar pelo WhatsApp', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
       expect(screen.getByRole('button', { name: n })).toBeDisabled()
-    expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(5)
+    expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(4)
   })
 
   it('emite em lote só para os pendentes', async () => {
@@ -78,18 +78,58 @@ describe('tela Certificados', () => {
     expect(screen.getByTestId('url')).toHaveTextContent('/producer/certificado-editor?eventId=e1')
   })
 
-  it('aba Emitidos: lista com código, revogar avisa que APAGA e só então revoga', async () => {
+  it('aba Emitidos: lista com código; revogar explica que fica registrado e só então revoga', async () => {
     comDados(); montar('/producer/certificados?eventId=e1&aba=emitidos')
     const lista = screen.getByRole('list', { name: 'Certificados emitidos' })
     expect(within(lista).getByText('Ana')).toBeInTheDocument()
     expect(lista).toHaveTextContent('cod-ana')
     await userEvent.click(screen.getByRole('button', { name: 'Revogar o certificado de Ana' }))
     const dlg = await screen.findByRole('alertdialog')
-    expect(dlg).toHaveTextContent(/APAGA o registro/)
-    expect(dlg).toHaveTextContent(/não fica histórico/)
+    expect(dlg).toHaveTextContent(/deixa de valer/)
+    expect(dlg).toHaveTextContent(/fica registrada com a data/)
+    expect(dlg).not.toHaveTextContent(/APAGA/)
     expect(banco.revogar).not.toHaveBeenCalled()
-    await userEvent.click(within(dlg).getByRole('button', { name: 'Revogar e apagar' }))
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Revogar' }))
     expect(banco.revogar).toHaveBeenCalledWith({ id: 'i1', certificateId: 'c1' })
+  })
+
+  describe('certificado revogado (com histórico)', () => {
+    const REV = '2026-06-20T12:00:00Z'
+    const comRevogado = () => comDados([emi('i1', 'p1', 'cod-ana', REV), emi('i2', 'p2', 'cod-bruno')])
+
+    it('fica na lista com "Revogado em", sem PDF, e-mail nem Revogar; os ativos seguem com os botões', () => {
+      comRevogado(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      const lista = screen.getByRole('list', { name: 'Certificados emitidos' })
+      expect(lista).toHaveTextContent('Ana')
+      expect(lista).toHaveTextContent('Revogado em 20/06/2026')
+      expect(lista).toHaveTextContent('cod-ana') // o histórico guarda o código
+      for (const n of ['Baixar PDF de Ana', 'Enviar o certificado de Ana por e-mail', 'Revogar o certificado de Ana']) expect(screen.queryByRole('button', { name: n })).toBeNull()
+      for (const n of ['Baixar PDF de Bruno', 'Enviar o certificado de Bruno por e-mail', 'Revogar o certificado de Bruno']) expect(screen.getByRole('button', { name: n })).toBeInTheDocument()
+    })
+    it('a lista diz quantos ativos e quantos revogados', () => {
+      comRevogado(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      expect(screen.getByText(/1 ativo e 1 revogado: os revogados ficam no histórico/)).toBeInTheDocument()
+    })
+    it('não conta como emitido, e quem foi revogado volta a ser elegível para outro certificado', async () => {
+      comRevogado(); montar('/producer/certificados?eventId=e1')
+      const kpi = (nome: string) => screen.getAllByText(nome).map(e => e.closest('[data-slot="card"]')).find(Boolean)!
+      expect(kpi('Emitidos')).toHaveTextContent('1')
+      expect(kpi('Pendentes')).toHaveTextContent('1') // Ana (revogada) volta a pendente; Bruno tem; Carla sem check-in não é elegível
+    })
+    it('o lote de PDF e de e-mail só leva os ativos', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      banco.enviarLote.mockResolvedValue({ enviados: 1, naoEnviados: 0, motivo: null, parouNoLimite: false })
+      comRevogado(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      expect(screen.getByRole('button', { name: /Baixar PDF de todos \(1\)/ })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Enviar por e-mail a todos \(1\)/ }))
+      await waitFor(() => expect(banco.enviarLote).toHaveBeenCalledWith(['i2']))
+    })
+    it('o CSV leva todos, com a situação e a data da revogação', async () => {
+      comRevogado(); montar('/producer/certificados?eventId=e1&aba=emitidos')
+      await userEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+      const [, csv] = banco.baixar.mock.calls[0]
+      expect(csv.replace('﻿', '').split('\r\n')).toEqual(['Nome;Código;Emitido em;Situação', 'Ana;cod-ana;16/06/2026;Revogado em 20/06/2026', 'Bruno;cod-bruno;16/06/2026;Ativo'])
+    })
   })
 
   it('exporta CSV só com nome, código e data, e avisa de dado pessoal', async () => {
@@ -97,7 +137,7 @@ describe('tela Certificados', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }))
     const [arquivo, csv] = banco.baixar.mock.calls[0]
     expect(arquivo).toMatch(/^evokaa-certificados-festa-um-\d{4}-\d{2}-\d{2}\.csv$/)
-    expect(csv.replace('﻿', '').split('\r\n')).toEqual(['Nome;Código;Emitido em', 'Ana;cod-ana;16/06/2026'])
+    expect(csv.replace('﻿', '').split('\r\n')).toEqual(['Nome;Código;Emitido em;Situação', 'Ana;cod-ana;16/06/2026;Ativo'])
     expect(banco.toast.info).toHaveBeenCalledWith(expect.stringContaining('dado pessoal'))
   })
 
