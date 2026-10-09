@@ -118,7 +118,10 @@ export default function ProducerTasks() {
 
   const mover = async (t: DbTask, colunaId: string, posicao?: number) => {
     try {
-      await moverTarefa.mutateAsync({ tarefa: t, mudanca: modoNovo ? { column_id: colunaId, position: posicao } : { status: colunaId as StatusTarefa } })
+      // modo novo: o status vai junto (pelo tipo da coluna, como o gatilho grava) para os contadores certos já no otimista
+      const kind = quadro.data?.colunas.find(c => c.id === colunaId)?.kind
+      const status: StatusTarefa | undefined = kind && (kind === 'doing' ? 'in_progress' : kind)
+      await moverTarefa.mutateAsync({ tarefa: t, mudanca: modoNovo ? { column_id: colunaId, position: posicao, ...(status && { status }) } : { status: colunaId as StatusTarefa } })
     } catch (err) {
       toast.error(err instanceof ConflitoCartao ? 'Outra pessoa mexeu neste cartão. O quadro foi atualizado.' : `Não foi possível mover a tarefa: ${causa(err)}`)
     }
