@@ -1407,7 +1407,7 @@ body.cor-produtor .vidro :is([aria-current="page"], [data-state="active"]) { col
   mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 96%, #000), radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 96%, #000), radial-gradient(circle 9px at 0 50%, #0000 96%, #000), radial-gradient(circle 9px at 100% 50%, #0000 96%, #000);
   mask-composite: intersect;
 }
-.ev-furos { display: flex; align-items: center; gap: 5px; }
+.ev-furos { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .ev-furos i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid hsl(var(--muted-foreground) / 0.6); }
 .ev-furos i.p { background: hsl(var(--primary)); border-color: hsl(var(--primary)); box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.3); }
 .ev-canhoto {
@@ -1423,6 +1423,8 @@ body.cor-produtor .vidro :is([aria-current="page"], [data-state="active"]) { col
 .ev-canhoto[data-estado="logo"] { background: linear-gradient(165deg, #e8a100, #ffc83d); color: #2b1c00; }
 .ev-canhoto[data-estado="vence"] { background: linear-gradient(165deg, #a82821, #c8322b); color: #fff; }
 .ev-canhoto[data-estado="feito"] { background: linear-gradient(165deg, #115c38, #17784a); color: #fff; }
+/* Pílula do prazo: no estado normal o véu preto de 16% derrubava o violeta (#7f25e0) a 3,85:1 no claro; sem véu e com contorno dá 5,55:1 (claro) e 5,79:1 (escuro). Nos outros estados o véu fica (mínimo 5,36:1, calculado). */
+.ev-canhoto[data-estado="normal"] .ev-data small { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
 .ev-data { text-align: center; line-height: 1; }
 .ev-data b { display: block; font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 .ev-data span { display: block; margin-top: 5px; font: 600 10px ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
