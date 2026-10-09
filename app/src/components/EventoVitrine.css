@@ -63,8 +63,8 @@
    da grade; a capa e o bilhete ficam sticky e atravessam todas as linhas. Celular/tablet e `previa` não mudam. */
 @media (min-width: 1024px) {
   .evv-grade {
-    display: grid; max-width: 72rem; margin-inline: auto; padding: 6rem 2rem 0; column-gap: 2rem;
-    grid-template-columns: clamp(200px, 22vw, 300px) minmax(0, 1fr) 360px; grid-template-rows: repeat(8, auto) 1fr;
+    display: grid; max-width: 90rem; margin-inline: auto; padding: 6rem 2.5rem 0; column-gap: 3rem;
+    grid-template-columns: clamp(240px, 27vw, 420px) minmax(0, 1fr) 380px; grid-template-rows: repeat(8, auto) 1fr;
   }
   .evv-contents { display: contents; }
   .evv-capa-col { grid-column: 1; grid-row: 1 / span 99; order: 0; align-self: start; position: sticky; top: 5rem; max-width: none; margin: 0; }
