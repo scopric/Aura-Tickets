@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Printer, SearchX, WifiOff } from 'lucide-react'
+import { Ban, CheckCircle2, Printer, SearchX, WifiOff } from 'lucide-react'
 import { codigoValido, validarCertificado } from '../lib/certificadoValidar'
 import { dataLonga, modeloComCor, modeloPorId, sanearTemplate, type DadosCertificado } from '../lib/certificados'
 import { CertificadoDesenho, ImpressaoCertificados } from '../components/producer/CertificadoDesenho'
@@ -93,6 +93,15 @@ export default function CertificadoValidacao() {
         </section>
       )}
       </>
+    )
+  } else if (q.data && !q.data.valido && q.data.revogado) {
+    corpo = (
+      <div className="rounded-[10px] border border-border bg-card p-6">
+        <Ban aria-hidden="true" className="size-7 text-destructive" />
+        <h1 className="mt-3 text-xl font-semibold text-foreground">Certificado revogado</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Este certificado foi revogado em {dataLonga(q.data.revogado_em)} e não vale mais. Se tiver dúvida, fale com o organizador do evento.</p>
+        <p className="mt-4 break-all text-xs text-muted-foreground">Código: <span className="font-mono">{codigo.trim().toLowerCase()}</span></p>
+      </div>
     )
   } else {
     corpo = (

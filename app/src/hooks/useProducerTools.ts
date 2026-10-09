@@ -799,6 +799,8 @@ export interface CertificadoEmitido {
   issued_at: string
   /** código de validação gerado pelo banco; vai no QR e no CSV */
   code: string
+  /** quando foi revogado (a linha fica, com histórico); null = ativo */
+  revoked_at: string | null
 }
 
 export function useCertificadosEmitidos(certificateId: string | null) {
@@ -809,7 +811,7 @@ export function useCertificadosEmitidos(certificateId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('issued_certificates')
-        .select('id, user_id, issued_at, code')
+        .select('id, user_id, issued_at, code, revoked_at')
         .eq('certificate_id', certificateId!)
       if (error) throw error
       return (data ?? []) as unknown as CertificadoEmitido[]
@@ -845,10 +847,11 @@ export function useRevogarCertificado() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    // Revoga = marca (quando e por quem) e a linha fica; só o dono do evento, com 2FA (docs/sql/20261101b_certificado_revogar.sql)
     mutationFn: async ({ id }: { id: string; certificateId: string }) => {
-      const { data, error } = await supabase.from('issued_certificates').delete().eq('id', id).select('id')
+      // ponytail: os tipos do banco ainda não têm a função; cast até regenerar types/database.ts
+      const { error } = await supabase.rpc('certificado_revogar' as never, { p_id: id } as never)
       if (error) throw error
-      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
     },
     onSettled: (_d, _e, v) => {
       queryClient.invalidateQueries({ queryKey: ['certificados-emitidos', v.certificateId] })

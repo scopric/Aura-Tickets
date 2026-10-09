@@ -80,7 +80,8 @@ export default function Certificates() {
   const revogar = useRevogarCertificado()
 
   const participantes = participantesQ.data?.lista ?? []
-  const emitidos = emitidosQ.data ?? []
+  const emitidosTodos = emitidosQ.data ?? [] // com os revogados (a linha fica, com histórico)
+  const emitidos = emitidosTodos.filter(c => !c.revoked_at) // ativos: valem no PDF, no e-mail e na contagem; quem foi revogado volta a ser elegível
   const emitidoDe = new Map(emitidos.map(c => [c.user_id, c]))
   const nomeDe = new Map(participantes.map(p => [p.user_id, p.nome]))
   const elegiveis = participantes.filter(p => !somenteCheckin || p.checkin)
@@ -162,7 +163,7 @@ export default function Certificates() {
   }
 
   const exportar = () => {
-    const csv = csvEmitidos(emitidos.map(c => ({ nome: nomeEmitido(c), codigo: c.code, emitidoEm: dataDe(c.issued_at) })))
+    const csv = csvEmitidos(emitidosTodos.map(c => ({ nome: nomeEmitido(c), codigo: c.code, emitidoEm: dataDe(c.issued_at), situacao: c.revoked_at ? `Revogado em ${dataDe(c.revoked_at)}` : 'Ativo' })))
     downloadCsv(csvFilename(`certificados-${slugArquivo(evento?.title, selectedEventId ?? 'evento')}`), csv)
     toast.info('O arquivo tem o nome dos participantes: dado pessoal (LGPD). Não compartilhe.')
   }
@@ -310,7 +311,7 @@ export default function Certificates() {
               <div className="mb-3 mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <SectionTitle>Certificados emitidos</SectionTitle>
                 <div className="flex flex-wrap gap-2">
-                  <BotaoInativo variant="outline" className="min-h-11" onClick={exportar} disabled={emitidos.length === 0} motivo="Nenhum certificado emitido ainda para exportar."><I.Baixar aria-hidden="true" />Exportar CSV</BotaoInativo>
+                  <BotaoInativo variant="outline" className="min-h-11" onClick={exportar} disabled={emitidosTodos.length === 0} motivo="Nenhum certificado emitido ainda para exportar."><I.Baixar aria-hidden="true" />Exportar CSV</BotaoInativo>
                   <Button variant="outline" className="min-h-11" onClick={enviarEmailTodos} disabled={comNome.length === 0 || enviandoEmail !== null} loading={enviandoEmail === 'lote'}>
                     <I.Enviar aria-hidden="true" />Enviar por e-mail a todos ({comNome.length})
                   </Button>
@@ -324,21 +325,26 @@ export default function Certificates() {
               {semNome > 0 && <p role="status" className="mb-3 text-xs text-muted-foreground">{semNome} {semNome === 1 ? 'certificado ficou' : 'certificados ficaram'} fora do PDF porque a pessoa não está mais na lista de participantes (nome indisponível). Eles continuam na lista e no CSV.</p>}
               {partes.length > 1 && <p className="mb-3 text-xs text-muted-foreground">O PDF em lote sai em partes de até {LIMITES.loteMax} certificados ({emitidos.length - semNome} no total), para o navegador não travar.</p>}
               {emitidos.length > 0 && <p className="mb-3 text-xs text-muted-foreground">O PDF abre o &quot;salvar como PDF&quot; do navegador (A4 paisagem, um certificado por folha). Escolha &quot;Salvar como PDF&quot; como impressora.</p>}
-              {emitidos.length === 0 ? (
+              {emitidosTodos.length > emitidos.length && <p className="mb-3 text-xs text-muted-foreground">{emitidos.length} {emitidos.length === 1 ? 'ativo' : 'ativos'} e {emitidosTodos.length - emitidos.length} {emitidosTodos.length - emitidos.length === 1 ? 'revogado' : 'revogados'}: os revogados ficam no histórico e saem do PDF, do e-mail e da contagem.</p>}
+              {emitidosTodos.length === 0 ? (
                 <EmptyState title="Nenhum certificado emitido ainda" description="Emita na aba Participantes; os emitidos aparecem aqui com o código." action={<Button variant="outline" className="min-h-11" onClick={() => mudaAba('participantes')}>Ir para Participantes</Button>} />
               ) : (
                 <ul aria-label="Certificados emitidos" className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
-                  {emitidos.map(c => (
+                  {emitidosTodos.map(c => (
                     <li key={c.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{nomeEmitido(c)}</p>
                         <p className="truncate font-mono text-xs text-muted-foreground">Código {c.code} · emitido em {dataDe(c.issued_at)}</p>
                       </div>
+                      {c.revoked_at ? (
+                        <Badge variant="outline" className="shrink-0 text-muted-foreground">Revogado em {dataDe(c.revoked_at)}</Badge>
+                      ) : (
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <BotaoInativo variant="outline" size="sm" className="min-h-11" onClick={() => imprimir([dadosDe(c)])} disabled={!nomeDe.has(c.user_id) || esperandoLogo} motivo={!nomeDe.has(c.user_id) ? 'Este participante não tem nome cadastrado; sem nome não dá para gerar o PDF.' : undefined} aria-label={`Baixar PDF de ${nomeEmitido(c)}`}><I.Imprimir aria-hidden="true" />PDF</BotaoInativo>
                         <Button variant="outline" size="sm" className="min-h-11" onClick={() => enviarEmail(c)} disabled={!nomeDe.has(c.user_id) || enviandoEmail !== null} loading={enviandoEmail === c.id} aria-label={`Enviar o certificado de ${nomeEmitido(c)} por e-mail`}><I.Enviar aria-hidden="true" />E-mail</Button>
                         <Button variant="ghost" size="sm" className={`min-h-11 ${icone}`} onClick={() => setRevogando({ id: c.id, nome: nomeEmitido(c) })} disabled={revogar.isPending} aria-label={`Revogar o certificado de ${nomeEmitido(c)}`}>Revogar</Button>
                       </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -350,7 +356,6 @@ export default function Certificates() {
             <SectionTitle id="cert-breve">Em breve</SectionTitle>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <EmBreve titulo="Enviar por WhatsApp" descricao="Mandar o certificado para o participante pelo WhatsApp. Depende de integração própria; o envio por e-mail já funciona na aba Emitidos." acao="Enviar pelo WhatsApp" />
-              <EmBreve titulo="Revogar com histórico" descricao="Guardar quem teve o certificado revogado e quando. Precisa de uma coluna nova no banco (revoked_at, SQL). Hoje revogar apaga o registro." acao="Ver histórico de revogações" />
               <EmBreve titulo="Carga horária automática" descricao="Calcular as horas a partir do evento. Hoje você digita a carga horária no editor; falta definir de onde vem o número." acao="Calcular carga horária" />
               <EmBreve titulo="Emissão automática ao fim do evento" descricao="Emitir sozinho para quem fez check-in quando o evento termina. Precisa de uma rotina agendada no banco (SQL)." acao="Ativar emissão automática" />
               <EmBreve titulo="Lista acima de 1.000 ingressos" descricao="Hoje a lista para em 1.000 ingressos válidos. Precisa de uma função paginada no banco (RPC)." acao="Carregar todos" />
@@ -382,12 +387,12 @@ export default function Certificates() {
           <AlertDialogHeader>
             <AlertDialogTitle>Revogar o certificado?</AlertDialogTitle>
             <AlertDialogDescription>
-              Revogar APAGA o registro do certificado de {revogando?.nome}: o código deixa de existir e não fica histórico da revogação (o histórico está em breve). Se emitir de novo, a pessoa recebe um código novo.
+              O certificado de {revogando?.nome} deixa de valer: quem abrir o link ou o QR vê que ele foi revogado. A revogação fica registrada com a data, e você pode emitir outro certificado para a pessoa depois (com código novo).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11">Voltar</AlertDialogCancel>
-            <AlertDialogAction className="min-h-11" onClick={confirmarRevogar}>Revogar e apagar</AlertDialogAction>
+            <AlertDialogAction className="min-h-11" onClick={confirmarRevogar}>Revogar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

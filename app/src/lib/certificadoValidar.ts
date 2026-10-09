@@ -14,7 +14,8 @@ export interface CertificadoValido {
   /** modelo de desenho (certificates.template, só as chaves conhecidas). BRUTO: passar por sanearTemplate antes de usar; null = só a validação */
   modelo: unknown | null
 }
-export type ResultadoValidacao = CertificadoValido | { valido: false }
+/** Inválido (igual para inexistente, evento não aprovado, titular sem ingresso...) ou REVOGADO (o banco só diz isso para quem tem o código de um certificado que existiu). */
+export type ResultadoValidacao = CertificadoValido | { valido: false; revogado?: true; revogado_em?: string }
 
 /** Endereço que o QR do certificado leva. Fixo no domínio do app: o PDF impresso de uma prévia da Vercel não pode apontar para ela. */
 export const BASE_VALIDACAO = 'https://app.evokaa.com.br'
@@ -34,6 +35,7 @@ export async function validarCertificado(codigo: string): Promise<ResultadoValid
   const { data, error } = await supabase.rpc('certificado_ver' as never, { p_code: c } as never)
   if (error) throw error
   const r = (data ?? {}) as Record<string, unknown>
+  if (r.valido === false && r.revogado === true && dia(r.revogado_em)) return { valido: false, revogado: true, revogado_em: dia(r.revogado_em)! }
   const evento = texto(r.evento), emitido = dia(r.emitido_em), data_evento = dia(r.data_evento)
   if (r.valido !== true || !evento || !emitido || !data_evento) return { valido: false }
   return {
