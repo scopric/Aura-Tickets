@@ -78,6 +78,9 @@ describe('useAuth Hook', () => {
   })
 
   it('entrega a causa traduzida a quem chamou (e-mail não confirmado, erro desconhecido)', async () => {
+    // O login() para em 'não configurado' sem estas variáveis; o mock do setup.ts não as define de verdade
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://teste.local')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'chave-de-teste')
     const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() })
     for (const [msg, esperado] of [
       ['Email not confirmed', /Confirme seu e-mail/],
@@ -91,6 +94,7 @@ describe('useAuth Hook', () => {
       expect(await result.current.login('a@b.com', 'x', onErro)).toBe(false)
       expect(onErro).toHaveBeenCalledWith(expect.stringMatching(esperado))
     }
+    vi.unstubAllEnvs()
   })
 
   it('deve chamar supabase.auth.signInWithPassword para login real', async () => {
