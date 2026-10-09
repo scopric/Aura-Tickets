@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(44);
+select plan(55);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -22,6 +22,7 @@ insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) value
   ('fc000000-0000-4000-8000-0000000000a1', 'm1@teste-quadro.local', now(), '{"full_name":"Sem ferramenta"}'),
   ('fc000000-0000-4000-8000-0000000000a2', 'm2@teste-quadro.local', now(), '{"full_name":"So ve"}'),
   ('fc000000-0000-4000-8000-0000000000a3', 'm3@teste-quadro.local', now(), '{"full_name":"Edita"}'),
+  ('fc000000-0000-4000-8000-0000000000a4', 'm4@teste-quadro.local', now(), '{"full_name":"Pendente"}'),
   ('fc000000-0000-4000-8000-0000000000b1', 'x@teste-quadro.local', now(), '{"full_name":"Solta"}');
 insert into public.events (id, producer_id, title, slug, status, approval_status) values
   ('fc000000-0000-4000-8000-0000000000e1', 'fc000000-0000-4000-8000-000000000001', 'Do P1', 'qd-e1', 'draft', 'pending'),
@@ -29,10 +30,12 @@ insert into public.events (id, producer_id, title, slug, status, approval_status
 insert into public.team_members (id, producer_id, user_id, role, accepted_at) values
   ('fc000000-0000-4000-8000-0000000000c1', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000a1', 'editor', now()),
   ('fc000000-0000-4000-8000-0000000000c2', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000a2', 'editor', now()),
-  ('fc000000-0000-4000-8000-0000000000c3', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000a3', 'editor', now());
+  ('fc000000-0000-4000-8000-0000000000c3', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000a3', 'editor', now()),
+  ('fc000000-0000-4000-8000-0000000000c4', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000a4', 'editor', null);
 insert into public.team_member_tools (member_id, ferramenta, nivel) values
   ('fc000000-0000-4000-8000-0000000000c2', 'quadro', 'ver'),
-  ('fc000000-0000-4000-8000-0000000000c3', 'quadro', 'editar');
+  ('fc000000-0000-4000-8000-0000000000c3', 'quadro', 'editar'),
+  ('fc000000-0000-4000-8000-0000000000c4', 'quadro', 'editar');
 
 -- Tarefas antigas de P1 e P2 (sem quadro: gatilho desligado só para simular o estado de antes do SQL)
 alter table public.producer_tasks disable trigger producer_tasks_quadro;
@@ -64,6 +67,35 @@ select is((select c.kind from public.producer_tasks t join public.task_columns c
 select is((select count(*) from public.producer_tasks t join public.task_columns c on c.id = t.column_id
            where t.status is distinct from case c.kind when 'doing' then 'in_progress' else c.kind end), 0::bigint,
   'status igual ao tipo da coluna em todas');
+
+-- Tarefa antiga ligada a evento de OUTRO produtor: o bloco antes do backfill (cópia do SQL) aborta com os ids
+create function pg_temp.backfill_conferido() returns void language plpgsql as $$
+declare v_ids text;
+begin
+  select string_agg(t.id::text, ', ' order by t.id) into v_ids
+    from public.producer_tasks t join public.events e on e.id = t.event_id
+    where t.board_id is null and e.producer_id <> t.producer_id;
+  if v_ids is not null then
+    raise exception 'Tarefas ligadas a evento de outro produtor: %. Corrigir antes (ex.: update public.producer_tasks set event_id = null where id in (...)) e rodar de novo.', v_ids;
+  end if;
+  perform pg_temp.backfill();
+end $$;
+alter table public.producer_tasks disable trigger producer_tasks_quadro;
+insert into public.producer_tasks (id, producer_id, event_id, title) values
+  ('fc000000-0000-4000-8000-0000000000d9', 'fc000000-0000-4000-8000-000000000001', 'fc000000-0000-4000-8000-0000000000e2', 'Evento alheio antigo');
+alter table public.producer_tasks enable trigger producer_tasks_quadro;
+select throws_ok('select pg_temp.backfill_conferido()', 'P0001',
+  'Tarefas ligadas a evento de outro produtor: fc000000-0000-4000-8000-0000000000d9. Corrigir antes (ex.: update public.producer_tasks set event_id = null where id in (...)) e rodar de novo.',
+  'backfill: tarefa com evento de outro produtor aborta listando o id');
+delete from public.producer_tasks where id = 'fc000000-0000-4000-8000-0000000000d9';
+
+-- Funções: anon não executa nenhuma; authenticated não chama a interna (só o gatilho, como dono)
+select is(has_function_privilege('anon', 'public.equipe_pode(uuid, text, text, uuid)', 'execute'), false, 'anon não executa equipe_pode');
+select is(has_function_privilege('anon', 'public.quadro_garantir(uuid, uuid)', 'execute'), false, 'anon não executa quadro_garantir');
+select is(has_function_privilege('anon', 'public.quadro_criar_interno(uuid, uuid)', 'execute'), false, 'anon não executa quadro_criar_interno');
+select is(has_function_privilege('authenticated', 'public.quadro_criar_interno(uuid, uuid)', 'execute'), false,
+  'authenticated não executa quadro_criar_interno');
+select is(has_column_privilege('authenticated', 'public.task_columns', 'kind', 'UPDATE'), false, 'kind da coluna não é editável');
 
 -- Estrutura -----------------------------------------------------------------------------------------------------------------
 select policies_are('public', 'producer_tasks', array['gf_mfa_aal2', 'tasks_apagar', 'tasks_criar', 'tasks_editar', 'tasks_ver'],
@@ -98,6 +130,8 @@ select is((select count(*) from public.task_boards), 0::bigint, 'M1 lê 0 quadro
 -- M2: ver ---------------------------------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-0000000000a2');
 select is((select count(*) from public.producer_tasks), 3::bigint, 'M2 (ver) lê as 3 tarefas de P1');
+select is(public.equipe_pode('fc000000-0000-4000-8000-000000000001', 'quadro', 'ver', 'fc000000-0000-4000-8000-0000000000a3'),
+  false, 'M2 (ver) pergunta por M3: false (só quem edita pergunta por outra pessoa)');
 select is((select count(*) from public.task_columns), 8::bigint, 'M2 lê as 8 colunas dos 2 quadros de P1');
 with u as (update public.producer_tasks set title = 'Mudou' returning 1) select is((select count(*) from u), 0::bigint, 'M2 (ver): UPDATE afeta 0 linhas');
 select throws_ok($$insert into public.producer_tasks (producer_id, title) values ('fc000000-0000-4000-8000-000000000001', 'M2 criou')$$,
@@ -122,13 +156,15 @@ with d as (delete from public.producer_tasks where id = (select id from _novo) r
   select is((select count(*) from d), 0::bigint, 'M3 não apaga tarefa (só o dono apaga)');
 select is((select count(*) from public.team_member_tools), 0::bigint, 'M3 não lê as permissões da equipe');
 select throws_ok($$update public.producer_tasks set assigned_to = 'fc000000-0000-4000-8000-0000000000b1'
-  where id = (select id from _novo)$$, '42501', null, 'responsável fora da equipe é recusado');
+  where id = (select id from _novo)$$, '42501', 'O responsável não é da equipe deste produtor.', 'responsável fora da equipe é recusado');
 select lives_ok($$update public.producer_tasks set assigned_to = 'fc000000-0000-4000-8000-0000000000a2'
   where id = (select id from _novo)$$, 'responsável membro (M2) é aceito');
 select lives_ok($$update public.producer_tasks set assigned_to = 'fc000000-0000-4000-8000-000000000001'
   where id = (select id from _novo)$$, 'responsável dono é aceito');
-select is(public.equipe_pode('fc000000-0000-4000-8000-000000000001', 'quadro', 'editar', 'fc000000-0000-4000-8000-0000000000a2'),
-  false, 'M3 (editor) pergunta por M2: responde sem vazar (M2 só vê)');
+with d as (delete from public.task_columns c using public.task_boards b
+           where b.id = c.board_id and b.producer_id = 'fc000000-0000-4000-8000-000000000001' and b.event_id is null
+             and c.name = 'Em revisão' returning 1)
+  select is((select count(*) from d), 0::bigint, 'M3 (editar) não apaga coluna (só o dono)');
 select throws_ok($$update public.producer_tasks set board_id = (select id from public.task_boards limit 1)
   where id = (select id from _novo)$$, '42501', null, 'board_id não é gravável no UPDATE (permissão por coluna)');
 
@@ -147,9 +183,27 @@ select throws_ok($$update public.producer_tasks set column_id = (select c.id fro
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000002');
 select throws_ok($$insert into public.producer_tasks (producer_id, title, board_id) values
   ('fc000000-0000-4000-8000-000000000002', 'Invasor', (select board_id from _ids))$$,
-  null, null, 'P2 não grava em quadro de P1');
+  '42501', 'Quadro de outro produtor.', 'P2 não grava em quadro de P1');
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000001');
-select is((select count(*) from public.team_member_tools), 2::bigint, 'P1 lê as permissões da própria equipe');
+select is((select count(*) from public.team_member_tools), 3::bigint, 'P1 lê as permissões da própria equipe');
+select is(public.equipe_pode('fc000000-0000-4000-8000-000000000001', 'quadro', 'ver', 'fc000000-0000-4000-8000-0000000000a4'),
+  false, 'membro pendente (accepted_at nulo) não tem acesso, mesmo com editar');
+with d as (delete from public.task_columns c using public.task_boards b
+           where b.id = c.board_id and b.producer_id = 'fc000000-0000-4000-8000-000000000001' and b.event_id is null
+             and c.name = 'Em revisão' returning 1)
+  select is((select count(*) from d), 1::bigint, 'P1 (dono) apaga coluna vazia');
+
+-- Tarefa antiga com responsável que hoje não é da equipe: segue editável; trocar para alguém de fora é recusado
+select pg_temp.como('postgres');
+alter table public.producer_tasks disable trigger producer_tasks_quadro;
+update public.producer_tasks set assigned_to = 'fc000000-0000-4000-8000-0000000000b1' where id = 'fc000000-0000-4000-8000-0000000000d2';
+alter table public.producer_tasks enable trigger producer_tasks_quadro;
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000001');
+select lives_ok($$update public.producer_tasks set status = 'todo' where id = 'fc000000-0000-4000-8000-0000000000d2'$$,
+  'tarefa antiga com responsável fora da equipe: status continua editável');
+select throws_ok($$update public.producer_tasks set assigned_to = 'fc000000-0000-4000-8000-0000000000b1'
+  where id = 'fc000000-0000-4000-8000-0000000000d1'$$, '42501', 'O responsável não é da equipe deste produtor.',
+  'trocar o responsável para alguém de fora é recusado');
 
 -- Membro bloqueado e 2FA --------------------------------------------------------------------------------------------------------
 select pg_temp.como('postgres');

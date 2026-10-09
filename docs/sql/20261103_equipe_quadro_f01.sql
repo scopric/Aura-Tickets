@@ -24,6 +24,9 @@
 -- O front funciona antes e depois deste SQL (antes: "modo antigo", só status). Aplicar antes ou depois do merge.
 -- NÃO mover para supabase/migrations/ (motivo no cabeçalho de 20260927_security_hardening.sql).
 -- Teste: supabase/tests/equipe_quadro_f01.test.sql (pgTAP; banco local, nunca em produção).
+-- Ensaio antes de aplicar (só leitura; esperado 0 linhas, senão o bloco antes do backfill aborta listando os ids):
+--   select t.id, t.producer_id, t.event_id, e.producer_id as dono_do_evento from public.producer_tasks t
+--     join public.events e on e.id = t.event_id where e.producer_id <> t.producer_id;
 -- Desfazer (só depois de voltar o front): drop trigger producer_tasks_quadro on public.producer_tasks;
 --   drop trigger events_quadro_antes_apagar on public.events; apagar as regras novas e recriar "Produtor gerencia tasks"
 --   (ver 20261010_producer_tasks_evento.sql); alter table producer_tasks drop column board_id, column_id, position,
@@ -171,6 +174,13 @@ begin
   end if;
   new.event_id := v_board.event_id;
 
+  -- Responsável tem de ser o dono ou membro ativo, mas só quando é escolhido agora: uma tarefa antiga cujo responsável
+  -- saiu da equipe continua editável (status, título...) sem trocar o responsável.
+  if new.assigned_to is not null and (tg_op = 'INSERT' or new.assigned_to is distinct from old.assigned_to)
+     and not public.equipe_pode(new.producer_id, null, null, new.assigned_to) then
+    raise exception 'O responsável não é da equipe deste produtor.' using errcode = '42501';
+  end if;
+
   if new.column_id is not null then
     select * into v_col from public.task_columns c where c.id = new.column_id;
     if not found or v_col.board_id <> new.board_id then
@@ -216,9 +226,11 @@ drop trigger if exists events_quadro_antes_apagar on public.events;
 create trigger events_quadro_antes_apagar before delete on public.events
   for each row execute function public.events_quadro_antes_apagar_tg();
 
-revoke all on function public.equipe_pode(uuid, text, text, uuid) from public;
-revoke all on function public.quadro_criar_interno(uuid, uuid) from public;
-revoke all on function public.quadro_garantir(uuid, uuid) from public;
+-- No Supabase, função nova em public já nasce executável por anon e authenticated (privilégio padrão): revogar por nome.
+-- quadro_criar_interno não confere quem chama: só o gatilho e o backfill a usam (rodam como dono).
+revoke all on function public.equipe_pode(uuid, text, text, uuid) from public, anon;
+revoke all on function public.quadro_criar_interno(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.quadro_garantir(uuid, uuid) from public, anon;
 revoke all on function public.producer_tasks_quadro_tg() from public;
 revoke all on function public.events_quadro_antes_apagar_tg() from public;
 grant execute on function public.equipe_pode(uuid, text, text, uuid) to authenticated;
@@ -238,12 +250,10 @@ drop policy if exists tasks_apagar on public.producer_tasks;
 create policy tasks_ver on public.producer_tasks as permissive for select to authenticated
   using (public.equipe_pode(producer_id, 'quadro', 'ver'));
 create policy tasks_criar on public.producer_tasks as permissive for insert to authenticated
-  with check (public.equipe_pode(producer_id, 'quadro', 'editar')
-              and (assigned_to is null or public.equipe_pode(producer_id, null, null, assigned_to)));
+  with check (public.equipe_pode(producer_id, 'quadro', 'editar'));
 create policy tasks_editar on public.producer_tasks as permissive for update to authenticated
   using (public.equipe_pode(producer_id, 'quadro', 'editar'))
-  with check (public.equipe_pode(producer_id, 'quadro', 'editar')
-              and (assigned_to is null or public.equipe_pode(producer_id, null, null, assigned_to)));
+  with check (public.equipe_pode(producer_id, 'quadro', 'editar'));
 create policy tasks_apagar on public.producer_tasks as permissive for delete to authenticated
   using (producer_id = (select auth.uid()));
 
@@ -262,8 +272,9 @@ create policy task_columns_criar on public.task_columns as permissive for insert
 create policy task_columns_editar on public.task_columns as permissive for update to authenticated
   using (exists (select 1 from public.task_boards b where b.id = board_id and public.equipe_pode(b.producer_id, 'quadro', 'editar')))
   with check (exists (select 1 from public.task_boards b where b.id = board_id and public.equipe_pode(b.producer_id, 'quadro', 'editar')));
+-- apagar coluna: só o dono do quadro (membro editor cria, renomeia e reordena)
 create policy task_columns_apagar on public.task_columns as permissive for delete to authenticated
-  using (exists (select 1 from public.task_boards b where b.id = board_id and public.equipe_pode(b.producer_id, 'quadro', 'editar')));
+  using (exists (select 1 from public.task_boards b where b.id = board_id and b.producer_id = (select auth.uid())));
 
 drop policy if exists team_member_tools_dono on public.team_member_tools;
 create policy team_member_tools_dono on public.team_member_tools as permissive for all to authenticated
@@ -295,10 +306,33 @@ grant update (assigned_to, title, description, due_date, status, priority, colum
 grant select on table public.task_boards to authenticated;
 grant select, delete on table public.task_columns to authenticated;
 grant insert (board_id, name, kind, position) on table public.task_columns to authenticated;
-grant update (name, kind, position) on table public.task_columns to authenticated;
+grant update (name, position) on table public.task_columns to authenticated; -- kind não: mudaria o status dos cartões sem gatilho
 grant select, delete on table public.team_member_tools to authenticated;
 grant insert (member_id, ferramenta, nivel) on table public.team_member_tools to authenticated;
 grant update (nivel) on table public.team_member_tools to authenticated;
+
+-- Pré-aviso (não aborta): tarefas cujo responsável hoje não é o dono nem membro ativo. Continuam editáveis; só trocar o
+-- responsável passa pela conferência do gatilho.
+do $$
+declare v_n bigint;
+begin
+  select count(*) into v_n from public.producer_tasks t
+    where t.assigned_to is not null and not public.equipe_pode(t.producer_id, null, null, t.assigned_to);
+  if v_n > 0 then raise notice '% tarefa(s) com responsável fora da equipe (seguem editáveis).', v_n; end if;
+end $$;
+
+-- Tarefa antiga ligada a evento de OUTRO produtor faria o gatilho recusar o backfill com mensagem genérica: abortar
+-- antes, com os ids.
+do $$
+declare v_ids text;
+begin
+  select string_agg(t.id::text, ', ' order by t.id) into v_ids
+    from public.producer_tasks t join public.events e on e.id = t.event_id
+    where t.board_id is null and e.producer_id <> t.producer_id;
+  if v_ids is not null then
+    raise exception 'Tarefas ligadas a evento de outro produtor: %. Corrigir antes (ex.: update public.producer_tasks set event_id = null where id in (...)) e rodar de novo.', v_ids;
+  end if;
+end $$;
 
 -- 7. Backfill (idempotente: só toca tarefas sem quadro; o gatilho cria o quadro e escolhe a coluna pelo status) -------------
 update public.producer_tasks t set position = r.pos
@@ -333,6 +367,12 @@ begin
       raise exception 'anon ainda tem privilégio em %', v_tab;
     end if;
   end loop;
+  if has_function_privilege('anon', 'public.equipe_pode(uuid, text, text, uuid)', 'execute')
+     or has_function_privilege('anon', 'public.quadro_garantir(uuid, uuid)', 'execute')
+     or has_function_privilege('anon', 'public.quadro_criar_interno(uuid, uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.quadro_criar_interno(uuid, uuid)', 'execute') then
+    raise exception 'anon (ou authenticated em quadro_criar_interno) ainda executa função do quadro';
+  end if;
   if exists (select 1 from public.producer_tasks where column_id is null or board_id is null) then
     raise exception 'sobrou tarefa sem quadro ou coluna';
   end if;
