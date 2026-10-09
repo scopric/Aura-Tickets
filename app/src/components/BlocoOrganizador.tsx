@@ -56,7 +56,6 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
   const bio = typeof o.bio === 'string' && o.bio.trim() ? cortar(o.bio, 280) : null
   const realizados = inteiro(o.eventos_realizados, 1, 100000) ? o.eventos_realizados : null
   const desde = inteiro(o.desde, 1990, new Date().getFullYear()) ? o.desde : null
-  const numeros = [realizados && `${realizados} eventos realizados`, desde && `no ar desde ${desde}`].filter(Boolean).join(' · ')
   const outros = (Array.isArray(o.outros_eventos) ? o.outros_eventos : [])
     .filter((e) => e && typeof e.id === 'string' && UUID.test(e.id) && typeof e.title === 'string' && e.title.trim())
     .slice(0, 3)
@@ -75,17 +74,17 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
   const comIcone = reconhecidas.filter((x) => x.rede)
   const emTexto = reconhecidas.filter((x) => !x.rede)
   const temCanais = ig || site || email
+  const rotuloMono = 'evv-mono text-muted-foreground'
 
   return (
-    <section aria-labelledby="h-organizador" className="border-t border-border px-5 py-6">
-      <div>
-        <h2 id="h-organizador" className="text-[17px] font-semibold leading-6">Organizador</h2>
+    <section aria-labelledby="h-organizador" className="py-6">
+      <div className="mx-5 rounded-[20px] border border-border p-6 shadow-[inset_0_2px_0_var(--evento)]" style={{ backgroundColor: 'color-mix(in oklab, var(--evento) 6%, hsl(var(--card)))' }}>
+        <h2 id="h-organizador" className="flex items-center gap-4 text-[11px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground after:h-px after:flex-1 after:bg-border">Organizador</h2>
         <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 md:grid-cols-[auto_minmax(0,1fr)_auto]">
           <span aria-hidden="true" className="font-display grid size-[52px] place-items-center rounded-full border border-border text-lg font-extrabold" style={{ background: 'var(--evento-fundo)', color: 'var(--evento-texto)' }}>{iniciais(nome || '')}</span>
           <div className="min-w-0">
             {nome && <p className="font-display line-clamp-2 break-words text-lg font-bold leading-6">{nome}</p>}
             {sub && <p className="break-words text-[12.5px] leading-5 text-muted-foreground">{sub}</p>}
-            {numeros && <p className="text-[12.5px] leading-5 text-muted-foreground">{numeros}</p>}
           </div>
           {/* Contato escondido até o clique. Isto só tira os links do DOM: a RPC ainda devolve os dados (mitigação parcial contra raspagem, não total). */}
           {(wa || email) && !revelado && (
@@ -106,6 +105,13 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
             </div>
           )}
         </div>
+
+        {(realizados || desde) && (
+          <dl className="mt-5 flex divide-x divide-border border-y border-border py-3">
+            {realizados && <div className="flex flex-1 flex-col-reverse justify-end pr-4"><dt className={rotuloMono}>eventos realizados</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{realizados}</dd></div>}
+            {desde && <div className={cn('flex flex-1 flex-col-reverse justify-end', realizados && 'pl-4')}><dt className={rotuloMono}>no ar desde</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{desde}</dd></div>}
+          </dl>
+        )}
 
         {bio && (
           <div className="mt-5">
@@ -143,7 +149,7 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
 
         {outros.length > 0 && (
           <div className="mt-5 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold leading-5">Outros eventos</h3>
+            <h3 className={rotuloMono}>Outros eventos</h3>
             <ul className="mt-2">
               {outros.map((e, i) => {
                 // data REAL: "2026-13-45", "0000-00-00" e "2026-02-30" não passam; sem data válida o item fica só com título e link
@@ -157,7 +163,7 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
                       {d && (
                         <span aria-hidden="true" className="grid min-w-12 shrink-0 justify-items-center rounded-ev-lg border border-border px-2 py-1">
                           <b className="font-display text-xl font-extrabold tabular-nums leading-none">{d.getDate()}</b>
-                          <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
+                          <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
                         </span>
                       )}
                       <EventoCapa evento={{ id: e.id, title: e.title, cover_image: e.cover_image, image_url: e.image_url, accent_color: e.accent_color, date: e.date }} tamanho="mini" />

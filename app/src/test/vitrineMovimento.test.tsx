@@ -20,7 +20,7 @@ function mover() {
 describe('vitrine: movimento', () => {
   it('a capa inclina só com mouse e sem "reduzir movimento"', () => {
     media({ mouse: true })
-    expect(mover()).toBe('5deg')
+    expect(mover()).toBe('7deg')
     media({ mouse: false })
     expect(mover()).toBe('')
     media({ mouse: true, reduzir: true })

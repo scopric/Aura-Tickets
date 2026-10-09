@@ -15,7 +15,7 @@ import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
 import EventoCapa from './EventoCapa'
-import { CapaInclinada, TotalAnimado, podeMover, useEntradaAoRolar } from './EventoVitrine'
+import { CapaInclinada, Carimbo, TotalAnimado, podeMover, useEntradaAoRolar } from './EventoVitrine'
 import ThemeToggle from './ThemeToggle'
 import { JanelaSuporte } from './SupportChatWidget'
 import { useAuthStore } from '../stores/authStore'
@@ -23,7 +23,7 @@ import { publicoDoPapel } from '../hooks/useConversas'
 import { ASSUNTO_DENUNCIA } from '../lib/ingresso'
 import type { DbEvent } from '../hooks/useEvents'
 import { useOrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
-import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
+import { corSorteada, ehHex, temFoto, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
 import { esgotado, lotacao, noLimite, tetoPorPedido } from '../lib/lotacao'
@@ -63,7 +63,7 @@ function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo:
 function LinhaFina({ rotulo, titulo, sub, href, aria, extra }: { rotulo: string; titulo: string; sub?: string; href?: string; aria?: string; extra?: ReactNode }) {
   const corpo = (
     <>
-      <span className="text-[13px] leading-6 text-muted-foreground">{rotulo}</span>
+      <span className="text-[11px] font-semibold uppercase leading-6 tracking-[0.08em] text-muted-foreground">{rotulo}</span>
       <span className={cn('min-w-0', extra && 'flex items-center justify-between gap-3')}>
         <span className="min-w-0">
           <span className="block break-words text-base leading-6">{titulo}</span>
@@ -194,6 +194,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
     ...(event.temas ?? []).map((v) => TEMAS.find((x) => x.valor === v)?.rotulo),
     ...(event.tags ?? []),
   ].filter((c): c is string => !!c?.trim()).map((c) => [c.toLowerCase(), c] as const)).values()].slice(0, 6)
+  const fotoFundo = [event.cover_image, event.image_url].find(temFoto)
   const local = event.venue_name || event.location || 'Local a definir'
   const endereco = [event.venue_address, [event.venue_city, event.venue_state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
   const mapaUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local)}`
@@ -214,8 +215,8 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   )
   // Compra em destaque: botão invertido (contraste máximo) com relevo de tecla; só "Comprar" e "Finalizar"
   const cta = 'shrink-0 rounded-full bg-foreground text-background shadow-[inset_0_-2px_0_hsl(var(--background)/0.28)] hover:bg-foreground/90 active:translate-y-px motion-reduce:active:translate-y-0'
-  // Título de seção da vitrine: texto normal, sem caixa-alta nem espaçamento
-  const titulo = previa ? 'text-[15px] font-semibold leading-5' : 'text-[17px] font-semibold leading-6'
+  // Título de seção: no computador e no celular da vitrine, rótulo pequeno em maiúsculas com fio que se estende
+  const titulo = previa ? 'text-[15px] font-semibold leading-5' : 'flex items-center gap-4 text-[11px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground after:h-px after:flex-1 after:bg-border'
   const irIngressos = () => {
     const el = document.getElementById('ingressos')
     el?.scrollIntoView({ behavior: podeMover() ? 'smooth' : 'auto' })
@@ -254,10 +255,16 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
 
       {demo && <div className="fixed inset-x-0 top-0 z-50 bg-foreground py-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-background">{demo.faixa}</div>}
       {!previa && (
-        <section ref={heroRef}>
+        <section ref={heroRef} className="evv-hero">
+          <div aria-hidden="true" className="evv-hero-fundo">
+            <div className="evv-lav" />
+            {fotoFundo && <img className="evv-fundo-img" src={fotoFundo} alt="" loading="lazy" decoding="async" />}
+            <div className="evv-gr" />
+            <div className="evv-esc" />
+          </div>
           <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[clamp(520px,70vh,720px)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:gap-12">
             <div className="relative mx-auto aspect-[4/5] w-full max-w-[320px] md:order-last md:mx-0 md:max-w-none">
-              <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
+              <CapaInclinada selo={dataEvento ? <Carimbo dia={dataEvento.getDate()} mes={mesCurto} local={event.venue_name || event.location || ''} cidade={event.venue_city} /> : null}><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-4">
@@ -269,9 +276,9 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
                 )}
                 <p className="text-[15px] font-semibold leading-5">{dataEvento ? `${semana}${hora ? ` · ${hora}` : ''}` : 'Data a definir'}</p>
               </div>
-              <h1 className="font-display mt-6 break-words text-[clamp(34px,4.2vw,60px)] font-semibold leading-[1.05] tracking-[-0.02em] [text-wrap:balance] [hyphens:auto]">{event.title}</h1>
-              {subtituloUtil && <p className="mt-3 max-w-xl text-base leading-6 text-muted-foreground">{event.subtitle}</p>}
-              <p className="mt-4 flex items-center gap-2 text-[15px] leading-5 text-muted-foreground">
+              <h1 className="font-display wide mt-6 break-words text-[clamp(2.25rem,9vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.04em] [text-wrap:balance] [hyphens:auto] lg:text-[clamp(3rem,6.2vw,6rem)]">{event.title}</h1>
+              {subtituloUtil && <p className="mt-3 max-w-xl text-base leading-6 text-[color:var(--h-fg2)]">{event.subtitle}</p>}
+              <p className="mt-4 flex items-center gap-2 text-[15px] leading-5 text-[color:var(--h-fg2)]">
                 <I.Local size={16} className="shrink-0" />
                 <span className="min-w-0 break-words">{local}</span>
               </p>
@@ -282,7 +289,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
               )}
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
                 <Button size="lg" className={cta} onClick={irIngressos}>Ver ingressos <I.ChevronDireita size={16} /></Button>
-                <p className="text-sm leading-5 text-muted-foreground">{textoHero}</p>
+                <p className="text-sm leading-5 text-[color:var(--h-fg2)]">{textoHero}</p>
               </div>
             </div>
           </div>
@@ -317,13 +324,19 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <LinhaFina rotulo="Data" titulo={dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'} />
             {hora && <LinhaFina rotulo="Horário" titulo={hora} />}
             <LinhaFina rotulo="Local" titulo={local} sub={endereco || undefined} href={mapaUrl} aria={`Como chegar: ${local} (abre o mapa)`} />
-            {endereco && (
-              <div className="px-5 pb-2 pt-1 md:pl-[calc(1.25rem+6.5rem+1rem)]">
-                <MapaEvento lat={demo?.coords.lat ?? event.venue_lat} lng={demo?.coords.lng ?? event.venue_lng} nome={local} consulta={[event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local} mapaUrl={mapaUrl} />
-              </div>
-            )}
             <LinhaFina rotulo="Faixa etária" titulo={classificacaoTexto} extra={<SeloClassificacao valor={event.classificacao} />} />
           </div>
+        )}
+
+        {!previa && (
+          <MapaEvento
+            lat={demo?.coords.lat ?? event.venue_lat}
+            lng={demo?.coords.lng ?? event.venue_lng}
+            nome={local}
+            endereco={endereco}
+            consulta={[event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || local}
+            mapaUrl={mapaUrl}
+          />
         )}
 
         {previa && <BlocoOrganizador organizador={organizador} titulo={event.title} />}
@@ -331,8 +344,10 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
           <div className={!previa ? 'evv-bilhete-in lg:pt-5' : undefined}>
+          {/* Cabeçalho do bilhete: o h2 continua sendo o título acessível; o número é só enfeite */}
           <div className={cn('flex items-baseline justify-between gap-3', !previa && 'lg:mx-5 lg:border-b lg:border-border lg:pb-3')}>
-            <h2 id="h-ingressos" className={cn(titulo, 'min-w-0 flex-1')}>Ingressos</h2>
+            <h2 id="h-ingressos" className={cn(titulo, 'min-w-0 flex-1', !previa && 'lg:font-[ui-monospace,SF_Mono,Menlo,Consolas,monospace] lg:text-[10.5px] lg:font-medium lg:tracking-[0.14em] lg:after:hidden')}>Ingressos</h2>
+            {!previa && <span aria-hidden="true" className="evv-mono hidden text-muted-foreground lg:block">Nº {event.id.slice(0, 6).toUpperCase()}</span>}
           </div>
           <div className={!previa ? 'evv-lista' : undefined}>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
@@ -449,7 +464,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           </div>
           {!previa && (
             <div className="evv-canhoto" aria-hidden="true">
-              <span>Total</span>
+              <span className="evv-mono text-muted-foreground">Total</span>
               <span className="evv-total"><TotalAnimado valor={cartResumo.total} /></span>
             </div>
           )}
