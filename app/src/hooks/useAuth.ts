@@ -96,7 +96,7 @@ export function useAuth() {
       // 2. Login real via Supabase JS client (API oficial)
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        throw new Error(erroDeLogin(error.message))
+        throw new Error(erroDeLogin(error.message, 'Não foi possível entrar agora. Tente de novo.'))
       }
       if (!data.session) {
         throw new Error('Sessão não retornada pelo servidor')
@@ -230,13 +230,16 @@ export function useAuth() {
     window.location.replace('/')
   }
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  // `onErro` recebe a mesma mensagem do toast, para a tela mostrá-la também (o retorno segue sendo só true/false)
+  const login = async (email: string, password: string, onErro?: (mensagem: string) => void): Promise<boolean> => {
     try {
       await signInMutation.mutateAsync({ email, password })
       return true
     } catch (error: any) {
       console.error('[Login Error]', error)
-      toast.error(error.message || 'Erro ao realizar login')
+      const mensagem = error.message || 'Erro ao realizar login'
+      toast.error(mensagem)
+      onErro?.(mensagem)
       return false
     }
   }
