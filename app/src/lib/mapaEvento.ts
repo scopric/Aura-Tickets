@@ -1,11 +1,13 @@
 // Mapa do evento: coordenadas validadas, peças do OpenStreetMap (slippy map) e links dos aplicativos de mapa.
 
 // PostgREST pode devolver numeric como texto; '' e null não viram 0
-const numero = (v: unknown): number => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN)
+// texto só no formato -12.345 (nada de "0x10", "1e9", vírgula decimal)
+const numero = (v: unknown): number => (typeof v === 'number' ? v : typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : NaN)
 
 export function coordenadasValidas(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
   const a = numero(lat), o = numero(lng)
-  return Number.isFinite(a) && Number.isFinite(o) && Math.abs(a) <= 90 && Math.abs(o) <= 180 ? { lat: a, lng: o } : null
+  // o Web Mercator do OSM vai só até 85,05° de latitude; (0, 0) exatos é o "campo vazio" (ilha nula), não um lugar
+  return Number.isFinite(a) && Number.isFinite(o) && Math.abs(a) <= 85.05 && Math.abs(o) <= 180 && !(a === 0 && o === 0) ? { lat: a, lng: o } : null
 }
 
 export interface PecaMapa { x: number; y: number; z: number; col: number; lin: number; url: string }
@@ -23,7 +25,8 @@ export function pecasDoMapa(lat: number, lng: number, z = 15) {
   const linTopo = fy < 0.5 ? y0 - 1 : y0
   const pecas: PecaMapa[] = []
   for (let lin = 0; lin < 2; lin++) for (let col = 0; col < 3; col++) {
-    const x = x0 - 1 + col, y = linTopo + lin
+    const x = (((x0 - 1 + col) % n) + n) % n // lng +-180 dá a volta no mapa
+    const y = Math.min(Math.max(linTopo + lin, 0), n - 1)
     pecas.push({ x, y, z, col, lin, url: `https://tile.openstreetmap.org/${z}/${x}/${y}.png` })
   }
   return { z, x0, y0, fx, fy, pecas, pinoX: (1 + fx) * 256, pinoY: (y0 - linTopo + fy) * 256 }

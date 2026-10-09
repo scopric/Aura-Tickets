@@ -30,9 +30,19 @@ describe('mapa: contas e links', () => {
     expect(c.pinoY).toBeCloseTo(195.4, 0)
   })
 
-  it('coordenadasValidas: texto numérico passa; vazio, null, NaN e fora da faixa não', () => {
+  it('coordenadasValidas: texto numérico passa; o resto (vazio, 0x10, 1e999, vírgula, polos, ilha nula) não', () => {
     expect(coordenadasValidas('-25.43', '-49.24')).toEqual({ lat: -25.43, lng: -49.24 })
-    for (const [a, b] of [['', ''], [null, null], [NaN, 1], ['x', '1'], [91, 0], [0, 181], [undefined, 3]]) expect(coordenadasValidas(a, b)).toBeNull()
+    expect(coordenadasValidas(' 12 ', ' -3.5 ')).toEqual({ lat: 12, lng: -3.5 })
+    expect(coordenadasValidas(85.05, 180)).not.toBeNull()
+    for (const [a, b] of [['', ''], [null, null], [NaN, 1], ['x', '1'], [91, 0], [0, 181], [undefined, 3], [85.06, 0], [-85.06, 0], [90, 0], [-90, 0], [0, 0], ['0', '0'], ['0x10', '5'], ['1e999', '5'], ['-25,43', '-49'], [Infinity, 0]]) expect(coordenadasValidas(a, b), `${a} ${b}`).toBeNull()
+  })
+
+  it('pecasDoMapa: lng +-180 e latitudes altas ficam dentro de 0..2^z-1, sem NaN', () => {
+    for (const [lat, lng] of [[10, 180], [10, -180], [85.05, 0], [-85.05, 0], [85.05, 180]]) {
+      const o = pecasDoMapa(lat, lng, 15)
+      for (const p of o.pecas) { expect(p.x).toBeGreaterThanOrEqual(0); expect(p.x).toBeLessThan(2 ** 15); expect(p.y).toBeGreaterThanOrEqual(0); expect(p.y).toBeLessThan(2 ** 15); expect(p.url).not.toMatch(/Infinity|NaN/) }
+      expect(Number.isFinite(o.pinoY)).toBe(true)
+    }
   })
 
   it('links dos três apps, com e sem coordenadas, tudo codificado', () => {
@@ -81,6 +91,15 @@ describe('MapaEvento', () => {
     }
     const { container } = render(<MapaEvento {...props} endereco="" />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('peça que falha ao carregar: troca para o cartão estilizado e mantém botão e endereço', () => {
+    const { container } = render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
+    fireEvent.error(container.querySelector('img')!)
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+    expect(container.querySelector('.evv-mapa-grade')).not.toBeNull()
+    expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toHaveTextContent('Av. Senador Souza Naves 945')
   })
 
   it('folha: abre, mostra os 3 apps (Apple primeiro no iPhone), Esc fecha e o foco volta ao cartão', async () => {
@@ -165,6 +184,12 @@ describe('SeloClassificacao e página', () => {
     expect(render(<SeloClassificacao valor="AL" />).container.querySelector('.evv-selo')?.textContent).toBe('L')
     const { container } = montar(evento())
     expect(container.querySelector('.evv-selo')).toBeNull()
+  })
+
+  it('a área de compra nunca é escondida pela entrada ao rolar', () => {
+    const { container } = montar(evento())
+    expect(container.querySelector('#ingressos')?.hasAttribute('data-entra')).toBe(false)
+    expect(container.querySelector('[data-entra] #ingressos, [data-entra] button')).toBeNull()
   })
 
   it('com previa nada novo aparece (mapa, selo, atrações)', () => {

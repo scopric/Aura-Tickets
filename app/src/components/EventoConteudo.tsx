@@ -15,7 +15,7 @@ import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
 import EventoCapa from './EventoCapa'
-import { CapaInclinada, Carimbo, TotalAnimado, podeMover } from './EventoVitrine'
+import { CapaInclinada, Carimbo, TotalAnimado, podeMover, useEntradaAoRolar } from './EventoVitrine'
 import ThemeToggle from './ThemeToggle'
 import { JanelaSuporte } from './SupportChatWidget'
 import { useAuthStore } from '../stores/authStore'
@@ -114,17 +114,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
     return () => window.removeEventListener('scroll', aoRolar)
   }, [event, previa])
 
-  // Entrada ao rolar: o CSS só esconde (data-evv) quando há IntersectionObserver e movimento permitido
-  useEffect(() => {
-    const el = raiz.current
-    if (previa || !el || !podeMover() || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver((itens) => itens.forEach((i) => {
-      if (i.isIntersecting) { (i.target as HTMLElement).dataset.vista = ''; io.unobserve(i.target) }
-    }), { threshold: 0.1 })
-    el.querySelectorAll('[data-entra]').forEach((n) => io.observe(n))
-    el.dataset.evv = ''
-    return () => { io.disconnect(); delete el.dataset.evv }
-  }, [event, previa])
+  useEntradaAoRolar(raiz, !previa, event)
 
   const addToCart = (ticketId: string) => {
     setCart((prev) => ({ ...prev, [ticketId]: (prev[ticketId] || 0) + 1 }))

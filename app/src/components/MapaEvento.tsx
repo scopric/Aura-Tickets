@@ -20,9 +20,10 @@ export default function MapaEvento({ lat, lng, nome, endereco, consulta, mapaUrl
 }) {
   const [aberta, setAberta] = useState(false)
   const botao = useRef<HTMLButtonElement>(null)
+  const [falhou, setFalhou] = useState(false) // uma peça que não carrega (OSM fora do ar ou bloqueado): cai no cartão estilizado
   if (!endereco) return null // sem endereço nem cidade: fica só a linha "Local"
   const coords = coordenadasValidas(lat, lng)
-  const mapa = coords ? pecasDoMapa(coords.lat, coords.lng, 15) : null
+  const mapa = coords && !falhou ? pecasDoMapa(coords.lat, coords.lng, 15) : null
   const links = linksDeMapa({ coords, consulta, nome, googleSemCoord: mapaUrl }, ehApple())
   const muda = (v: boolean) => {
     setAberta(v)
@@ -45,7 +46,7 @@ export default function MapaEvento({ lat, lng, nome, endereco, consulta, mapaUrl
               style={{ width: LARGURA, transform: `translate(calc(50cqw - ${mapa.pinoX}px), calc(50cqh - ${mapa.pinoY}px))` }}
             >
               {mapa.pecas.map((p) => (
-                <img key={`${p.x}/${p.y}`} src={p.url} alt="" width={256} height={256} loading="lazy" decoding="async" draggable={false} />
+                <img key={`${p.x}/${p.y}`} src={p.url} alt="" width={256} height={256} loading="lazy" decoding="async" draggable={false} onError={() => setFalhou(true)} />
               ))}
             </span>
           ) : (

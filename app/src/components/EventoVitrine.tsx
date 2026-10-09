@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { brl } from '../lib/taxa'
 import './EventoVitrine.css'
 
@@ -7,6 +7,36 @@ export const podeMover = (comMouse = false) =>
   typeof matchMedia === 'function' &&
   !matchMedia('(prefers-reduced-motion: reduce)').matches &&
   (!comMouse || matchMedia('(hover: hover)').matches)
+
+// Entrada ao rolar. O CSS só esconde ([data-evv] [data-entra]:not([data-vista])) enquanto este efeito está vivo; ele
+// observa também o que monta DEPOIS (carga assíncrona, demo) e nada fica invisível: se o observer não responder em
+// 1,2 s para um elemento, ele é mostrado. Sem IntersectionObserver ou com reduzir movimento, nada é escondido.
+export function useEntradaAoRolar(ref: RefObject<HTMLElement | null>, ativo: boolean, dep: unknown) {
+  useEffect(() => {
+    const el = ref.current
+    if (!ativo || !el || !podeMover() || typeof IntersectionObserver === 'undefined') return
+    const chegou = new WeakSet<Element>()
+    const armados = new WeakSet<Element>()
+    const timers: number[] = []
+    const mostra = (n: Element) => { (n as HTMLElement).dataset.vista = ''; io.unobserve(n) }
+    const io = new IntersectionObserver((itens) => itens.forEach((i) => {
+      chegou.add(i.target)
+      if (i.isIntersecting) mostra(i.target)
+    }), { threshold: 0.1 })
+    const arma = (n: Element) => {
+      if (armados.has(n) || (n as HTMLElement).dataset.vista !== undefined) return
+      armados.add(n)
+      io.observe(n)
+      timers.push(window.setTimeout(() => { if (!chegou.has(n)) mostra(n) }, 1200))
+    }
+    const varre = () => el.querySelectorAll('[data-entra]').forEach(arma)
+    varre()
+    const mo = new MutationObserver(varre)
+    mo.observe(el, { childList: true, subtree: true })
+    el.dataset.evv = ''
+    return () => { mo.disconnect(); io.disconnect(); timers.forEach(clearTimeout); delete el.dataset.evv }
+  }, [ref, ativo, dep])
+}
 
 // Capa que inclina até 7° com o mouse, com luz que segue o ponteiro. Envolve a capa sem mexer nela.
 export function CapaInclinada({ children, selo }: { children: ReactNode; selo?: ReactNode }) {

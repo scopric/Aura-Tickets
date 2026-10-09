@@ -19,7 +19,7 @@ export default function Atracoes({ atracoes }: { atracoes: Atracao[] }) {
       <ul
         tabIndex={0}
         aria-label="Lista de atrações"
-        className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 focus-visible:outline-none focus-visible:shadow-ev-foco md:grid md:grid-cols-3 md:overflow-visible"
+        className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 focus-visible:outline-none focus-visible:shadow-ev-foco md:grid md:grid-cols-4 md:overflow-visible"
       >
         {lista.map((a) => {
           const ig = a.instagram && INSTAGRAM.test(a.instagram) ? a.instagram : null
