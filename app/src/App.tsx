@@ -38,6 +38,7 @@ const AppLayout = lazy(() => import('./components/AppLayout'))
 const Home = lazy(() => import('./pages/Home'))
 const EventPage = lazy(() => import('./pages/EventPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const QuadroDemo = import.meta.env.DEV ? lazy(() => import('./pages/QuadroDemo')) : null
 const ContactPage = lazy(() => import('./pages/Contact'))
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
@@ -463,6 +464,8 @@ function Layout() {
               <Route path="/app/profile" element={<AppProfile />} />
               <Route path="/app/settings" element={<AppSettings />} />
             </Route>
+
+            {QuadroDemo && <Route path="/__quadro-demo" element={<QuadroDemo />} />}
 
             {/* Checkout */}
             <Route path="/checkout" element={<Checkout />} />
