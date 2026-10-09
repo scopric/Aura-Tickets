@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Quadro from '@/components/producer/quadro/Quadro'
 import { Button } from '@/components/ui/button'
-import { useTheme } from '@/contexts/ThemeContext'
 import type { ColunaQuadro, DbTask } from '@/hooks/useProducerTools'
 import { diaBR } from '@/lib/visaoEvento'
 
@@ -33,13 +32,15 @@ const NOMES: Record<string, string> = { ana: 'Ana', bia: 'Bia', caio: 'Caio', du
 
 export default function QuadroDemo() {
   const [tarefas, setTarefas] = useState(inicial)
-  const { temaResolvido, setTema } = useTheme()
+  // A rota é forçada no escuro pelo tema do app; aqui a troca é só nas classes da raiz (nada é salvo)
+  const [escuro, setEscuro] = useState(true)
+  const trocar = () => { setEscuro(!escuro); document.documentElement.classList.toggle('dark', !escuro); document.documentElement.classList.toggle('light', escuro) }
   useEffect(() => { document.body.classList.add('cor-produtor'); return () => document.body.classList.remove('cor-produtor') }, [])
   return (
-    <div className="painel-produtor min-h-screen bg-background p-6 text-foreground">
+    <div className="painel-produtor fixed inset-0 z-[300] overflow-auto bg-background p-6 text-foreground">
       <div className="mb-4 flex items-center gap-3">
         <h1 className="text-lg font-semibold">Demonstração do Quadro (só desenvolvimento)</h1>
-        <Button variant="outline" onClick={() => setTema(temaResolvido === 'dark' ? 'light' : 'dark')}>Tema: {temaResolvido === 'dark' ? 'escuro' : 'claro'}</Button>
+        <Button variant="outline" onClick={trocar}>Tema: {escuro ? 'escuro' : 'claro'}</Button>
       </div>
       <Quadro
         tarefas={tarefas} colunas={colunas} colunaDe={x => x.column_id ?? ''} ordenavel
