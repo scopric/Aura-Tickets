@@ -15,12 +15,15 @@ import { useAuth } from '../../../hooks/useAuth'
 import {
   useAcoesCartao, useAlternarEtiqueta, useAlternarMembro, useAtualizarCartao, useCartaoDetalhe, useEtiquetasQuadro, mensagemSegura, type ResumoCartao,
 } from '../../../hooks/useCartao'
+import { useConfigRecibos, useMarcarLido, useRecibosCartao } from '../../../hooks/useQuadroAvisos'
 import { useDeleteTask, type ColunaQuadro, type DbTask } from '../../../hooks/useProducerTools'
 import { corPrazo, prazoDoDia } from '../../../lib/tarefas'
 import { diaBR } from '../../../lib/visaoEvento'
 import { EscolhaCapa, EscolhaChecklist, EscolhaDatas, EscolhaEtiquetas, EscolhaLocal, EscolhaMembros } from './CartaoEscolhas'
 import { Anexos, Atividade, Checklists, Comentarios, Dependencias, EscolhaVinculo, Secao, Vinculos } from './CartaoSecoes'
+import LocalRota from './LocalRota'
 import { AvatarPessoa, ChipEtiqueta } from './pecas'
+import { VistoPor } from './Recibos'
 import { ID_QUADRO, corSegura } from './cartaoLib'
 import type { Pessoa } from './useEquipe'
 
@@ -77,6 +80,12 @@ function Conteudo({ tarefa, tarefas, boardId, colunas, pessoas, resumo, onFechar
   const etiquetas = useEtiquetasQuadro(boardId)
   const alternarEtq = useAlternarEtiqueta(tarefa.id)
   const alternarMembro = useAlternarMembro(tarefa.id)
+
+  // Confirmação de leitura: só com "Mostrar quem viu" ligado no quadro (e o SQL da 2B no banco); desligada, nenhuma RPC é chamada
+  const { config } = useConfigRecibos(boardId)
+  const lendo = config.disponivel && config.ligado
+  useMarcarLido(tarefa.id, lendo, det.data ? det.data.comentarios.length : null)
+  const recibos = useRecibosCartao(tarefa.id, det.data?.comentarios.map(c => c.id) ?? [], lendo && !!det.data)
 
   const r = resumo
   const coluna = colunas.find(c => c.id === tarefa.column_id)
@@ -166,9 +175,7 @@ function Conteudo({ tarefa, tarefas, boardId, colunas, pessoas, resumo, onFechar
               <Vinculos tarefa={tarefa} detalhe={det.data} acoes={acoes} abrirEscolha={() => abrirEscolha('vincular')} />
               {tarefa.location && (
                 <Secao titulo="Local" icone={<I.Local />} acao={<Button variant="ghost" size="sm" className={alvo} onClick={() => abrirEscolha('local')}>Editar</Button>}>
-                  <p className="break-words text-sm">{tarefa.location.txt}
-                    {tarefa.location.lat !== undefined && tarefa.location.lng !== undefined && <span className="ml-2 text-xs text-muted-foreground">{tarefa.location.lat}, {tarefa.location.lng}</span>}
-                  </p>
+                  <LocalRota local={tarefa.location} />
                 </Secao>
               )}
               <Secao titulo="Descrição" icone={<I.Texto />}>
@@ -178,7 +185,13 @@ function Conteudo({ tarefa, tarefas, boardId, colunas, pessoas, resumo, onFechar
               <Checklists detalhe={det.data} acoes={acoes} />
               <Dependencias tarefa={tarefa} tarefas={tarefas} detalhe={det.data} acoes={acoes} />
               <Anexos tarefa={tarefa} detalhe={det.data} entrada={entradaAnexo} />
-              <Comentarios detalhe={det.data} acoes={acoes} pessoas={pessoas} eu={user?.id} />
+              <Comentarios detalhe={det.data} acoes={acoes} pessoas={pessoas} eu={user?.id}
+                leitura={lendo ? { membros, observadores: recibos.data?.observadores ?? [], lista: recibos.data?.recibos ?? [] } : undefined} />
+              {lendo && (
+                <Secao titulo={`Visto por ${recibos.data?.vistas.length ?? 0}`} icone={<I.Olho />}>
+                  <VistoPor vistas={recibos.data?.vistas ?? []} pessoas={pessoas} />
+                </Secao>
+              )}
               <Atividade atividade={det.data.atividade} pessoas={pessoas} colunas={colunas} />
             </>
           )}

@@ -54,13 +54,15 @@ interface Props {
   nomePessoa?: (userId: string) => string
   /** Clique ou Enter no cartão abre o verso */
   onAbrir?: (t: DbTask) => void
+  /** Cartões com aviso não lido para a pessoa: ganham o ponto violeta "novo" */
+  comAviso?: Set<string>
 }
 
 const porPrazo = (a: DbTask, b: DbTask) =>
   (a.due_date ?? '9').localeCompare(b.due_date ?? '9') || a.created_at.localeCompare(b.created_at)
 const porPosicao = (a: DbTask, b: DbTask) => (a.position ?? Infinity) - (b.position ?? Infinity) || a.created_at.localeCompare(b.created_at)
 
-export default function Quadro({ tarefas, colunas, colunaDe, ordenavel, onMover, extras, furos, nomeDe, resumo, nomePessoa, onAbrir }: Props) {
+export default function Quadro({ tarefas, colunas, colunaDe, ordenavel, onMover, extras, furos, nomeDe, resumo, nomePessoa, onAbrir, comAviso }: Props) {
   const dica = useId()
   const nome = (id: string) => colunas.find(c => c.id === id)?.name ?? ''
   const hoje = diaBR(new Date())
@@ -129,7 +131,10 @@ export default function Quadro({ tarefas, colunas, colunaDe, ordenavel, onMover,
                       <div className="ev-bilhete">
                         <div className="flex min-w-0 flex-col gap-2 py-3 pl-4 pr-1">
                           <div className="flex items-start justify-between gap-1">
-                            <span className="pt-1 font-mono text-[10.5px] tracking-[0.08em] text-muted-foreground">EVK-{t.id.slice(0, 4).toUpperCase()}</span>
+                            <span className="flex items-center gap-1.5 pt-1 font-mono text-[10.5px] tracking-[0.08em] text-muted-foreground">
+                              EVK-{t.id.slice(0, 4).toUpperCase()}
+                              {comAviso?.has(t.id) && <><span aria-hidden="true" className="size-2 rounded-full bg-[var(--brand-violet)]" /><span className="sr-only">aviso novo</span></>}
+                            </span>
                             <MenuMover
                               titulo={t.title}
                               ordenavel={ordenavel}

@@ -15,7 +15,9 @@ import {
 } from '../../../hooks/useCartao'
 import { quando } from '../../../hooks/useConversas'
 import type { ColunaQuadro, DbTask } from '../../../hooks/useProducerTools'
+import { estadoDaMensagem, type ReciboComentario } from '../../../hooks/useQuadroAvisos'
 import { AvatarPessoa } from './pecas'
+import { Tique } from './Recibos'
 import { LIMITE_MENCOES, ROTAS_VINCULO, destinoVinculo, mencoesDe } from './cartaoLib'
 import type { Pessoa } from './useEquipe'
 
@@ -192,7 +194,10 @@ export function Dependencias({ tarefa, tarefas, detalhe, acoes }: { tarefa: DbTa
 
 // ─── Comentários ───
 
-export function Comentarios({ detalhe, acoes, pessoas, eu }: { detalhe: CartaoDetalhe; acoes: Acoes; pessoas: Pessoa[]; eu?: string }) {
+/** Confirmação de leitura (só com "Mostrar quem viu" ligado): quem deve ler = membros e observadores do cartão */
+export interface LeituraComentarios { membros: string[]; observadores: string[]; lista: ReciboComentario[] }
+
+export function Comentarios({ detalhe, acoes, pessoas, eu, leitura }: { detalhe: CartaoDetalhe; acoes: Acoes; pessoas: Pessoa[]; eu?: string; leitura?: LeituraComentarios }) {
   const [texto, setTexto] = useState('')
   const area = useRef<HTMLTextAreaElement>(null)
   const nome = (id: string) => pessoas.find(p => p.id === id)?.nome ?? 'Sem nome'
@@ -223,6 +228,10 @@ export function Comentarios({ detalhe, acoes, pessoas, eu }: { detalhe: CartaoDe
               <div className="min-w-0 flex-1 rounded-[10px] bg-secondary px-3 py-2">
                 <p className="text-xs text-muted-foreground"><b className="font-medium text-foreground">{nome(c.user_id)}</b> · {quando(c.created_at)}</p>
                 <p className="whitespace-pre-wrap break-words text-sm">{c.body}</p>
+                {leitura && c.user_id === eu && (() => {
+                  const st = estadoDaMensagem(c.user_id, leitura.membros, leitura.observadores, leitura.lista, c.id)
+                  return <div className="mt-1 flex justify-end"><Tique estado={st.estado} lidos={st.lidos.length} total={st.destinatarios.length} /></div>
+                })()}
               </div>
               {c.user_id === eu && <Button variant="ghost" size="icon-sm" className="size-11 sm:size-8" aria-label="Apagar a mensagem" onClick={() => acoes.apagarComentario.mutate(c.id, { onError: aoErro })}><I.Lixeira aria-hidden="true" /></Button>}
             </li>

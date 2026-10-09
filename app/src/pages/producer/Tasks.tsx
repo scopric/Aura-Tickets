@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import {
@@ -17,10 +18,15 @@ import {
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import { RESUMO_VAZIO, useResumoCartoes } from '../../hooks/useCartao'
+import {
+  cartaoDoAviso, useAvisosQuadro, useBipeAvisos, useConfigRecibos, useMarcarAvisos, useMarcarEntregue, usePrefsAvisos,
+} from '../../hooks/useQuadroAvisos'
 import { PRODUTORA, atrasada, posicaoNaColuna, prazoDoDia } from '../../lib/tarefas'
 import { diaBR } from '../../lib/visaoEvento'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import CartaoVerso from '@/components/producer/quadro/CartaoVerso'
+import { SinoQuadro } from '@/components/producer/quadro/AvisosQuadro'
+import MenuQuadro, { type PaginaQuadro } from '@/components/producer/quadro/MenuQuadro'
 import Quadro from '@/components/producer/quadro/Quadro'
 import { useEquipeCartao } from '@/components/producer/quadro/useEquipe'
 import { PageHeader, Stat, EmptyState, selectNativo, chipAviso, chipErro } from '@/components/producer/ui'
@@ -90,6 +96,42 @@ export default function ProducerTasks() {
   const quadroVisivel = modoNovo && viewMode === 'quadro'
   const resumo = useResumoCartoes(quadroVisivel ? quadro.data!.boardId : null, tarefasQuadro.map(t => t.id))
   const pessoas = useEquipeCartao(quadroVisivel)
+
+  // Fatia 2B: avisos, bipe e confirmação de leitura. Sem o SQL no banco (prefs indisponíveis) nada disso aparece e nada é chamado
+  const { prefs, disponivel: avisosOk } = usePrefsAvisos()
+  const avisosAtivos = modoNovo && avisosOk
+  const { avisos, naoLidos, carregado } = useAvisosQuadro(avisosAtivos)
+  useBipeAvisos(avisos, carregado, prefs)
+  const { config: recibos, alterar: alterarRecibos } = useConfigRecibos(modoNovo ? quadro.data!.boardId : null)
+  useMarcarEntregue(tarefasQuadro.map(t => t.id), quadroVisivel && recibos.disponivel && recibos.ligado)
+  const { mutate: marcarAvisos } = useMarcarAvisos()
+  const comAviso = useMemo(() => new Set(avisos.filter(a => !a.is_read).map(cartaoDoAviso).filter((x): x is string => !!x)), [avisos])
+  const [pagina, setPagina] = useState<PaginaQuadro>(null)
+
+  // Abrir o verso limpa os avisos daquele cartão
+  useEffect(() => {
+    if (!versoId) return
+    const ids = avisos.filter(a => !a.is_read && cartaoDoAviso(a) === versoId).map(a => a.id)
+    if (ids.length) marcarAvisos(ids)
+  }, [versoId, avisos, marcarAvisos])
+
+  // Link de aviso: /producer/tasks?cartao=<id> abre o verso (põe o evento do cartão no filtro e o modo quadro, se preciso) e tira o parâmetro da URL
+  const [params, setParams] = useSearchParams()
+  const cartaoDaUrl = params.get('cartao')
+  useEffect(() => {
+    if (!cartaoDaUrl || isPending) return
+    const mexer = (fn: (n: URLSearchParams) => void) => setParams((p: URLSearchParams) => { const n = new URLSearchParams(p); fn(n); return n }, { replace: true })
+    const t = todas.find(x => x.id === cartaoDaUrl)
+    if (!t || t.archived_at) { mexer(n => n.delete('cartao')); return }
+    if (!filtroEvento || !tasks.some(x => x.id === t.id)) {
+      const doCartao = t.event_id ?? PRODUTORA
+      mexer(n => { if (filtroEvento === doCartao) n.delete('cartao'); else n.set('eventId', doCartao) }) // filtro já aplicado e o cartão não aparece: solta o parâmetro
+      return
+    }
+    setViewMode('quadro') // eslint-disable-line react-hooks/set-state-in-effect -- o link da URL manda a tela para o quadro
+    if (quadro.isSuccess && !quadro.data) { mexer(n => n.delete('cartao')); return } // modo antigo: não há verso
+    if (modoNovo && tarefasQuadro.some(x => x.id === t.id)) { setVersoId(t.id); mexer(n => n.delete('cartao')) }
+  }, [cartaoDaUrl, filtroEvento, isPending, todas, tasks, quadro.isSuccess, quadro.data, modoNovo, tarefasQuadro, setParams])
 
   const total = tasks.length
   const done = tasks.filter(t => t.status === 'done').length
@@ -169,6 +211,12 @@ export default function ProducerTasks() {
               <I.Colunas aria-hidden="true" />
             </Button>
           </div>
+          {avisosAtivos && <SinoQuadro avisos={avisos} naoLidos={naoLidos} onPreferencias={() => setPagina('prefs')} />}
+          {modoNovo && (
+            <MenuQuadro pagina={pagina} onPagina={setPagina} avisosDisponivel={avisosOk} config={recibos}
+              alterarRecibos={(ligado, onErro) => alterarRecibos.mutate(ligado, { onError: onErro })}
+              tarefas={tarefasQuadro} concluida={t => quadro.data?.colunas.find(c => c.id === t.column_id)?.kind === 'done'} />
+          )}
           <Button onClick={abrir}><I.Criar aria-hidden="true" />Nova tarefa</Button>
         </>
       }
@@ -277,6 +325,7 @@ export default function ProducerTasks() {
             resumo={modoNovo ? resumo.data : undefined}
             nomePessoa={id => pessoas.find(p => p.id === id)?.nome ?? 'Sem nome'}
             onAbrir={modoNovo ? t => setVersoId(t.id) : undefined}
+            comAviso={avisosAtivos ? comAviso : undefined}
             furos={modoNovo ? t => { const r = resumo.data?.get(t.id); return r?.checkTotal ? [r.checkFeitos, r.checkTotal] : undefined } : undefined}
             extras={t => (
               <>
