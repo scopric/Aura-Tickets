@@ -368,7 +368,7 @@ export function useAcoesCartao(taskId: string) {
 }
 
 // ─── Campos do próprio cartão ───
-export type CamposCartao = Partial<Pick<DbTask, 'title' | 'description' | 'due_date' | 'start_date' | 'cover' | 'location' | 'fields' | 'archived_at'>>
+export type CamposCartao = Partial<Pick<DbTask, 'title' | 'description' | 'due_date' | 'start_date' | 'cover' | 'location' | 'fields' | 'archived_at' | 'recur_days' | 'ck_move'>>
 
 /** Atualiza descrição, prazo, início, capa, local, campos extras ou arquivamento. Mesmo controle de conflito de useMoverTarefa */
 export function useAtualizarCartao() {

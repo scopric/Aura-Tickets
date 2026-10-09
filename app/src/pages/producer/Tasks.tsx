@@ -215,6 +215,7 @@ export default function ProducerTasks() {
           {modoNovo && (
             <MenuQuadro pagina={pagina} onPagina={setPagina} avisosDisponivel={avisosOk} config={recibos}
               alterarRecibos={(ligado, onErro) => alterarRecibos.mutate(ligado, { onError: onErro })}
+              boardId={quadro.data!.boardId} colunas={quadro.data!.colunas} temEvento={!soProdutora}
               tarefas={tarefasQuadro} concluida={t => quadro.data?.colunas.find(c => c.id === t.column_id)?.kind === 'done'} />
           )}
           <Button onClick={abrir}><I.Criar aria-hidden="true" />Nova tarefa</Button>

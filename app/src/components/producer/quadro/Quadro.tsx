@@ -161,6 +161,7 @@ export default function Quadro({ tarefas, colunas, colunaDe, ordenavel, onMover,
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             {extras?.(t)}
                             {rs?.bloqueado && <span className="flex items-center gap-1 text-[var(--ev-warning)]"><I.Cadeado size={14} aria-hidden="true" />bloqueado</span>}
+                            {!!t.recur_days && <span className="flex items-center gap-1"><I.Atualizar size={14} aria-hidden="true" /><span className="sr-only">repete a cada {t.recur_days} {t.recur_days === 1 ? 'dia' : 'dias'}</span></span>}
                             {!!rs?.anexos && <span className="flex items-center gap-1"><I.Anexo size={14} aria-hidden="true" /><span aria-hidden="true">{rs.anexos}</span><span className="sr-only">{rs.anexos} {rs.anexos === 1 ? 'anexo' : 'anexos'}</span></span>}
                             {!!rs?.comentarios && <span className="flex items-center gap-1"><I.Conversa size={14} aria-hidden="true" /><span aria-hidden="true">{rs.comentarios}</span><span className="sr-only">{rs.comentarios} {rs.comentarios === 1 ? 'mensagem' : 'mensagens'}</span></span>}
                             {!!rs?.membros.length && (
