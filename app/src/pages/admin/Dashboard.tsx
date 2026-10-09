@@ -173,7 +173,7 @@ export default function AdminDashboard() {
               <li key={a.key} className="flex items-center gap-3 py-3">
                 <a.icon size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <Link to={a.to} className="block truncate text-sm text-foreground hover:text-primary">{a.texto}</Link>
+                  <Link to={a.to} className="block truncate text-sm text-foreground hover:text-primary hover:underline">{a.texto}</Link>
                   <div className="text-xs text-muted-foreground">{a.tipo}</div>
                 </div>
                 <div className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">{fmt(a.quando)}</div>
