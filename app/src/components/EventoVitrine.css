@@ -67,7 +67,7 @@
     grid-template-columns: clamp(200px, 22vw, 300px) minmax(0, 1fr) 360px; grid-template-rows: repeat(8, auto) 1fr;
   }
   .evv-contents { display: contents; }
-  .evv-capa-col { grid-column: 1; grid-row: 1 / span 99; order: 0; align-self: start; position: sticky; top: 5rem; max-width: none; margin: 0; }
+  .evv-capa-col { grid-column: 1; grid-row: 1 / -1; align-self: start; position: sticky; top: 5rem; max-width: none; margin: 0; }
   .evv-hero-texto { grid-column: 2; grid-row: 1; padding-bottom: 2.5rem; }
   .evv-meio > :not(#ingressos) { grid-column: 2; }
   .evv-meio > #ingressos { grid-column: 3; grid-row: 1 / -1; }
