@@ -1,9 +1,9 @@
 -- pgTAP do cartão completo do Quadro (docs/sql/20261105_quadro_f2a_cartao.sql). Só no banco local: aplicar 20261010, 20261017,
--- 20261103 e 20261105 e rodar `supabase test db`. Tudo em begin ... rollback: nada fica gravado. Nunca contra produção.
+-- 20261103, 20261105 e 20261106 (a 2B passou os recibos e o 'visto por' para funções) e rodar `supabase test db`. Tudo em begin ... rollback: nada fica gravado. Nunca contra produção.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(142);
+select plan(143);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -61,7 +61,7 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
            where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'task\_%' and not c.relrowsecurity), 0::bigint,
   'toda tabela task_* tem RLS ligada');
 select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE'
-           and tablename like 'task\_%'), 15::bigint, 'gf_mfa_aal2 RESTRICTIVE nas 15 tabelas task_*');
+           and tablename like 'task\_%'), 17::bigint, 'gf_mfa_aal2 RESTRICTIVE nas 17 tabelas task_* (15 + prefs e avisos de prazo da 2B)');
 select is((select count(*) from information_schema.role_table_grants where grantee in ('anon', 'public') and table_schema = 'public'
            and table_name like 'task\_%'), 0::bigint, 'anon sem privilégio em tabela task_*');
 select is((select count(*) from information_schema.columns where table_schema = 'public'
@@ -75,7 +75,7 @@ select is((select public from storage.buckets where id = 'task-attachments'), fa
 select is((select file_size_limit from storage.buckets where id = 'task-attachments'), 10485760::bigint, 'bucket limita 10 MB');
 select policies_are('public', 'task_activity', array['gf_mfa_aal2', 'task_activity_ver'], 'task_activity: só ver e 2FA');
 select policies_are('public', 'task_comment_receipts',
-  array['gf_mfa_aal2', 'task_comment_receipts_criar', 'task_comment_receipts_editar', 'task_comment_receipts_ver'], 'recibos: ver, criar, editar e 2FA');
+  array['gf_mfa_aal2', 'task_comment_receipts_ver'], 'recibos: só ver e 2FA (a escrita é pela função da 2B)');
 
 -- Anon ------------------------------------------------------------------------------------------------------------------------
 select pg_temp.como('anon');
@@ -116,19 +116,20 @@ select lives_ok($$insert into public.task_watchers (task_id, user_id) values
 select throws_ok($$insert into public.task_watchers (task_id, user_id) values
   ('fd000000-0000-4000-8000-0000000000d1', 'fd000000-0000-4000-8000-0000000000a3')$$, '42501', null, 'não coloca outra pessoa como observadora');
 -- recibo e "visto por": só o próprio
-select lives_ok($$insert into public.task_comment_receipts (comment_id, user_id, read_at, device) values
-  ('fd000000-0000-4000-8000-0000000000f1', 'fd000000-0000-4000-8000-0000000000a2', now(), 'celular')$$, 'destinatário grava o próprio recibo');
+select throws_ok($$insert into public.task_comment_receipts (comment_id, user_id, read_at, device) values
+  ('fd000000-0000-4000-8000-0000000000f1', 'fd000000-0000-4000-8000-0000000000a2', now(), 'celular')$$, '42501', null, 'recibo direto na tabela é negado (2B)');
+select lives_ok($$select public.quadro_marcar_lido('fd000000-0000-4000-8000-0000000000d1', 'celular')$$, 'destinatário grava o próprio recibo pela função');
 select ok((select read_at >= delivered_at and read_at > '2000-01-01' from public.task_comment_receipts
            where comment_id = 'fd000000-0000-4000-8000-0000000000f1' and user_id = 'fd000000-0000-4000-8000-0000000000a2'),
   'read_at carimbado pelo banco, nunca menor que delivered_at');
 select throws_ok($$insert into public.task_comment_receipts (comment_id, user_id) values
   ('fd000000-0000-4000-8000-0000000000f1', 'fd000000-0000-4000-8000-0000000000a3')$$, '42501', null, 'recibo em nome de outra pessoa é recusado');
 select throws_ok($$insert into public.task_comment_receipts (comment_id, user_id, device) values
-  ('fd000000-0000-4000-8000-0000000000f1', 'fd000000-0000-4000-8000-0000000000a2', 'geladeira')$$, '23514', null, 'device fora da lista é recusado');
+  ('fd000000-0000-4000-8000-0000000000f1', 'fd000000-0000-4000-8000-0000000000a2', 'geladeira')$$, '42501', null, 'recibo direto com device fora da lista também é negado');
 select throws_ok($$insert into public.task_card_views (task_id, user_id, last_seen_at) values
   ('fd000000-0000-4000-8000-0000000000d1', 'fd000000-0000-4000-8000-0000000000a2', '2000-01-01')$$, '42501', null, 'cliente não escolhe last_seen_at');
-select lives_ok($$insert into public.task_card_views (task_id, user_id, device) values
-  ('fd000000-0000-4000-8000-0000000000d1', 'fd000000-0000-4000-8000-0000000000a2', 'computador')$$, '''ver'' grava o próprio ''visto por''');
+select throws_ok($$insert into public.task_card_views (task_id, user_id, device) values
+  ('fd000000-0000-4000-8000-0000000000d1', 'fd000000-0000-4000-8000-0000000000a2', 'computador')$$, '42501', null, '''visto por'' direto na tabela é negado (2B)');
 select throws_ok($$insert into public.task_card_views (task_id, user_id) values
   ('fd000000-0000-4000-8000-0000000000d1', 'fd000000-0000-4000-8000-0000000000a3')$$, '42501', null, '''visto por'' em nome de outro é recusado');
 select throws_ok($$insert into storage.objects (bucket_id, name, owner_id) values
@@ -214,8 +215,7 @@ with u as (update public.task_comments set body = 'do dono' where id = 'fd000000
   select is((select count(*) from u), 0::bigint, 'nem o dono edita comentário alheio (0 linhas)');
 select is((select count(*) from public.task_comment_receipts), 1::bigint, 'dono lê os recibos');
 select is((select count(*) from public.task_card_views), 1::bigint, 'dono lê o ''visto por''');
-with u as (update public.task_comment_receipts set read_at = null returning 1)
-  select is((select count(*) from u), 0::bigint, 'dono não altera recibo alheio (0 linhas)');
+select throws_ok($$update public.task_comment_receipts set read_at = null$$, '42501', null, 'dono não altera recibo alheio (UPDATE negado, 2B)');
 with d as (delete from public.task_comments where id = 'fd000000-0000-4000-8000-0000000000f1' returning 1)
   select is((select count(*) from d), 1::bigint, 'o dono do produtor apaga comentário alheio (moderação)');
 -- atalhos
