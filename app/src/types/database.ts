@@ -1018,6 +1018,11 @@ export interface Database {
           status: string
           priority: string
           created_at: string
+          board_id: string | null
+          column_id: string | null
+          position: number | null
+          updated_at: string
+          created_by: string | null
         }
         Insert: {
           id?: string | null
@@ -1030,6 +1035,9 @@ export interface Database {
           status?: string
           priority?: string
           created_at?: string
+          board_id?: string | null
+          column_id?: string | null
+          position?: number | null
         }
         Update: {
           id?: string | null
@@ -1042,6 +1050,9 @@ export interface Database {
           status?: string
           priority?: string
           created_at?: string
+          board_id?: string | null
+          column_id?: string | null
+          position?: number | null
         }
       }
       profiles: {
@@ -1160,6 +1171,22 @@ export interface Database {
           accepted_at?: string | null
           blocked_at?: string | null
         }
+      }
+      // Quadro de tarefas e permissão da equipe (docs/sql/20261103_equipe_quadro_f01.sql); escritas à mão até regenerar os tipos
+      task_boards: {
+        Row: { id: string; producer_id: string; event_id: string | null; name: string; created_at: string }
+        Insert: never
+        Update: never
+      }
+      task_columns: {
+        Row: { id: string; board_id: string; name: string; kind: 'todo' | 'doing' | 'done'; position: number }
+        Insert: { id?: string; board_id: string; name: string; kind: 'todo' | 'doing' | 'done'; position: number }
+        Update: { name?: string; kind?: 'todo' | 'doing' | 'done'; position?: number }
+      }
+      team_member_tools: {
+        Row: { id: string; member_id: string; ferramenta: 'quadro'; nivel: 'ver' | 'editar' }
+        Insert: { id?: string; member_id: string; ferramenta: 'quadro'; nivel: 'ver' | 'editar' }
+        Update: { nivel?: 'ver' | 'editar' }
       }
       ticket_types: {
         Row: {
@@ -1362,6 +1389,11 @@ export interface Database {
       }
     }
     Functions: {
+      // Devolve o id do quadro do evento (ou da produtora, p_evento nulo), criando se não existir (20261103_equipe_quadro_f01.sql)
+      quadro_garantir: {
+        Args: { p_produtor: string; p_evento?: string | null }
+        Returns: string
+      }
       // Venda no servidor (docs/sql/20261030a_venda_servidor_meia.sql); escritas à mão até regenerar os tipos
       vitrine_ingressos: {
         Args: { p_event_id: string }
