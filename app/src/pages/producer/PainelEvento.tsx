@@ -616,7 +616,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       </div>
 
       {mostrarFaltas && alvos.length > 0 && !guiado && (
-        <Faixa tom="atencao" className="mb-4" titulo={`Faltam ${alvos.length} ${alvos.length === 1 ? 'item' : 'itens'}`} acoes={<Button size="sm" onClick={() => irAoPasso(0)}>Ir ao próximo</Button>} />
+        <Faixa tom="atencao" className="mb-4" titulo={`Faltam ${alvos.length} ${alvos.length === 1 ? 'item' : 'itens'}`} acoes={<Button size="sm" variant={alteracoes.length > 0 ? 'outline' : 'default'} onClick={() => irAoPasso(0)}>Ir ao próximo</Button>} />
       )}
       {destaque !== null && alvos.length > 0 && <DestaqueCampo key={destaque.k} alvos={alvos} indice={destaque.i} onIndice={(i, a) => { setDestaque(d => d && { ...d, i }); abrir(a.secao, false) }} onFechar={fechaDestaque} />}
 

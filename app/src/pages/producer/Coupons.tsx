@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { avisarComDesfazer } from '../../lib/desfazer'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const statusOptions = ['Todos', 'Ativo', 'Agendado', 'Expirado', 'Esgotado', 'Desativado']
@@ -168,7 +169,7 @@ export default function ProducerCoupons() {
     const isActive = !coupon.is_active
     try {
       await updateCoupon.mutateAsync({ id: coupon.id, is_active: isActive })
-      toast.success(`Cupom ${isActive ? 'ativado' : 'desativado'}.`)
+      avisarComDesfazer({ id: `desfazer-cupom-${coupon.id}`, mensagem: `Cupom ${coupon.code} ${isActive ? 'ativado' : 'desativado'}.`, inverso: () => updateCoupon.mutateAsync({ id: coupon.id, is_active: !isActive }) })
     } catch (e) {
       toast.error(erroCupom(e, 'Não foi possível atualizar o status.'))
     }

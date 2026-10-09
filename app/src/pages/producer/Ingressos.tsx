@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { avisarComDesfazer } from '../../lib/desfazer'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
 const n = (v: number) => v.toLocaleString('pt-BR')
@@ -41,7 +42,7 @@ export default function ProducerIngressos() {
 
   const [modal, setModal] = useState<{ ing: ReturnType<typeof ingDoBanco> | null } | null>(null)
   const [previa, setPrevia] = useState<string | null>(null)
-  const [confirmar, setConfirmar] = useState<{ t: DbTicketType; ativo: boolean } | null>(null)
+  const [confirmar, setConfirmar] = useState<{ t: DbTicketType } | null>(null) // só para OCULTAR (afeta compras em andamento)
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [aviso, setAviso] = useState('')
 
@@ -62,11 +63,17 @@ export default function ProducerIngressos() {
     setAviso(`${tipos[de].name} agora é o ${para + 1}º de ${tipos.length}.`)
     reordenar.mutate({ eventId: evento.id, ordens }, { onError: () => toast.error('A ordem pode ter ficado parcial; confira a lista.') })
   }
-  const trocarVisivel = () => {
-    if (!confirmar || !evento) return
-    const { t, ativo } = confirmar
+  // Liga/desliga `is_active`, com "Desfazer" depois. Mostrar grava direto. Ocultar pede confirmação ANTES: a função de pagamento
+  // recusa o pedido pendente de um ingresso oculto (pode_comprar exige is_active), então ocultar por engano derruba compras em andamento.
+  const trocarVisivel = (t: DbTicketType, ativo: boolean) => {
+    if (!evento) return
+    const grava = (v: boolean) => alternar.mutateAsync({ eventId: evento.id, id: t.id, ativo: v })
     alternar.mutate({ eventId: evento.id, id: t.id, ativo }, {
-      onSuccess: () => toast.success(ativo ? 'Ingresso de volta à venda.' : 'Ingresso oculto: não aparece mais para venda.'),
+      onSuccess: () => avisarComDesfazer({
+        id: `desfazer-ingresso-${t.id}`,
+        mensagem: ativo ? `"${t.name}" voltou à venda.` : `"${t.name}" oculto: não aparece mais para venda. Quem já comprou continua com o ingresso.`,
+        inverso: () => grava(!ativo),
+      }),
       onError: () => toast.error('Não foi possível mudar o ingresso. Tente de novo.'),
     })
   }
@@ -142,7 +149,7 @@ export default function ProducerIngressos() {
                     <p className="col-start-2 text-sm tabular-nums text-foreground md:col-start-auto"><span className="text-xs text-muted-foreground md:hidden">Vendidos: </span>{semFator ? '—' : n(vend)} / {n(totalDe(t))}</p>
                     <p className="col-start-2 text-xs text-muted-foreground md:col-start-auto"><span className="md:hidden">Venda: </span>{janelaDeVenda(t.sale_start, t.sale_end)}</p>
                     <label className="col-start-2 flex min-h-11 items-center gap-2 text-sm text-foreground md:col-start-auto">
-                      <Switch checked={t.is_active} onCheckedChange={v => setConfirmar({ t, ativo: v })} disabled={alternar.isPending} aria-label={`Visível: ${t.name}`} />
+                      <Switch checked={t.is_active} onCheckedChange={v => (v ? trocarVisivel(t, true) : setConfirmar({ t }))} disabled={alternar.isPending} aria-label={`Visível: ${t.name}`} />
                       <span>{t.is_active ? 'Sim' : 'Não'}</span>
                     </label>
                     <div className="col-start-2 flex flex-wrap gap-2 md:col-start-auto">
@@ -181,14 +188,14 @@ export default function ProducerIngressos() {
       <AlertDialog open={!!confirmar} onOpenChange={o => { if (!o) setConfirmar(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmar?.ativo ? 'Voltar a vender este ingresso?' : 'Ocultar este ingresso?'}</AlertDialogTitle>
+            <AlertDialogTitle>Ocultar este ingresso?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmar?.ativo ? `"${confirmar.t.name}" volta a aparecer para venda.` : `"${confirmar?.t.name}" deixa de aparecer para venda. Quem já comprou continua com o ingresso.`}
+              {`"${confirmar?.t.name}" deixa de aparecer para venda. Quem já comprou continua com o ingresso. Quem está pagando agora pode não conseguir concluir a compra. Você poderá desfazer logo depois.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11">Voltar</AlertDialogCancel>
-            <AlertDialogAction className="min-h-11" onClick={trocarVisivel}>{confirmar?.ativo ? 'Mostrar' : 'Ocultar'}</AlertDialogAction>
+            <AlertDialogAction className="min-h-11" onClick={() => { if (confirmar) trocarVisivel(confirmar.t, false) }}>Ocultar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
