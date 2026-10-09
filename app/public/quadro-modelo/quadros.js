@@ -55,7 +55,7 @@
     q('q3', 'Parcerias e patrocínios', 'equipe', null, 'escolhidas', { eu: 'editar', p3: 'ver' }, 14, 0, 3, { dono: 'p2', ord: 3, cor: PASTAS[2], prazo: '2026-11-30' }),
     q('q4', 'Festival Maré Alta', 'evento', 'e1', 'escolhidas', { p2: 'editar', p3: 'ver', p4: 'editar', p5: 'editar' }, 31, 4, 14, { ord: 7, cor: PASTAS[0], col: MODELOS[0].col }),
     q('q5', 'Noite do Samba Aberto', 'evento', 'e2', 'equipe', {}, 22, 1, 6, { ord: 6, cor: PASTAS[4] }),
-    q('q6', 'Feira Sabores do Sul', 'evento', 'e3', 'escolhidas', { p3: 'ver', p6: 'editar' }, 9, 0, 0, { ord: 2, cor: PASTAS[1] }),
+    q('q6', 'Feira Sabores do Sul', 'evento', 'e3', 'escolhidas', { p3: 'ver', p6: 'editar' }, 9, 0, 0, { ord: 2, cor: PASTAS[1], parado: 14 }),
     q('q7', 'Encontro Horizonte (2026)', 'evento', 'e4', 'equipe', {}, 40, 0, 40, { arq: true, ord: 1, cor: PASTAS[5] })
   ];
   var seq = 10, pessoa = function (id) { return PESSOAS.filter(function (p) { return p.id === id; })[0]; };
@@ -72,6 +72,12 @@
     return '';
   }
   function prazoDe(b) { return b.evento ? evento(b.evento).data : b.prazo; }
+  var HOJE = Date.UTC(2026, 9, 9); // data fictícia fixa do protótipo
+  var MES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'], SEM = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+  function infoData(iso) {
+    var p = iso.split('-'), t = Date.UTC(+p[0], p[1] - 1, +p[2]);
+    return { dia: +p[2], mes: MES[p[1] - 1], sem: SEM[new Date(t).getUTCDay()], falta: Math.round((t - HOJE) / 864e5) };
+  }
   function dataBR(iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
   function sem(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
   function ordenar(lista, modo, tipo) {
@@ -165,13 +171,13 @@
   function abrir(d, de, foco) {
     fechar(true);
     aberto = d; gatilho = de || document.activeElement;
-    d.hidden = false; document.body.classList.add('trava');
+    d.hidden = false; d.classList.add('on');
     var f = (foco && $(foco)) || focaveis(d).filter(function (e) { return !e.classList.contains('fechar'); })[0];
     if (f) f.focus();
   }
   function fechar(semFoco) {
     if (!aberto) return;
-    aberto.hidden = true; aberto = null; document.body.classList.remove('trava');
+    aberto.hidden = true; aberto.classList.remove('on'); aberto = null;
     if (!semFoco) {
       var g = document.body.contains(gatilho) ? gatilho : $('criar');
       g.focus();
@@ -189,7 +195,7 @@
       else if (f.indexOf(document.activeElement) < 0) { e.preventDefault(); p.focus(); }
     }
   });
-  [].forEach.call(document.querySelectorAll('.veu'), function (v) {
+  [].forEach.call(document.querySelectorAll('.veu,.gv'), function (v) {
     v.addEventListener('mousedown', function (e) { if (e.target === v) fechar(); });
     [].forEach.call(v.querySelectorAll('[data-fechar]'), function (b) { b.addEventListener('click', function () { fechar(); }); });
   });
@@ -199,27 +205,40 @@
   var FILTROS = [['todos', 'Todos'], ['pessoal', 'Pessoais'], ['equipe', 'Equipe e empresa'], ['evento', 'Por evento']];
 
   function cartaoPasta(b) {
-    var oVis = b.vis, dono = b.dono === 'eu';
-    var vis = visiveis(b);
+    var dono = b.dono === 'eu', vis = visiveis(b), ev = b.evento ? evento(b.evento) : null;
     var pilha = el('div', { className: 'pilha', attrs: { role: 'group', 'aria-label': 'Quem vê: ' + vis.map(function (i) { return pessoa(i).nome; }).join(', ') } },
-      vis.slice(0, 4).map(avatar));
-    if (vis.length > 4) pilha.append(el('span', { className: 'av mais', textContent: '+' + (vis.length - 4) }));
+      vis.slice(0, 3).map(avatar));
+    if (vis.length > 3) pilha.append(el('span', { className: 'av mais', textContent: '+' + (vis.length - 3) }));
     var tres = el('button', { type: 'button', className: 'tres', attrs: { 'aria-label': 'Ações do quadro ' + b.nome, 'aria-haspopup': 'menu' } }, [icone('tres')]);
     tres.addEventListener('click', function () { abrirMenu(b, tres); });
-    var linhaProg = el('div', { className: 'linha' }, [el('span', { textContent: b.n + ' cartões · ' }), el('span', { className: b.atr ? 'atr' : '', textContent: b.atr + (b.atr === 1 ? ' atrasado' : ' atrasados') })]);
-    var nPct = b.n ? Math.round(b.ok / b.n * 100) : 0;
-    var info = [el('span', { className: 'selo', textContent: TIPOS[b.tipo] }),
-      el('span', { className: 'vis' }, [icone(oVis), el('span', { textContent: VIS[oVis] })])];
-    var card = el('article', { className: 'pasta' + (b.arq ? ' arq' : '') + (est.novo === b.id ? ' novo' : ''), style: '--cor:' + b.cor }, [
-      el('div', { className: 'tit' }, [icone('pasta'), el('h3', {}, [el('a', { href: './index.html', textContent: b.nome })])]),
-      tres,
-      el('div', { className: 'linha' }, info),
-      b.evento ? el('div', { className: 'linha', textContent: evento(b.evento).nome + ' · ' + dataBR(evento(b.evento).data) }) : el('div', { className: 'linha', textContent: dono ? 'Dono: você' : 'Dono: ' + pessoa(b.dono).nome }),
-      linhaProg,
-      el('div', { className: 'prog', attrs: { role: 'img', 'aria-label': nPct + '% concluído' }, style: '--w:' + nPct + '%' }, [el('i')]),
-      pilha
+    var pct = b.n ? Math.round(b.ok / b.n * 100) : 0, cn;
+    if (ev) {
+      var d = infoData(ev.data);
+      cn = [el('div', { className: 'data' }, [el('b', { textContent: d.dia }), el('span', { textContent: d.mes + ' · ' + d.sem }),
+        el('small', { textContent: d.falta < 0 ? 'HÁ ' + (-d.falta) + ' D' : 'EM ' + d.falta + ' D' })])];
+      var st = d.falta < 0 ? 'feito' : d.falta <= 14 ? 'logo' : '';
+    } else {
+      cn = [el('div', { className: 'data' }, [el('b', { textContent: b.n }), el('span', { textContent: 'CARTÕES' }),
+        el('small', { textContent: b.atr ? b.atr + (b.atr === 1 ? ' ATRASADO' : ' ATRASADOS') : 'EM DIA' })])];
+      st = b.atr ? 'vence' : 'feito';
+    }
+    var ind = [el('span', { className: 'selo', textContent: TIPOS[b.tipo] }),
+      el('span', {}, [icone(b.vis), document.createTextNode(VIS[b.vis])]),
+      el('span', { textContent: b.n + ' cartões' + (b.atr ? ' · ' + b.atr + (b.atr === 1 ? ' atrasado' : ' atrasados') : '') })];
+    var sub = ev ? 'Evento em ' + dataBR(ev.data) : dono ? 'Dono: você' : 'Dono: ' + pessoa(b.dono).nome;
+    return el('article', { className: 'cartao' + (b.arq ? ' arq' : '') + (est.novo === b.id ? ' novo-auto' : '') }, [
+      el('div', { className: 'bilhete' }, [
+        el('div', { className: 'principal' }, [
+          el('div', { className: 'rotulos' }, b.col.map(function (n, i) { return el('i', { style: '--t:' + (b.arq ? 'var(--line2)' : CORES[i % 5]) }); })),
+          el('h3', {}, [el('a', { href: './index.html', textContent: b.nome })]),
+          el('div', { className: 'ind', textContent: sub }),
+          el('div', { className: 'ind' }, ind),
+          el('div', { className: 'fino', attrs: { role: 'img', 'aria-label': pct + '% concluído' }, style: '--w:' + pct + '%' }, [el('u')])
+        ]),
+        el('div', { className: 'canhoto ' + (b.arq ? '' : st) }, cn.concat([pilha]))
+      ]),
+      el('div', { className: 'acoes' }, [tres])
     ]);
-    return card;
   }
 
   function render() {
@@ -227,15 +246,22 @@
     var ativos = quadros.filter(function (b) { return !b.arq; }).length, arq = quadros.length - ativos;
     var abas = $('abas'); abas.replaceChildren();
     [['ativos', 'Ativos (' + ativos + ')'], ['arquivados', 'Arquivados (' + arq + ')']].forEach(function (a) {
-      var b = el('button', { type: 'button', textContent: a[1], attrs: { role: 'tab', 'aria-selected': est.aba === a[0] }, tabIndex: est.aba === a[0] ? 0 : -1 });
-      b.addEventListener('click', function () { est.aba = a[0]; render(); });
-      b.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); est.aba = est.aba === 'ativos' ? 'arquivados' : 'ativos'; render(); abas.querySelector('[aria-selected=true]').focus(); } });
+      var b = el('button', { type: 'button', textContent: a[1], attrs: { 'aria-pressed': est.aba === a[0] } });
+      b.addEventListener('click', function () { est.aba = a[0]; render(); abas.querySelector('[aria-pressed=true]').focus(); });
       abas.append(b);
     });
+    var at = quadros.filter(function (b) { return !b.arq; });
+    function nT(t) { return at.filter(function (b) { return b.tipo === t; }).length; }
+    $('nAtivos').textContent = ativos;
+    $('dados').replaceChildren.apply($('dados'), [['Quadros ativos', ativos], ['Em equipe', nT('equipe')], ['Por evento', nT('evento')], ['Cartões atrasados', at.reduce(function (s, b) { return s + b.atr; }, 0)]].map(function (k) {
+      return el('div', { className: 'kpi' }, [el('small', { textContent: k[0] }), el('b', { textContent: k[1] })]);
+    }));
+    var par = at.filter(function (b) { return b.parado >= 14; }), ins = $('insight');
+    ins.hidden = !par.length; ins.textContent = par.length ? 'Notou: ' + par.length + (par.length === 1 ? ' quadro sem atividade há ' : ' quadros sem atividade há ') + '14 dias (' + par.map(function (b) { return b.nome; }).join(', ') + ').' : '';
     var chips = $('chips'); chips.replaceChildren();
     FILTROS.forEach(function (f) {
-      var b = el('button', { type: 'button', className: 'chip', textContent: f[1], attrs: { 'aria-pressed': est.filtro === f[0] } });
-      b.addEventListener('click', function () { est.filtro = f[0]; render(); });
+      var b = el('button', { type: 'button', textContent: f[1], attrs: { 'aria-pressed': est.filtro === f[0] } });
+      b.addEventListener('click', function () { est.filtro = f[0]; render(); chips.querySelector('[aria-pressed=true]').focus(); });
       chips.append(b);
     });
     var box = $('secoes'); box.replaceChildren();
@@ -243,9 +269,16 @@
       if (est.filtro !== 'todos' && est.filtro !== s[0]) return;
       var todos = quadros.filter(function (b) { return b.tipo === s[0] && b.arq === (est.aba === 'arquivados'); });
       var lista = ordenar(todos.filter(function (b) { return !termo || sem(b.nome).indexOf(termo) >= 0; }), est.ordem, s[0]);
-      var sec = el('section', { className: 'secao', attrs: { 'aria-labelledby': 'sec-' + s[0] } }, [
-        el('h2', { id: 'sec-' + s[0] }, [document.createTextNode(s[1]), el('span', { textContent: lista.length })])]);
-      if (lista.length) sec.append(el('div', { className: 'grade' }, lista.map(cartaoPasta)));
+      var sec = el('section', { className: 'lane sec', attrs: { 'aria-labelledby': 'sec-' + s[0] } }, [
+        el('header', {}, [el('span', { className: 'bolha', style: '--c:' + CORES_SEC[s[0]] }), el('h2', { id: 'sec-' + s[0], textContent: s[1] }), el('span', { className: 'n', textContent: lista.length })])]);
+      if (lista.length) {
+        sec.append(el('div', { className: 'grade' }, lista.map(cartaoPasta)));
+        if (est.aba === 'ativos') {
+          var nv = el('button', { type: 'button', className: 'novo', textContent: 'Novo quadro' });
+          nv.addEventListener('click', function () { abrirCriar(nv, CAT_TIPO_SEC[s[0]]); });
+          sec.append(nv);
+        }
+      }
       else {
         var v = el('div', { className: 'vazio' });
         if (termo) v.append(el('p', { textContent: 'Nenhum quadro encontrado nesta seção.' }));
@@ -261,6 +294,7 @@
       box.append(sec);
     });
   }
+  var CORES_SEC = { pessoal: '#3f7fe0', equipe: '#2e9a76', evento: '#8f33f5' };
   var CAT_TIPO_SEC = { pessoal: 'pessoal', equipe: 'equipe', evento: 'eventos' };
 
   $('busca').addEventListener('input', function (e) { est.busca = e.target.value; render(); });
@@ -274,7 +308,7 @@
     var m = $('menu'); menuBtn = btn; m.replaceChildren();
     var dono = b.dono === 'eu';
     var itens = [
-      el('a', { href: './index.html', textContent: 'Abrir', attrs: { role: 'menuitem' } }),
+      el('a', { href: './index.html', className: 'mb', textContent: 'Abrir', attrs: { role: 'menuitem' } }),
       item('Renomear', !dono, function () { abrirNome('Renomear quadro', 'Novo nome', b.nome, btn, function (n) { b.nome = n; render(); aviso('Quadro renomeado.'); }); }),
       item('Membros', false, function () { abrirMembros(b, btn); }),
       item('Salvar como modelo', false, function () {
@@ -292,7 +326,7 @@
     itens[0].focus();
   }
   function item(txt, off, fn) {
-    var b = el('button', { type: 'button', textContent: txt + (off ? ' (só o dono)' : ''), disabled: off, attrs: { role: 'menuitem' } });
+    var b = el('button', { type: 'button', className: 'mb', textContent: txt + (off ? ' (só o dono)' : ''), disabled: off, attrs: { role: 'menuitem' } });
     b.addEventListener('click', function () { fecharMenu(false); fn(); });
     return b;
   }
@@ -376,40 +410,38 @@
     $('passo1').hidden = !p1; $('passo2').hidden = p1; $('voltar').hidden = p1;
     $('passoTxt').textContent = 'Passo ' + cr.passo + ' de 2: ' + (p1 ? 'escolha um modelo' : 'detalhes do quadro');
     $('avancar').textContent = p1 ? 'Continuar' : 'Criar quadro';
-    $('rodaEsq').textContent = '';
+    $('resumoBox').hidden = p1;
   }
-  function miniCols(cols) {
-    return el('div', { className: 'mini', attrs: { 'aria-hidden': 'true' } }, cols.map(function (n, i) { return el('i', { textContent: n, style: '--c:' + CORES[i % 5] }); }));
+  function barras(cols) { return el('div', { className: 'rotulos', attrs: { 'aria-hidden': 'true' } }, cols.map(function (n, i) { return el('i', { style: '--t:' + CORES[i % 5] }); })); }
+  function ingresso(cls, titulo, desc, cols, num, rot, ativo, onClick) {
+    var b = el('button', { type: 'button', className: 'mod ' + cls, attrs: { 'aria-pressed': ativo } }, [
+      el('span', { className: 'principal' }, [barras(cols), el('strong', { textContent: titulo }), el('span', { className: 'd', textContent: desc }), el('span', { className: 'cols', textContent: cols.join(' · ') })]),
+      el('span', { className: 'canhoto' }, [el('b', { textContent: num }), el('span', { textContent: rot })])]);
+    b.addEventListener('click', onClick);
+    return b;
   }
   function renderPasso1() {
     var termo = sem(cr.busca.trim());
     var cats = $('cats'); cats.replaceChildren();
     CATS.forEach(function (k) {
       var n = MODELOS.filter(function (m) { return k[0] === 'todos' || m.cat === k[0]; }).length;
-      var b = el('button', { type: 'button', attrs: { 'aria-pressed': cr.cat === k[0] } }, [el('span', { textContent: k[1], style: 'color:inherit' }), el('span', { textContent: n })]);
+      var b = el('button', { type: 'button', attrs: { 'aria-pressed': cr.cat === k[0] } }, [document.createTextNode(k[1]), el('span', { className: 'ct', textContent: n })]);
       b.addEventListener('click', function () { cr.cat = k[0]; renderPasso1(); });
       cats.append(b);
     });
-    var z = el('button', { type: 'button', className: 'zero', attrs: { 'aria-pressed': cr.modelo === 'zero' } }, [
-      el('div', { style: 'flex:1;min-width:0' }, [el('strong', { textContent: 'Começar do zero' }), el('span', { textContent: 'Um quadro vazio com três colunas para você montar do seu jeito.' })]),
-      el('div', { style: 'width:min(260px,50%)' }, [miniCols(COL3)])]);
-    z.addEventListener('click', function () { cr.modelo = 'zero'; renderPasso1(); });
-    $('zeroBox').replaceChildren(z);
     var lista = MODELOS.filter(function (m) { return (cr.cat === 'todos' || m.cat === cr.cat) && (!termo || sem(m.nome + ' ' + m.desc).indexOf(termo) >= 0); });
-    $('modelos').replaceChildren.apply($('modelos'), lista.map(function (m) {
-      var b = el('button', { type: 'button', className: 'mod', attrs: { 'aria-pressed': cr.modelo === m.id } }, [
-        el('strong', { textContent: m.nome }), el('span', { className: 'd', textContent: m.desc }), miniCols(m.col),
-        el('span', { className: 'n', textContent: m.cartoes.length + (m.cartoes.length === 1 ? ' cartão inicial' : ' cartões iniciais') })]);
-      b.addEventListener('click', function () { cr.modelo = m.id; renderPasso1(); });
-      return b;
-    }));
+    var itens = [ingresso('zero', 'Começar do zero', 'Um quadro vazio com três colunas para você montar do seu jeito.', COL3, '0', 'CARTÕES', cr.modelo === 'zero', function () { cr.modelo = 'zero'; renderPasso1(); })];
+    $('modelos').replaceChildren.apply($('modelos'), itens.concat(lista.map(function (m) {
+      return ingresso('', m.nome, m.desc, m.col, m.cartoes.length, m.cartoes.length === 1 ? 'CARTÃO INICIAL' : 'CARTÕES INICIAIS', cr.modelo === m.id, function () { cr.modelo = m.id; renderPasso1(); });
+    })));
     $('semMod').hidden = lista.length > 0;
     var m = modeloAtual(), pv = $('previa'); pv.replaceChildren();
-    if (!m) { pv.append(el('h3', { textContent: 'Prévia: quadro vazio' }), el('div', { className: 'cols' }, COL3.map(function (n) { return el('span', { textContent: n }); }))); return; }
-    pv.append(el('h3', { textContent: 'Prévia: ' + m.nome }), el('div', { className: 'cols' }, m.col.map(function (n) { return el('span', { textContent: n }); })));
+    var nomeP = m ? m.nome : 'Quadro vazio', colP = m ? m.col : COL3;
+    pv.append(el('b', { textContent: nomeP }), el('div', { className: 'cols-p', style: 'margin-top:6px' }, colP.map(function (n) { return el('span', { textContent: n }); })));
+    if (!m) { pv.append(el('p', { textContent: 'Sem cartões iniciais.' })); return; }
     pv.append(m.cartoes.length ? el('ul', {}, m.cartoes.map(function (k) {
       return el('li', { textContent: k.t + ' · ' + k.p + (k.d == null ? '' : k.d >= 0 ? ' · D-' + k.d : ' · D+' + (-k.d)) });
-    })) : el('p', { textContent: 'Este modelo não traz cartões iniciais.', style: 'margin:0;color:var(--muted)' }));
+    })) : el('p', { textContent: 'Este modelo não traz cartões iniciais.' }));
   }
   $('cats').addEventListener('keydown', function (e) {
     var b = [].slice.call($('cats').querySelectorAll('button')), i = b.indexOf(document.activeElement), d = { ArrowDown: 1, ArrowUp: -1, ArrowRight: 1, ArrowLeft: -1 }[e.key];
@@ -471,7 +503,7 @@
     quadros.push(b);
     est.novo = b.id; est.aba = 'ativos'; est.filtro = 'todos'; est.busca = ''; $('busca').value = '';
     fechar(true); render(); aviso('Quadro criado: ' + b.nome + '.', true);
-    var a = document.querySelector('.pasta.novo a'); if (a) a.scrollIntoView({ block: 'nearest' });
+    var a = document.querySelector('.cartao.novo-auto a'); if (a) a.scrollIntoView({ block: 'nearest' });
   }
   $('avancar').addEventListener('click', function () { cr.passo === 1 ? irPasso2() : criar(); });
   $('voltar').addEventListener('click', function () { cr.passo = 1; mostrarPasso(); renderPasso1(); $('avancar').focus(); });
