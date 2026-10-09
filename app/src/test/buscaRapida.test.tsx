@@ -4,11 +4,16 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { toast } from 'sonner'
+import { siteUrl } from '../lib/appHost'
+import { refDoEvento } from '../lib/eventoProdutor'
 
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
 // Só os eventos do produtor chegam pelo hook (o filtro por producer_id é do hook); a busca não pode listar nada além deles
 const evento = (id: string, title: string) => ({ id, title, date: '2026-12-10', time: '20:00', start_date: '2026-12-10T20:00:00-03:00', end_date: null, status: 'published', approval_status: 'approved', cover_image: null })
 const doProdutor = [evento('e1', 'Noite de Forró'), evento('e2', 'Baile da Virada')]
-vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: doProdutor, isLoading: false }) }))
+let eventosAtuais: unknown[] = doProdutor // cada teste pode trocar a lista; o beforeEach volta ao padrão
+vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: eventosAtuais, isLoading: false }) }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { name: 'Ricardo', email: 'r@x.com' }, logout: vi.fn() }) }))
 vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => vi.fn() }))
 vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
@@ -41,7 +46,7 @@ const abrir = async () => {
 
 const UA_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
 const comUA = (ua: string) => vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua)
-beforeEach(() => { localStorage.clear(); comUA(UA_MAC) })
+beforeEach(() => { localStorage.clear(); comUA(UA_MAC); eventosAtuais = doProdutor })
 afterEach(() => vi.restoreAllMocks())
 
 describe('busca rápida ⌘K (V4c)', () => {
@@ -205,5 +210,115 @@ describe('busca rápida ⌘K (V4c)', () => {
     } finally {
       vi.stubGlobal('matchMedia', (q: string) => ({ matches: !q.includes('max-width'), addEventListener: () => {}, removeEventListener: () => {} }))
     }
+  })
+})
+
+describe('⌘K v2: prefixos, ações reais e recentes', () => {
+  it('"@" lista só eventos; "@baile" filtra; "/" só telas; ">" só ações (com tema); a dica aparece', async () => {
+    montar()
+    const dialogo = await abrir()
+    expect(within(dialogo).getByText((_, el) => el?.tagName === 'P' && /Dica:.*@.*eventos.*\/.*telas.*>.*ações/.test(el.textContent ?? ''))).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.keyboard('@')
+    expect(within(dialogo).queryByRole('group', { name: 'Telas' })).toBeNull()
+    expect(within(within(dialogo).getByRole('group', { name: 'Eventos' })).getAllByRole('option')).toHaveLength(2)
+    await user.keyboard('baile')
+    expect(within(within(dialogo).getByRole('group', { name: 'Eventos' })).getAllByRole('option').map(o => o.textContent)).toEqual(['Baile da Virada10 dez'])
+    await user.clear(screen.getByRole('combobox')); await user.keyboard('/')
+    expect(within(dialogo).queryByRole('group', { name: 'Eventos' })).toBeNull()
+    expect(within(dialogo).getByRole('group', { name: 'Telas' })).toBeInTheDocument()
+    await user.clear(screen.getByRole('combobox')); await user.keyboard('>')
+    expect(within(dialogo).queryByRole('group', { name: 'Telas' })).toBeNull()
+    expect(within(dialogo).getByRole('option', { name: 'Criar evento' })).toBeInTheDocument()
+    expect(within(dialogo).getByRole('option', { name: /Tema: escuro/ })).toBeInTheDocument() // ">" sozinho lista as ações, tema incluído
+  })
+
+  it('num evento publicado: "Copiar link do evento" copia o link público e avisa; fora de evento a ação não existe', async () => {
+    const copiar = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup() // o setup instala um clipboard próprio; o espião vem depois
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: copiar }, configurable: true })
+    montar('/producer/dashboard')
+    const fora = await abrir()
+    expect(within(fora).queryByRole('option', { name: 'Copiar link do evento' })).toBeNull()
+    cleanup()
+    montar('/producer/event/e1')
+    const dialogo = await abrir()
+    await user.click(within(dialogo).getByRole('option', { name: 'Copiar link do evento' }))
+    expect(copiar).toHaveBeenCalledWith(siteUrl(`/event/${refDoEvento(doProdutor[0])}`))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Link do evento copiado.'))
+  })
+
+  it('"Abrir página pública do evento" abre em nova aba sem vazar o opener', async () => {
+    const abrirJanela = vi.spyOn(window, 'open').mockReturnValue(null)
+    montar('/producer/event/e2')
+    const dialogo = await abrir()
+    await userEvent.setup().click(within(dialogo).getByRole('option', { name: 'Abrir página pública do evento' }))
+    expect(abrirJanela).toHaveBeenCalledWith(siteUrl(`/event/${refDoEvento(doProdutor[1])}`), '_blank', 'noopener,noreferrer')
+  })
+
+  it('recentes: só sem texto, até 3, o escolhido sobe, e evento removido some', async () => {
+    montar()
+    let dialogo = await abrir()
+    const user = userEvent.setup()
+    expect(within(dialogo).queryByRole('group', { name: 'Recentes' })).toBeNull() // nada ainda
+    await user.click(within(within(dialogo).getByRole('group', { name: 'Eventos' })).getByRole('option', { name: /Baile da Virada/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    dialogo = await abrir()
+    const recentes = within(dialogo).getByRole('group', { name: 'Recentes' })
+    expect(within(recentes).getAllByRole('option').map(o => o.textContent)).toEqual(['Baile da Virada'])
+    await user.keyboard('baile') // com texto, o grupo Recentes não aparece
+    expect(within(dialogo).queryByRole('group', { name: 'Recentes' })).toBeNull()
+  })
+
+  it('recente de evento que não existe mais não aparece', async () => {
+    localStorage.setItem('evk.nav.recentes', JSON.stringify([{ tipo: 'evento', ref: 'apagado' }, { tipo: 'evento', ref: 'e1' }]))
+    montar()
+    const dialogo = await abrir()
+    expect(within(within(dialogo).getByRole('group', { name: 'Recentes' })).getAllByRole('option').map(o => o.textContent)).toEqual(['Noite de Forró'])
+  })
+
+  it('só num evento PUBLICADO e aprovado: rascunho e em análise não oferecem copiar nem abrir o link', async () => {
+    eventosAtuais = [{ ...evento('e3', 'Ensaio fechado'), status: 'draft', approval_status: null }, { ...evento('e4', 'Festa em análise'), approval_status: 'pending' }]
+    for (const id of ['e3', 'e4']) {
+      montar(`/producer/event/${id}`)
+      const dialogo = await abrir()
+      expect(within(dialogo).queryByRole('option', { name: 'Copiar link do evento' })).toBeNull()
+      expect(within(dialogo).queryByRole('option', { name: 'Abrir página pública do evento' })).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('evento privado/por link usa o id no link (nunca o slug)', async () => {
+    eventosAtuais = [{ ...evento('e5', 'Só convidados'), visibility: 'unlisted', slug: 'so-convidados' }]
+    const copiar = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: copiar }, configurable: true })
+    montar('/producer/event/e5')
+    const dialogo = await abrir()
+    await user.click(within(dialogo).getByRole('option', { name: 'Copiar link do evento' }))
+    expect(copiar).toHaveBeenCalledWith(siteUrl('/event/e5'))
+  })
+
+  it('recente de tela do evento não vira link quebrado na produtora; e Recentes fica DEPOIS de Telas (Enter ao abrir leva à 1ª tela)', async () => {
+    localStorage.setItem('evk.nav.recentes', JSON.stringify([{ tipo: 'tela', ref: '/producer/event/:eventId' }, { tipo: 'evento', ref: 'e1' }]))
+    montar('/producer/dashboard')
+    const dialogo = await abrir()
+    const recentes = within(dialogo).getByRole('group', { name: 'Recentes' })
+    expect(within(recentes).getAllByRole('option').map(o => o.textContent)).toEqual(['Noite de Forró']) // a "Pasta do evento" não existe na produtora
+    const telasGrupo = within(dialogo).getByRole('group', { name: 'Telas' })
+    expect(telasGrupo.compareDocumentPosition(recentes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // Recentes vem depois de Telas
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByRole('option')[0].closest('[role=group]')).toBe(within(dialogo).getByRole('group', { name: 'Telas' }))
+  })
+
+  it('mensagem de vazio acompanha o prefixo e a dica está ligada ao campo', async () => {
+    montar()
+    const dialogo = await abrir()
+    const campo = screen.getByRole('combobox')
+    expect(document.getElementById(campo.getAttribute('aria-describedby')!)!.textContent).toMatch(/Dica:/)
+    const user = userEvent.setup()
+    await user.keyboard('@zzzz'); expect(within(dialogo).getByText('Nenhum evento com esse nome.')).toBeInTheDocument()
+    await user.clear(campo); await user.keyboard('/zzzz'); expect(within(dialogo).getByText('Nenhuma tela com esse nome.')).toBeInTheDocument()
+    await user.clear(campo); await user.keyboard('>zzzz'); expect(within(dialogo).getByText('Nenhuma ação com esse nome.')).toBeInTheDocument()
   })
 })
