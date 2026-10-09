@@ -1,90 +1,49 @@
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Ajuste dependendo do caminho do cliente Supabase do frontend
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { tokenRecaptcha } from '@/lib/recaptcha'
 
-export interface PaymentRequest {
-  orderId: string;
-  method: 'credit_card' | 'pix' | 'boleto';
-  amount: number;
-  customerName: string;
-  customerEmail: string;
-  customerCpf: string;
+export type PixResultado =
+  | { ok: true; pixCopiaECola: string; expiraEm: string }
+  // refazerReserva: 409, o pedido não serve mais; tentarDeNovo: falha passageira (limite, gateway, indisponível, rede)
+  | { ok: false; mensagem: string; refazerReserva?: boolean; tentarDeNovo?: boolean; sessaoExpirada?: boolean }
+
+const PASSAGEIRO: Record<number, string> = {
+  429: 'Muitas tentativas. Aguarde um pouco e tente de novo.',
+  502: 'O PagBank não respondeu. Tente de novo em instantes.',
+  503: 'Pagamento indisponível no momento. Tente de novo em instantes.',
 }
 
-export interface PaymentResult {
-  transactionId: string;
-  status: 'approved' | 'pending' | 'declined' | 'error';
-  qrCodeData?: string;      // Pix copy/paste
-  qrCodeImageUrl?: string;  // Pix QR Code
-  clientSecret?: string;    // Stripe Client Secret
-  message?: string;
-}
-
+// Chama a Edge Function pagbank-criar-pedido (JWT do usuário). O CPF só vai nesta chamada: nunca é guardado aqui.
 export function usePayment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
 
-  const processPayment = async (request: PaymentRequest): Promise<PaymentResult> => {
-    setLoading(true);
-    setError(null);
-
+  const pagarPix = async ({ orderId, cpf, phone }: { orderId: string; cpf: string; phone?: string }): Promise<PixResultado> => {
+    setLoading(true)
     try {
-      if (request.method === 'credit_card') {
-        // Chamar Edge Function para criar o PaymentIntent do Stripe
-        const { data, error: functionError } = await supabase.functions.invoke('stripe-create-payment', {
-          body: {
-            orderId: request.orderId,
-            amount: request.amount,
-            customerEmail: request.customerEmail,
-            customerName: request.customerName,
-          },
-        });
-
-        if (functionError) throw new Error(functionError.message || 'Erro ao iniciar pagamento com cartão');
-
-        return {
-          transactionId: data.transactionId,
-          status: 'pending', // Fica pendente até a confirmação do Stripe Elements no front
-          clientSecret: data.clientSecret,
-        };
-      } else if (request.method === 'pix') {
-        // Chamar Edge Function para gerar cobrança Pix via Woovi
-        const { data, error: functionError } = await supabase.functions.invoke('woovi-create-pix', {
-          body: {
-            orderId: request.orderId,
-            amount: request.amount,
-            customerName: request.customerName,
-            customerEmail: request.customerEmail,
-            customerCpf: request.customerCpf,
-          },
-        });
-
-        if (functionError) throw new Error(functionError.message || 'Erro ao gerar Pix');
-
-        return {
-          transactionId: data.chargeId,
-          status: 'pending',
-          qrCodeData: data.qrCodeData,
-          qrCodeImageUrl: data.qrCodeImageUrl,
-        };
-      } else {
-        throw new Error('Método de pagamento não suportado');
+      let captcha_token: string
+      try { captcha_token = await tokenRecaptcha() } catch (e) {
+        return { ok: false, mensagem: e instanceof Error ? e.message : 'Pagamento indisponível' }
       }
-    } catch (err: any) {
-      const msg = err.message || 'Falha no processamento do pagamento';
-      setError(msg);
-      return {
-        transactionId: '',
-        status: 'error',
-        message: msg,
-      };
+      const { data, error } = await supabase.functions.invoke('pagbank-criar-pedido', {
+        body: { order_id: orderId, captcha_token, customer: { tax_id: cpf.replace(/\D/g, ''), ...(phone ? { phone } : {}) } },
+      })
+      if (error) {
+        // FunctionsHttpError guarda a resposta em error.context; erro de rede não tem status
+        const ctx = (error as { context?: Response }).context
+        const status = typeof ctx?.status === 'number' ? ctx.status : 0
+        const msg = typeof ctx?.json === 'function' ? await ctx.json().then((b: { error?: string }) => b?.error).catch(() => undefined) : undefined
+        if (status === 401) return { ok: false, mensagem: 'Sua sessão expirou, entre de novo.', sessaoExpirada: true }
+        if (status === 409) return { ok: false, mensagem: msg || 'Este pedido não pode mais ser pago. Refaça a reserva.', refazerReserva: true }
+        if (status === 400) return { ok: false, mensagem: msg || 'Dados inválidos. Confira o CPF e tente de novo.' }
+        if (status === 404) return { ok: false, mensagem: 'Pedido não encontrado. Refaça a reserva.', refazerReserva: true }
+        return { ok: false, mensagem: PASSAGEIRO[status] || 'Sem conexão com o pagamento. Tente de novo.', tentarDeNovo: true }
+      }
+      if (!data?.pix_copia_e_cola || !data?.expira_em) return { ok: false, mensagem: 'Resposta inesperada do pagamento. Tente de novo.', tentarDeNovo: true }
+      return { ok: true, pixCopiaECola: data.pix_copia_e_cola, expiraEm: data.expira_em }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  return {
-    processPayment,
-    loading,
-    error,
-  };
+  return { pagarPix, loading }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CheckoutPayment from '../pages/checkout/Payment'
 
@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({ mutate: vi.fn(), toast: { success: vi.fn(), error:
 
 vi.mock('sonner', () => ({ toast: h.toast }))
 vi.mock('../hooks/useCheckout', () => ({ useCreateOrder: () => ({ mutate: h.mutate, isPending: false }) }))
-vi.mock('../hooks/usePayment', () => ({ usePayment: () => ({ processPayment: vi.fn() }) }))
+vi.mock('../hooks/usePayment', () => ({ usePayment: () => ({ pagarPix: vi.fn(async () => ({ ok: false, mensagem: 'sem gateway no teste', tentarDeNovo: true })) }) }))
 vi.mock('../stores/authStore', () => ({ useAuthStore: (sel: (s: unknown) => unknown) => sel({ user: { email: 'a@a.com', full_name: 'Ana' } }) }))
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: vi.fn(async () => ({ error: null })), channel: () => ({ on: () => ({ subscribe: () => ({}) }) }), removeChannel: vi.fn() } }))
 
@@ -23,10 +23,7 @@ const montar = (itemsSummary: unknown[]) => render(
   </MemoryRouter>
 )
 const pagar = async () => {
-  fireEvent.change(await screen.findByLabelText('Número do Cartão'), { target: { value: '4111111111111111' } })
-  fireEvent.change(screen.getByLabelText('Nome no Cartão'), { target: { value: 'Ana' } })
-  fireEvent.change(screen.getByLabelText('Validade'), { target: { value: '12/30' } })
-  fireEvent.change(screen.getByLabelText('CVV'), { target: { value: '123' } })
+  fireEvent.change(await screen.findByLabelText('CPF do comprador'), { target: { value: '52998224725' } })
   fireEvent.click(screen.getByRole('button', { name: /Pagar Agora/ }))
 }
 const recusa = (motivo: string, message: string) => h.mutate.mockImplementationOnce((_v, o) => o.onError(Object.assign(new Error(message), { motivo })))
@@ -82,5 +79,21 @@ describe('Pagamento: cupom e recusas do servidor', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Voltar ao pedido' }))
       expect(await screen.findByText('volta ao pedido')).toBeTruthy()
     } finally { vi.useRealTimers() }
+  })
+
+  it('clique duplo em Pagar não cria 2 pedidos', async () => {
+    montar(pago)
+    const botao = await screen.findByRole('button', { name: /Pagar Agora/ })
+    fireEvent.change(screen.getByLabelText('CPF do comprador'), { target: { value: '52998224725' } })
+    fireEvent.click(botao)
+    fireEvent.click(botao)
+    expect(h.mutate).toHaveBeenCalledTimes(1)
+  })
+
+  it('depois do pedido criado, o CPF fica travado (Pix falhou: o novo clique reaproveita o pedido)', async () => {
+    h.mutate.mockImplementationOnce((_v, o) => o.onSuccess({ id: 'o1', total: 50, subtotal: 50, desconto: 0, taxa: 0, venceEm: Date.now() + 300_000 }))
+    montar(pago)
+    await pagar()
+    await waitFor(() => expect((screen.getByLabelText('CPF do comprador') as HTMLInputElement).disabled).toBe(true))
   })
 })
