@@ -183,7 +183,7 @@ export default function AuthLogin() {
     setIsSubmitting(true)
     let redirected = false
     try {
-      const success = await login(cleanEmail, password)
+      const success = await login(cleanEmail, password, setError)
       if (success) {
         if (await startMfaIfNeeded()) return
 
@@ -208,8 +208,6 @@ export default function AuthLogin() {
           redirected = true
           navigate(target)
         }
-      } else {
-        setError('E-mail ou senha incorretos')
       }
     } catch (err: any) {
       console.error('[Login] Erro capturado:', err)

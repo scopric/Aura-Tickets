@@ -77,6 +77,22 @@ describe('useAuth Hook', () => {
     expect(success).toBe(false)
   })
 
+  it('entrega a causa traduzida a quem chamou (e-mail não confirmado, erro desconhecido)', async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() })
+    for (const [msg, esperado] of [
+      ['Email not confirmed', /Confirme seu e-mail/],
+      ['Database error granting user', /Não foi possível entrar agora/],
+    ] as const) {
+      vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: { message: msg } as any,
+      })
+      const onErro = vi.fn()
+      expect(await result.current.login('a@b.com', 'x', onErro)).toBe(false)
+      expect(onErro).toHaveBeenCalledWith(expect.stringMatching(esperado))
+    }
+  })
+
   it('deve chamar supabase.auth.signInWithPassword para login real', async () => {
     const mockSession = {
       access_token: 'real-token',
