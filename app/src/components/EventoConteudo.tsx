@@ -339,7 +339,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           />
         )}
 
-        <BlocoOrganizador organizador={demo?.organizador ?? organizador} titulo={event.title} fino={!previa} />
+        {previa && <BlocoOrganizador organizador={organizador} titulo={event.title} />}
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
@@ -495,6 +495,9 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             </div>
           </section>
         )}
+
+        {/* Fecha a coluna de conteúdo (antes de Aparência) */}
+        {!previa && <BlocoOrganizador organizador={demo?.organizador ?? organizador} titulo={event.title} fino />}
 
         {/* Aparência (2.8.9): a troca de tema fica no rodapé da página pública; padrão Automático */}
         {!previa && (

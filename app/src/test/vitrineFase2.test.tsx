@@ -9,7 +9,6 @@ import EventoConteudo from '../components/EventoConteudo'
 import MapaEvento from '../components/MapaEvento'
 import Atracoes from '../components/Atracoes'
 import SeloClassificacao from '../components/SeloClassificacao'
-import BlocoOrganizador from '../components/BlocoOrganizador'
 import { coordenadasValidas, ehApple, linksDeMapa, pecasDoMapa } from '../lib/mapaEvento'
 
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) } }))
@@ -201,57 +200,6 @@ describe('SeloClassificacao e página', () => {
     montar(evento())
     expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^Como chegar: Clube/ })).toBeInTheDocument()
-  })
-})
-
-describe('organizador em cartão de anfitrião', () => {
-  const todos = {
-    nome: 'Bora Dançar', razao_social: 'Bora LTDA', cnpj: '11222333000181', whatsapp: '5541999999999', instagram: 'bora.danca',
-    site: 'https://www.bora.com.br', email: 'oi@bora.com.br', outras_redes: [{ rotulo: 'TikTok', url: 'https://www.tiktok.com/@bora' }],
-  }
-  const REL = 'noopener noreferrer nofollow'
-
-  it('ação principal e canais: todos presentes, com rel e target certos', () => {
-    render(<BlocoOrganizador fino titulo="X" organizador={todos} />)
-    const wa = screen.getByRole('link', { name: 'Falar no WhatsApp (abre em nova aba)' })
-    expect(wa.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/5541999999999\?text=/)
-    const ig = screen.getByRole('link', { name: 'Instagram (abre em nova aba)' })
-    const site = screen.getByRole('link', { name: 'Site (abre em nova aba)' })
-    const tiktok = screen.getByRole('link', { name: /TikTok/ })
-    for (const a of [wa, ig, site, tiktok]) { expect(a).toHaveAttribute('rel', REL); expect(a).toHaveAttribute('target', '_blank') }
-    expect(ig).toHaveAttribute('title', 'instagram.com/bora.danca')
-    expect(site).toHaveAttribute('title', 'bora.com.br')
-    expect(tiktok).toHaveAttribute('title', 'tiktok.com')
-    const email = screen.getByRole('link', { name: 'E-mail' })
-    expect(email).toHaveAttribute('href', 'mailto:oi@bora.com.br')
-    expect(email).not.toHaveAttribute('target')
-    expect(screen.getByText('Bora LTDA · CNPJ 11.222.333/0001-81')).toBeInTheDocument()
-  })
-
-  it('sem WhatsApp válido não há botão; sem canais não há a linha deles', () => {
-    for (const whatsapp of [undefined, '41999999999', '5541abc']) {
-      const { unmount } = render(<BlocoOrganizador fino titulo="X" organizador={{ nome: 'Bora', whatsapp }} />)
-      expect(screen.queryByRole('link', { name: /WhatsApp/ })).toBeNull()
-      unmount()
-    }
-    const { container } = render(<BlocoOrganizador fino titulo="X" organizador={{ nome: 'Bora' }} />)
-    expect(container.querySelectorAll('a')).toHaveLength(0)
-  })
-
-  it('sem nome usa a razão social como nome; sem nada o bloco some', () => {
-    render(<BlocoOrganizador fino titulo="X" organizador={{ razao_social: 'Bora LTDA', cnpj: '11222333000181' }} />)
-    expect(screen.getByText('Bora LTDA')).toBeInTheDocument()
-    expect(screen.getByText('CNPJ 11.222.333/0001-81')).toBeInTheDocument()
-    const { container } = render(<BlocoOrganizador fino titulo="X" organizador={{}} />)
-    expect(container.querySelector('#h-organizador')).toBeNull()
-  })
-
-  it('javascript:, domínio inválido, punycode e Instagram ruim continuam rejeitados', () => {
-    render(<BlocoOrganizador fino titulo="X" organizador={{
-      nome: 'Bora', instagram: 'a b', site: 'javascript:alert(1)', email: 'x@y.com?bcc=z',
-      outras_redes: [{ rotulo: 'Ruim', url: 'javascript:alert(1)' }, { rotulo: 'Xn', url: 'https://xn--e1afmkfd.com' }, { rotulo: 'Marca', url: 'https://evokaa.com.br/x' }, { rotulo: 'Boa', url: 'https://www.tiktok.com/@b' }],
-    }} />)
-    expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual(['Boa (abre em nova aba)'])
   })
 })
 

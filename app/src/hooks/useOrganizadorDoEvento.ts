@@ -11,6 +11,11 @@ export interface OrganizadorDoEvento {
   site?: string
   email?: string
   outras_redes?: { rotulo: string; url: string }[]
+  // Campos da vitrine nova: a RPC ainda não os devolve (em produção ficam ausentes). O componente valida tudo de novo.
+  bio?: string
+  eventos_realizados?: number
+  desde?: number
+  outros_eventos?: { id: string; title: string; date?: string | null; time?: string | null; cover_image?: string | null; image_url?: string | null; accent_color?: string | null }[]
 }
 
 // Página pública do evento: null = não mostrar bloco algum

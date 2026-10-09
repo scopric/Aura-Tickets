@@ -25,10 +25,22 @@ export const demoVitrine = {
     instagram: 'bora.danca',
     site: 'https://www.boradancar.com.br',
     email: 'oi@boradancar.com.br',
+    bio: 'Produtora de forró e música brasileira de Curitiba. Há anos juntamos gente que gosta de dançar em noites com banda ao vivo, pista cheia e ingresso sem susto. Também levamos aulas abertas e oficinas para quem está começando.',
+    eventos_realizados: 184,
+    desde: 2023,
+    // fictícios; o id é o do evento da demonstração para o link não quebrar
+    outros_eventos: [
+      { id: 'ae8b2db2-27df-4187-974d-154244d0b5ea', title: 'Baile de Sanfona', date: '2026-11-07', time: '21:00:00', accent_color: '#2f6aa8' },
+      { id: 'ae8b2db2-27df-4187-974d-154244d0b5ea', title: 'Arrasta-pé de Verão', date: '2026-12-05', time: '20:30:00', accent_color: '#b4532a' },
+      { id: 'ae8b2db2-27df-4187-974d-154244d0b5ea', title: 'Roda de Choro e Cerveja', date: '2027-01-16', time: '19:00:00', accent_color: '#3a7d44' },
+    ],
     outras_redes: [
       { rotulo: 'TikTok', url: 'https://www.tiktok.com/@boradancar' },
       { rotulo: 'YouTube', url: 'https://www.youtube.com/@boradancar' },
       { rotulo: 'Spotify', url: 'https://open.spotify.com/user/boradancar' },
+      { rotulo: 'Facebook', url: 'https://www.facebook.com/boradancar' },
+      { rotulo: 'X', url: 'https://x.com/boradancar' },
+      { rotulo: 'Blog', url: 'https://blog.exemplo.com.br' },
     ],
   },
 }
