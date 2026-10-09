@@ -12,7 +12,7 @@ export interface DbOrder {
   event_id: string
   total_amount: number
   status: 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded' // igual ao CHECK de orders.status
-  payment_method: 'credit_card' | 'pix' | 'boleto' | 'cashless'
+  payment_method: 'credit_card' | 'pix' | 'boleto'
   payment_id: string | null
   payment_split: any
   created_at: string

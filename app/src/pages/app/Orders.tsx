@@ -12,14 +12,12 @@ const methodLabels: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
   pix: 'PIX',
   boleto: 'Boleto',
-  cashless: 'Cashless',
 }
 
 const methodIcons: Record<string, I.IconeEvokaa> = {
   credit_card: I.Cartao,
   pix: I.Qr,
   boleto: I.Recibo,
-  cashless: I.Cartao,
 }
 
 // Situação do pedido: texto na cor do significado (contrato 2.1), sem caixa colorida
