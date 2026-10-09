@@ -443,7 +443,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
               </div>
             )
           })}
-          {!previa && ticketTypes.some((t) => t.price > 0) && (
+          {!previa && aVenda.some((t) => t.price > 0) && (
             <button type="button" onClick={() => setTaxaAberta(true)} className="alvo-44 mb-2 mt-1 text-[13px] font-semibold leading-5 text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ev-foco">Entenda a taxa</button>
           )}
           </div>
