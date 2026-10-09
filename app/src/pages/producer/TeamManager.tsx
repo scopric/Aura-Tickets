@@ -46,6 +46,8 @@ export default function TeamManager() {
   const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor')
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
   const [aviso2fa, setAviso2fa] = useState<string | null>(null)
+  // Nível do Quadro por membro (team_member_tools); null = banco sem o SQL 20261103, a escolha fica escondida
+  const [quadroDe, setQuadroDe] = useState<Record<string, 'ver' | 'editar'> | null>(null)
 
   // Mapear dados do banco de dados para a interface local
   const mapDbMemberToTeamMember = (dbMember: any): TeamMember => {
@@ -80,6 +82,14 @@ export default function TeamManager() {
       if (error) throw error
 
       setMembers(((data ?? []) as any[]).map(m => mapDbMemberToTeamMember({ ...m, profiles: { full_name: m.full_name, email: m.email } })))
+
+      // docs/sql/20261103_equipe_quadro_f01.sql; sem ele a tabela não existe e a escolha do Quadro não aparece
+      try {
+        const tools = await supabase.from('team_member_tools' as never).select('member_id, nivel')
+        setQuadroDe(tools.error ? null : Object.fromEntries(((tools.data ?? []) as unknown as { member_id: string; nivel: 'ver' | 'editar' }[]).map(t => [t.member_id, t.nivel])))
+      } catch {
+        setQuadroDe(null) // a lista da equipe não depende disto
+      }
     } catch (err: any) {
       console.error('Erro ao carregar equipe:', err)
       toast.error('Erro ao carregar equipe de administradores')
@@ -170,6 +180,28 @@ export default function TeamManager() {
     } catch (err: any) {
       console.error('Erro ao atualizar permissão:', err)
       toast.error('Erro ao atualizar permissão no banco')
+    }
+  }
+
+  // Nível do Quadro de tarefas do membro: '' = sem acesso (apaga a linha)
+  const updateQuadro = async (memberId: string, nivel: '' | 'ver' | 'editar') => {
+    try {
+      if (nivel && quadroDe?.[memberId]) {
+        // update e insert separados: o upsert reescreve member_id/ferramenta, que o banco não deixa mudar (só nivel)
+        const { data, error } = await supabase.from('team_member_tools' as never).update({ nivel } as never).eq('member_id', memberId).eq('ferramenta', 'quadro').select('member_id')
+        exigirLinhas(error, data)
+      } else if (nivel) {
+        const { data, error } = await supabase.from('team_member_tools' as never).insert({ member_id: memberId, ferramenta: 'quadro', nivel } as never).select('member_id')
+        exigirLinhas(error, data)
+      } else {
+        const { data, error } = await supabase.from('team_member_tools' as never).delete().eq('member_id', memberId).eq('ferramenta', 'quadro').select('member_id')
+        exigirLinhas(error, data)
+      }
+      toast.success('Acesso ao quadro atualizado')
+      loadMembers()
+    } catch (err: any) {
+      console.error('Erro ao atualizar acesso ao quadro:', err)
+      toast.error('Erro ao atualizar acesso ao quadro no banco')
     }
   }
 
@@ -338,6 +370,18 @@ export default function TeamManager() {
                       )}
                       <Button variant="ghost" size="sm" className="ml-auto text-destructive hover:bg-foreground/5 hover:text-destructive" onClick={() => removeMember(member.id)}><I.Lixeira aria-hidden="true" /> Remover</Button>
                     </div>
+
+                    {quadroDe && (
+                      <div className="grid gap-1.5">
+                        <Label htmlFor={`quadro-${member.id}`}>Quadro de tarefas</Label>
+                        <select id={`quadro-${member.id}`} value={quadroDe[member.id] ?? ''} onChange={e => updateQuadro(member.id, e.target.value as '' | 'ver' | 'editar')} className={cn(selectNativo, 'w-auto')}>
+                          <option value="">Sem acesso</option>
+                          <option value="ver">Só ver</option>
+                          <option value="editar">Ver e editar</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">A escolha já fica registrada; o membro passa a abrir o quadro numa próxima atualização.</p>
+                      </div>
+                    )}
 
                     {/* Stats */}
                     <div className="grid grid-cols-1 gap-3">

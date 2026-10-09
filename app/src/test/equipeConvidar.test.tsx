@@ -34,7 +34,7 @@ describe('Equipe do produtor (TeamManager)', () => {
     render(<MemoryRouter><TeamManager /></MemoryRouter>)
     expect(await screen.findByText('Ana Teste')).toBeTruthy()
     expect(screen.getByText(/ana@exemplo\.com/)).toBeTruthy()
-    expect(from).not.toHaveBeenCalled()
+    expect(from.mock.calls.filter(c => c[0] === 'team_members')).toEqual([]) // a lista vem do RPC, nunca da tabela
   })
 
   it('convite ok: mensagem e recarrega a lista', async () => {
@@ -43,7 +43,7 @@ describe('Equipe do produtor (TeamManager)', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Convite registrado'))
     expect(rpc).toHaveBeenCalledWith('team_convidar', { p_email: 'bia@exemplo.com', p_role: 'editor' })
     expect(rpc.mock.calls.filter(c => c[0] === 'team_lista').length).toBe(2)
-    expect(from).not.toHaveBeenCalled()
+    expect(from.mock.calls.filter(c => c[0] === 'team_members')).toEqual([]) // a lista vem do RPC, nunca da tabela
   })
 
   it.each([
