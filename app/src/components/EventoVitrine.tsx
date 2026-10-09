@@ -47,7 +47,7 @@ export function TotalAnimado({ valor }: { valor: number }) {
   const atual = useRef(valor)
   useEffect(() => {
     const de = atual.current
-    if (de === valor || !podeMover()) { atual.current = valor; return }
+    if (de === valor || !podeMover()) { atual.current = valor; setV(valor); return }
     let raf = 0
     let t0: number | undefined
     const passo = (t: number) => {

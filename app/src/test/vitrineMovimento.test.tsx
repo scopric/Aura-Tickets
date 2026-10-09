@@ -48,4 +48,13 @@ describe('vitrine: movimento', () => {
     rerender(<TotalAnimado valor={84} />)
     expect(container.textContent).toBe(brl(84))
   })
+
+  it('reduzir movimento ligado e depois desligado: o total exibido nunca fica defasado', () => {
+    media({ reduzir: true })
+    const { container, rerender } = render(<TotalAnimado valor={28} />)
+    rerender(<TotalAnimado valor={84} />)
+    media({})
+    rerender(<TotalAnimado valor={84} />)
+    expect(container.textContent).toBe(brl(84))
+  })
 })

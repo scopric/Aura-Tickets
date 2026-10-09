@@ -4,6 +4,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Header from '../components/Header'
 
+const painelQuebra = vi.hoisted(() => ({ on: false }))
+// o painel é um pedaço baixado sob demanda: com `on`, ele quebra ao montar (como um pedaço que não baixou)
+vi.mock('../components/PainelEventos', () => ({
+  default: () => { if (painelQuebra.on) throw new Error('chunk não baixou'); return <p>painel ok</p> },
+}))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: null, isAuthenticated: false, logout: vi.fn(), role: null }) }))
 // consulta do painel de eventos: lista vazia (encadeia .eq/.gte/.order e termina em .order)
 vi.mock('../lib/supabase', () => {
@@ -47,5 +52,24 @@ describe('Header em pílula (menu do topo)', () => {
     expect(dialogo).toBeInTheDocument()
     fireEvent.click(screen.getAllByRole('link', { name: 'Contato' }).at(-1)!)
     expect(menu).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('aria-controls só existe com o painel aberto', () => {
+    montar()
+    const botao = screen.getByRole('button', { name: /^Eventos/ })
+    expect(botao).not.toHaveAttribute('aria-controls')
+    fireEvent.click(botao)
+    expect(botao).toHaveAttribute('aria-controls', 'painel-eventos')
+  })
+
+  it('falha ao baixar o painel não derruba a página: sobra o link para /events', async () => {
+    painelQuebra.on = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      montar()
+      fireEvent.click(screen.getByRole('button', { name: /^Eventos/ }))
+      expect(await screen.findByRole('link', { name: 'Ver todos os eventos' })).toHaveAttribute('href', '/events')
+      expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument()
+    } finally { painelQuebra.on = false; vi.restoreAllMocks() }
   })
 })

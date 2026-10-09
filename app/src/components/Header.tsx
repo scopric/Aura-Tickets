@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, UserPlus, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import ErrorBoundary from './ErrorBoundary'
 import { useAuth } from '../hooks/useAuth'
 import { appUrl } from '../lib/appHost'
 import { registerUrl } from '../lib/affiliateRef'
@@ -96,7 +97,7 @@ export default function Header() {
                   type="button"
                   onClick={() => setEventosAberto(!eventosAberto)}
                   aria-expanded={eventosAberto}
-                  aria-controls="painel-eventos"
+                  aria-controls={eventosAberto ? 'painel-eventos' : undefined}
                   aria-current={isActive(link.href) ? 'page' : undefined}
                   className="alvo-44 flex items-center gap-1 rounded-full px-4 py-2 text-[13px] font-medium text-[color:var(--vidro-texto-2)] transition-colors duration-rapido hover:text-[color:var(--vidro-texto)] focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none"
                 >
@@ -201,12 +202,15 @@ export default function Header() {
             id="painel-eventos"
             className="pointer-events-auto absolute inset-x-0 top-full mt-2 hidden rounded-ev-xl border border-border bg-card shadow-ev-2 md:block"
           >
-            <Suspense fallback={null}><PainelEventos aoNavegar={() => setEventosAberto(false)} /></Suspense>
+            <ErrorBoundary fallback={<Link to="/events" onClick={() => setEventosAberto(false)} className="block p-4 text-sm font-semibold text-foreground">Ver todos os eventos</Link>}>
+              <Suspense fallback={null}><PainelEventos aoNavegar={() => setEventosAberto(false)} /></Suspense>
+            </ErrorBoundary>
           </div>
         )}
       </div>
 
       {folhaPedida && (
+        <ErrorBoundary fallback={<Link to="/events" onClick={() => setIsMobileMenuOpen(false)} className="pointer-events-auto fixed inset-x-3 bottom-3 rounded-ev-xl border border-border bg-card p-4 text-center text-sm font-semibold text-foreground md:hidden">Ver todos os eventos</Link>}>
         <Suspense fallback={null}>
           <HeaderFolha
             aberta={isMobileMenuOpen}
@@ -218,6 +222,7 @@ export default function Header() {
             logout={logout}
           />
         </Suspense>
+        </ErrorBoundary>
       )}
     </header>
   )

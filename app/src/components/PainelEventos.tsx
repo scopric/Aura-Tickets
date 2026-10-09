@@ -16,7 +16,7 @@ const QUANDO = [['hoje', 'Hoje'], ['amanha', 'Amanhã'], ['fds', 'Fim de semana'
 // Mesma chave e mesma consulta do EventsBrowse: aberto o painel, a lista de /events já está em cache.
 export default function PainelEventos({ aoNavegar }: { aoNavegar: () => void }) {
   const hoje = diaBR(Date.now())
-  const { data: catalogo = [] } = useQuery({
+  const { data: catalogo = [], isSuccess } = useQuery({
     queryKey: ['explorar-eventos', hoje],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -46,7 +46,9 @@ export default function PainelEventos({ aoNavegar }: { aoNavegar: () => void }) 
             <span className="mt-1 text-[13px] text-muted-foreground">{[rotuloDia(proximo.date!, hoje).curto, proximo.venue_city].filter(Boolean).join(' · ')}</span>
           </Link>
         ) : (
-          <div className="flex min-h-[160px] flex-1 items-end rounded-ev-xl border border-border bg-background p-4 text-sm text-muted-foreground">Nenhum evento publicado por enquanto.</div>
+          <div className="flex min-h-[160px] flex-1 items-end rounded-ev-xl border border-border bg-background p-4 text-sm text-muted-foreground">
+            {isSuccess ? 'Nenhum evento publicado por enquanto.' : ''}
+          </div>
         )}
         <Link to="/events" onClick={aoNavegar} className={cn(item, 'font-semibold')}>Ver todos os eventos</Link>
       </div>

@@ -239,7 +239,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" data-entra={previa ? undefined : ''} aria-labelledby="h-ingressos" className={cn('scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
+        <section id="ingressos" aria-labelledby="h-ingressos" className={cn('scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
           <h2 id="h-ingressos" className="text-[15px] font-semibold leading-5">Ingressos</h2>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
 
