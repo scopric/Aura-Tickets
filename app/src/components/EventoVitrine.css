@@ -15,7 +15,7 @@
   background-color: var(--evento-fundo); color: var(--h-fg);
 }
 .dark .evv-hero { --h-fg: #ffffff; --h-fg2: #e6e8ec; --h-lav-a: 0.22; --h-lav-b: 0.14; --h-img: 0.14; --h-esc: 0.5; }
-@media (min-width: 1024px) { .evv-hero { --giro: 3deg; } }
+@media (min-width: 768px) { .evv-hero { --giro: 3deg; } }
 .evv-hero-fundo { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .evv-lav {
   position: absolute; inset: 0;
@@ -39,21 +39,67 @@
 /* Chip fino: borda de 1px, sem preenchimento */
 .evv-chip { display: inline-flex; align-items: center; padding: 0.2rem 0.7rem; border: 1px solid color-mix(in srgb, var(--h-fg) 32%, transparent); border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--h-fg2); }
 
-/* ---- Capa em cartão: giro leve, sombra com brilho na cor do evento ------------------------------------------- */
-.evv-capa-in {
+/* ---- Capa como objeto: pilha de papéis, entalhes + picote, foil, carimbo ------------------------------------------
+   .evv-capa (perspectiva) > .evv-capa-obj (inclina; leva o drop-shadow, que o mask do filho cortaria) > .evv-capa-in (mask). */
+.evv-capa-obj {
+  --cut: 64%; --r: 13px; --foil-o: 0.2;
   transform: rotate(var(--giro, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  box-shadow: 0 30px 60px -24px color-mix(in srgb, var(--evento) 60%, transparent), 0 0 0 1px rgb(255 255 255 / 0.1);
+  filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.35)) drop-shadow(0 0 40px color-mix(in oklab, var(--evento) 45%, transparent));
 }
-.evv-luz {
-  position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  background: radial-gradient(320px circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 0.18), transparent 60%);
+.dark .evv-capa-obj { --foil-o: 0.38; }
+/* dois papéis atrás do cartão: um tingido com a cor do evento, outro neutro; sem área de toque (pointer-events: none) */
+.evv-capa-obj::before, .evv-capa-obj::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: 26px;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+}
+.evv-capa-obj::before { transform: rotate(-5.5deg) translate(-10px, 6px); opacity: 0.55; background: color-mix(in oklab, var(--evento) 35%, hsl(var(--card))); }
+.evv-capa-obj::after { transform: rotate(4deg) translate(9px, 3px); opacity: 0.8; }
+.evv-capa-in {
+  z-index: 1; isolation: isolate;
+  -webkit-mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
+}
+.evv-picote { position: absolute; left: 22px; right: 22px; top: var(--cut); height: 0; border-top: 1.5px dashed rgb(255 255 255 / 0.55); mix-blend-mode: overlay; pointer-events: none; }
+.evv-luz, .evv-foil { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.evv-luz { background: radial-gradient(320px circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 0.18), transparent 60%); }
+/* foil holográfico: pontos iridescentes cujo centro e ângulo seguem o ponteiro; só aparece com o movimento */
+.evv-foil {
+  mix-blend-mode: color-dodge;
+  background: conic-gradient(from calc(var(--fx, 50) * 3.6deg) at var(--gx, 50%) var(--gy, 40%), #ff6fb5, #ffd36b, #6bffd0, #6ba8ff, #c46bff, #ff6fb5);
+  -webkit-mask: radial-gradient(circle, #000 1.1px, #0000 1.6px) 0 0 / 7px 7px;
+  mask: radial-gradient(circle, #000 1.1px, #0000 1.6px) 0 0 / 7px 7px;
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .evv-capa { perspective: 1100px; }
-  .evv-capa-in { transition: transform 400ms var(--curva-sai, ease-out); will-change: transform; }
-  .evv-capa-in[data-inclina] { transition: transform 80ms linear; }
-  .evv-capa-in .evv-luz { transition: opacity 240ms; }
-  .evv-capa-in[data-inclina] .evv-luz { opacity: 1; }
+  .evv-capa-obj { transition: transform 400ms var(--curva-sai, ease-out); will-change: transform; }
+  .evv-capa-obj[data-inclina] { transition: transform 80ms linear; }
+  .evv-luz, .evv-foil { transition: opacity 240ms; }
+  .evv-capa-obj[data-inclina] .evv-luz { opacity: 1; }
+  .evv-capa-obj[data-inclina] .evv-foil { opacity: var(--foil-o); }
+}
+/* carimbo de borracha: decorativo, branco com halo escuro (lê sobre foto clara; ver test/heroContraste.test.ts) */
+.evv-carimbo {
+  position: absolute; z-index: 5; left: -6px; top: -14px; width: 84px; height: 84px; transform: rotate(-14deg); color: #fff; pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.9)) drop-shadow(0 0 5px rgb(0 0 0 / 0.6));
+}
+.evv-carimbo svg { width: 100%; height: 100%; overflow: visible; }
+
+/* ---- Coluna de ingressos como bilhete (computador): entalhes, picote e canhoto. Opaca; o drop-shadow fica no pai ---- */
+.evv-mono { font: 500 10.5px/1.7 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.14em; text-transform: uppercase; }
+.evv-canhoto { display: none; }
+@media (min-width: 1024px) {
+  .evv-bilhete { filter: drop-shadow(0 20px 30px rgb(0 0 0 / 0.22)); }
+  .evv-bilhete-in {
+    --cut: calc(100% - 118px); --r: 12px;
+    display: flex; flex-direction: column; max-height: calc(100dvh - 11rem);
+    background: hsl(var(--card)); border-radius: 20px; box-shadow: inset 0 0 0 1px hsl(var(--border));
+    -webkit-mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle var(--r) at 0 var(--cut), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--r) at 100% var(--cut), #0000 97%, #000) right / 51% 100% no-repeat;
+  }
+  .evv-lista { min-height: 0; flex: 1; overflow-y: auto; }
+  .evv-canhoto { position: relative; display: flex; flex: none; height: 118px; margin: 0 -20px; padding: 30px 20px 0; justify-content: space-between; align-items: flex-start; }
+  .evv-canhoto::before { content: ""; position: absolute; left: 20px; right: 20px; top: 0; border-top: 1.5px dashed hsl(var(--border)); }
+  .evv-total { font: 800 28px/1.1 'Archivo', 'Plus Jakarta Sans', sans-serif; font-stretch: 112%; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 }
 
 /* ---- Contador: o número dá um "pop" curto quando muda; a linha do ingresso ganha fio na cor do evento ------------ */

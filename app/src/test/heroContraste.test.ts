@@ -35,6 +35,20 @@ describe('painel de eventos: texto branco sobre capa branca', () => {
   })
 })
 
+describe('bilhete e carimbo', () => {
+  it('rótulos mono (muted-foreground) sobre o cartão, nos dois temas (valores do index.css)', () => {
+    expect(contraste('#5b6472', '#ffffff')).toBeGreaterThanOrEqual(4.5) // claro: muted sobre card
+    expect(contraste('#9aa1ad', '#14171d')).toBeGreaterThanOrEqual(4.5) // escuro
+  })
+  it('carimbo branco: com o halo escuro do CSS, lê até sobre foto totalmente branca; sobre foto escura já lê sem ele', () => {
+    const sombras = [...css.match(/\.evv-carimbo \{[\s\S]*?\}/)![0].matchAll(/drop-shadow\([^)]*rgb\(0 0 0 \/ ([\d.]+)\)\)/g)].map(m => +m[1])
+    const haloMin = Math.min(...sombras) // pior caso: só a sombra mais fraca cobrindo o pixel de fundo
+    expect(sombras.length).toBe(2)
+    expect(contraste('#ffffff', sobre('#ffffff', '#000000', haloMin))).toBeGreaterThanOrEqual(4.5)
+    expect(contraste('#ffffff', '#202020')).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 describe('hero do evento: contraste do texto', () => {
   for (const cor of CORES) for (const intensidade of [100, 40]) for (const t of ['claro', 'escuro'] as const) {
     it(`${cor} a ${intensidade}% no tema ${t}`, () => {

@@ -11,7 +11,7 @@ import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
 import EventoCapa from './EventoCapa'
-import { CapaInclinada, TotalAnimado, podeMover } from './EventoVitrine'
+import { CapaInclinada, Carimbo, TotalAnimado, podeMover } from './EventoVitrine'
 import ThemeToggle from './ThemeToggle'
 import { JanelaSuporte } from './SupportChatWidget'
 import { useAuthStore } from '../stores/authStore'
@@ -257,9 +257,9 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             <div className="evv-gr" />
             <div className="evv-esc" />
           </div>
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 lg:min-h-[max(560px,80vh)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-12 lg:px-8 lg:pb-16 lg:pt-28">
-            <div className="relative mx-auto aspect-[4/5] w-[78%] max-w-[420px] lg:order-last lg:mx-0 lg:w-full lg:max-w-[440px] lg:justify-self-end">
-              <CapaInclinada><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-20 md:min-h-[max(480px,70vh)] md:grid-cols-[minmax(0,1fr)_clamp(220px,34vw,400px)] md:items-center md:gap-10 md:px-8 md:pb-16 md:pt-28 lg:min-h-[max(560px,80vh)] lg:gap-12">
+            <div className="relative mx-auto aspect-[4/5] w-full max-w-[320px] md:order-last md:mx-0 md:max-w-none">
+              <CapaInclinada selo={dataEvento ? <Carimbo dia={dataEvento.getDate()} mes={mesCurto} local={event.venue_name || event.location || ''} cidade={event.venue_city} /> : null}><EventoCapa evento={event} tamanho="faixa" prioridade /></CapaInclinada>
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-4">
@@ -326,8 +326,14 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
         <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
-        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:max-h-[calc(100dvh-11rem)] lg:self-start lg:overflow-y-auto lg:rounded-ev-xl lg:border lg:bg-card lg:sticky lg:top-20')}>
-          <h2 id="h-ingressos" className={titulo}>Ingressos</h2>
+        <section id="ingressos" tabIndex={-1} aria-labelledby="h-ingressos" className={cn('focus:outline-none focus-visible:shadow-ev-foco ','scroll-mt-20 border-t border-border px-5 pb-2 pt-6', !previa && 'evv-bilhete lg:col-start-2 lg:row-span-8 lg:row-start-1 lg:self-start lg:sticky lg:top-20 lg:border-0 lg:p-0')}>
+          <div className={!previa ? 'evv-bilhete-in lg:px-5 lg:pt-5' : undefined}>
+          {/* Cabeçalho do bilhete: o h2 continua sendo o título acessível; o número é só enfeite */}
+          <div className={cn('flex items-baseline justify-between gap-3', !previa && 'lg:border-b lg:border-border lg:pb-3')}>
+            <h2 id="h-ingressos" className={cn(titulo, 'min-w-0 flex-1', !previa && 'lg:font-[ui-monospace,SF_Mono,Menlo,Consolas,monospace] lg:text-[10.5px] lg:font-medium lg:tracking-[0.14em] lg:after:hidden')}>Ingressos</h2>
+            {!previa && <span aria-hidden="true" className="evv-mono hidden text-muted-foreground lg:block">Nº {event.id.slice(0, 6).toUpperCase()}</span>}
+          </div>
+          <div className={!previa ? 'evv-lista' : undefined}>
           {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
 
           {semVendaAinda && <AviseMe eventId={event.id} />}
@@ -377,7 +383,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
             return (
               <div key={ticket.id} className={cn('flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0', !previa && 'transition-[background-color,box-shadow] duration-200 motion-reduce:transition-none', !previa && (cart[ticket.id] || 0) > 0 && '-mx-2 rounded-ev-md bg-[color-mix(in_srgb,var(--evento)_9%,transparent)] px-2 shadow-[inset_2px_0_0_var(--evento)]')}>
                 <div className="min-w-0 flex-1">
-                  <div className={cn('text-base font-medium leading-6', acabou && 'text-muted-foreground')}>{ticket.name}</div>
+                  <div className={cn('text-base font-medium leading-6', !previa && 'text-[15.5px] font-semibold', acabou && 'text-muted-foreground')}>{ticket.name}</div>
                   {ticket.description && <p className="text-[13px] leading-5 text-muted-foreground">{ticket.description}</p>}
                   {acabou ? (
                     <div className="text-sm leading-5 text-muted-foreground">
@@ -387,7 +393,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
                     <div className="text-sm leading-5 text-muted-foreground">{fechado}</div>
                   ) : ticket.price > 0 ? (
                     <div className="flex flex-wrap items-center gap-x-1.5 text-sm leading-5">
-                      <span className="font-display font-semibold tabular-nums">{brl(total)}</span>
+                      <span className={cn('font-display font-semibold tabular-nums', !previa && 'wide text-lg font-extrabold')}>{brl(total)}</span>
                       <span className="text-muted-foreground">{brl(ticket.price)} + {brl(taxa)} de taxa</span>
                       <Button type="button" variant="ghost" size="icon-sm" className="size-6 rounded-full" onClick={() => setTaxaAberta(true)} aria-label="O que é a taxa">
                         <I.Ajuda size={16} />
@@ -433,6 +439,14 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
               </div>
             )
           })}
+          </div>
+          {!previa && (
+            <div className="evv-canhoto">
+              <span className="evv-mono text-muted-foreground">Total</span>
+              <span className="evv-total"><TotalAnimado valor={cartResumo.total} /></span>
+            </div>
+          )}
+          </div>
         </section>
 
         {descricao && (

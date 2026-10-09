@@ -9,7 +9,7 @@ export const podeMover = (comMouse = false) =>
   (!comMouse || matchMedia('(hover: hover)').matches)
 
 // Capa que inclina até 7° com o mouse, com luz que segue o ponteiro. Envolve a capa sem mexer nela.
-export function CapaInclinada({ children }: { children: ReactNode }) {
+export function CapaInclinada({ children, selo }: { children: ReactNode; selo?: ReactNode }) {
   const dentro = useRef<HTMLDivElement>(null)
   const mexe = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = dentro.current
@@ -21,6 +21,7 @@ export function CapaInclinada({ children }: { children: ReactNode }) {
     el.dataset.inclina = ''
     el.style.setProperty('--ry', `${(x - 0.5) * 14}deg`)
     el.style.setProperty('--rx', `${(0.5 - y) * 14}deg`)
+    el.style.setProperty('--fx', String(Math.round(x * 100)))
     el.style.setProperty('--gx', `${x * 100}%`)
     el.style.setProperty('--gy', `${y * 100}%`)
   }
@@ -33,10 +34,36 @@ export function CapaInclinada({ children }: { children: ReactNode }) {
   }
   return (
     <div className="evv-capa absolute inset-0" onPointerMove={mexe} onPointerLeave={sai}>
-      <div ref={dentro} className="evv-capa-in absolute inset-0 overflow-hidden rounded-[24px]">
-        {children}
-        <div aria-hidden="true" className="evv-luz" />
+      <div ref={dentro} className="evv-capa-obj absolute inset-0">
+        <div className="evv-capa-in absolute inset-0 overflow-hidden rounded-[24px]">
+          {children}
+          <div aria-hidden="true" className="evv-foil" />
+          <div aria-hidden="true" className="evv-luz" />
+          <div aria-hidden="true" className="evv-picote" />
+        </div>
+        {selo}
       </div>
+    </div>
+  )
+}
+
+// Carimbo de borracha (decorativo): dia e mês do evento e, em arco, o local e a cidade. Só dados do evento, nenhum texto fixo.
+export function Carimbo({ dia, mes, local, cidade }: { dia: number; mes: string; local: string; cidade?: string | null }) {
+  const arco = [local.trim().toUpperCase().slice(0, 20), cidade?.trim().toUpperCase().slice(0, 12)].filter(Boolean).join(' · ')
+  return (
+    <div className="evv-carimbo" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <defs><path id="evv-arco" d="M50,50 m-35,0 a35,35 0 1,1 70,0 a35,35 0 1,1 -70,0" /></defs>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="0.8" />
+        {arco && (
+          <text fontFamily="ui-monospace,Menlo,monospace" fontSize="8.6" letterSpacing="1.4" fill="currentColor">
+            <textPath href="#evv-arco" textLength={arco.length > 21 ? 212 : undefined} lengthAdjust="spacingAndGlyphs">{`${arco} ·`}</textPath>
+          </text>
+        )}
+        <text x="50" y="57" textAnchor="middle" fontFamily="Archivo,sans-serif" fontWeight="800" fontSize="27" fill="currentColor">{dia}</text>
+        <text x="50" y="70" textAnchor="middle" fontFamily="ui-monospace,Menlo,monospace" fontSize="8" letterSpacing="2" fill="currentColor">{mes.toUpperCase()}</text>
+      </svg>
     </div>
   )
 }
