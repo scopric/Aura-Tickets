@@ -18,11 +18,15 @@
 --    Exceção conhecida: cancelamento por tempo (statement_timeout/lock_timeout) não é capturado pelo PL/pgSQL
 --    ("when others" não pega query_canceled): falha só aquela tentativa daquele usuário/fator, nunca todos.
 -- 4. Um bloqueio por usuário e fator, serializado com advisory lock (duas tentativas ao mesmo tempo não furam o limite).
---    A espera só existe entre tentativas do MESMO usuário e fator, e dura uma transação curta.
+--    O lock é por usuário e fator (espera só entre tentativas da mesma chave, por uma transação curta). A limpeza
+--    da decisão 6 apaga linhas antigas de qualquer usuário: duas chamadas simultâneas que apagam as mesmas linhas
+--    esperam uma à outra por instantes; deadlock é possível em tese (ordens de varredura diferentes), raro, e
+--    cai na falha aberta (decisão 3: aquela tentativa errada deixa de ser gravada).
 -- 5. A tabela não tem política: ninguém lê nem grava pela API (RLS ligada, sem GRANT para anon/authenticated/
 --    service_role). A função é SECURITY DEFINER com search_path '' e só o supabase_auth_admin executa.
--- 6. Retenção (LGPD): toda chamada apaga, de qualquer usuário, as linhas com mais de 1 dia. Nada fica guardado para
---    sempre. Linhas só de quem errou e nunca mais voltou saem na próxima chamada de qualquer pessoa.
+-- 6. Retenção (LGPD): toda chamada apaga, de qualquer usuário, as linhas com mais de 1 dia. Linhas de quem errou e
+--    nunca mais voltou saem na próxima chamada de qualquer pessoa; sem NENHUMA chamada, ficam além de 1 dia (o prazo
+--    não é garantido por relógio, só por uso; a tabela é minúscula: no máximo ~5 linhas por fator).
 -- 7. RISCO ACEITO: quem sabe a senha obtém o factor_id (listFactors) e pode manter a vítima trancada enquanto insistir
 --    (uma tentativa errada a cada ~3 minutos mantém 5 na janela). A saída real é trocar a senha; o desbloqueio na
 --    hora, no SQL Editor, é:
