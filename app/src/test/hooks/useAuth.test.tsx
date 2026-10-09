@@ -26,7 +26,8 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() })
     expect(result.current.isAuthenticated).toBe(false)
     expect(result.current.user).toBeNull()
-    expect(result.current.isLoading).toBe(false)
+    // Começa carregando: o authStore só vira false quando a sessão é resolvida
+    expect(result.current.isLoading).toBe(true)
   })
 
   it('deve fazer login com credenciais demo', async () => {
@@ -61,6 +62,9 @@ describe('useAuth', () => {
 
     await result.current.logout()
     // Após logout, o estado deve ser limpo
-    expect(localStorage.getItem('aura-auth')).toBeNull()
+    // clearAllAuthData apaga a chave e o setUser(null) a regrava já sem usuário
+    const guardado = JSON.parse(localStorage.getItem('aura-auth') ?? '{"state":{}}')
+    expect(guardado.state.user ?? null).toBeNull()
+    expect(guardado.state.isAuthenticated ?? false).toBe(false)
   })
 })

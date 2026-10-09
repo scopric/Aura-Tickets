@@ -26,13 +26,13 @@ describe('Login Component', () => {
     expect(screen.getByText('Bem-vindo de volta')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('seu@email.com')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Sua senha')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Entrar/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Entrar como/ })).toBeInTheDocument()
   })
 
   it('deve mostrar erro quando campos estão vazios', async () => {
     render(<Login />, { wrapper: createWrapper() })
 
-    const submitButton = screen.getByRole('button', { name: /Entrar/ })
+    const submitButton = screen.getByRole('button', { name: /Entrar como/ })
     fireEvent.click(submitButton)
 
     // Aguarda a mensagem de erro aparecer

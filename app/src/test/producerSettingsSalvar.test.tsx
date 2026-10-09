@@ -87,11 +87,11 @@ describe('saveProducerProfile (UPDATE)', () => {
     createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) }, children)
 
   it('0 linhas atualizadas vira erro; 1 linha é sucesso', async () => {
-    useReal = true
+    useReal = true // pix_key, cnpj e banco vão pela RPC (pr7_salvar_produtor_financeiro); o UPDATE com .select é o dos demais campos
     const { result } = renderHook(() => useProducerSettings(), { wrapper })
     m.linhas = []
-    await expect(result.current.saveProducerProfile({ pix_key: 'x' })).rejects.toThrow('Nenhuma linha atualizada')
+    await expect(result.current.saveProducerProfile({ company_name: 'x' })).rejects.toThrow('Nenhuma linha atualizada')
     m.linhas = [{ id: 'u1' }]
-    await expect(result.current.saveProducerProfile({ pix_key: 'x' })).resolves.toBeUndefined()
+    await expect(result.current.saveProducerProfile({ company_name: 'x' })).resolves.toBeUndefined()
   })
 })

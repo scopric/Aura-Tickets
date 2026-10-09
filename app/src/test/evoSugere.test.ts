@@ -90,7 +90,8 @@ describe('Evo sugere: uma regra por vez', () => {
       texto: 'O Show está no ar há 5 dias e ainda não vendeu. Compartilhe o link com o seu público.',
       acao: { texto: 'Copiar link', copiar: 'e1' },
     })
-    expect(sugestaoDoEvo(dados([ev({ slug: 'show-x', approved_at: new Date(agora - 5 * DIA).toISOString() })], { vendidos: { porEvento: {}, cortado: false } }), nada, agora)!.acao.copiar).toBe('show-x')
+    // slug só em evento público; fora dele o link usa o id (refDoEvento)
+    expect(sugestaoDoEvo(dados([ev({ slug: 'show-x', visibility: 'public', approved_at: new Date(agora - 5 * DIA).toISOString() })], { vendidos: { porEvento: {}, cortado: false } }), nada, agora)!.acao.copiar).toBe('show-x')
     expect(chaveDe(d(5, { vendidos: { porEvento: { e1: 1 }, cortado: false } }))).toBeUndefined()
     expect(chaveDe(d(5, { vendidos: { porEvento: {}, cortado: true } }))).toBeUndefined() // lista cortada: zero não é certeza
     expect(chaveDe(d(5, { vendidos: undefined }))).toBeUndefined() // vendas ainda não chegaram
