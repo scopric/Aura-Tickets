@@ -106,7 +106,7 @@ describe('Explorar (V11b)', () => {
     await screen.findByRole('heading', { name: '2 eventos' })
     const filtros = screen.getByRole('group', { name: 'Filtros' })
     const rotulos = within(filtros).getAllByRole('button').map(b => b.textContent)
-    expect(rotulos).toEqual(['Hoje', 'Amanhã', 'Fim de semana', 'Este mês', 'Grátis', 'Festa', 'Show']) // só as categorias que existem
+    expect(rotulos).toEqual(['Hoje', 'Amanhã', 'Fim de semana', 'Este mês', 'Grátis', 'Festa', 'Show ou apresentação']) // 'Show' vira o rótulo do formato; só as categorias que existem
 
     const festa = within(filtros).getByRole('button', { name: 'Festa' })
     expect(festa).toHaveAttribute('aria-pressed', 'false')
