@@ -143,7 +143,7 @@ export function EscolhaCapa({ capa, salvar }: { capa: string | null | undefined;
   )
 }
 
-/** Local em texto, com latitude e longitude opcionais (sem mapa nesta fatia) */
+/** Local em texto, com latitude e longitude opcionais (as duas juntas); com elas o verso mostra o mapa */
 export function EscolhaLocal({ local, salvar }: { local: LocalCartao | null | undefined; salvar: (l: LocalCartao | null) => void }) {
   const [txt, setTxt] = useState(local?.txt ?? '')
   const [lat, setLat] = useState(local?.lat?.toString() ?? '')
@@ -154,6 +154,7 @@ export function EscolhaLocal({ local, salvar }: { local: LocalCartao | null | un
     const num = (s: string) => (s.trim() === '' ? undefined : Number(s.replace(',', '.')))
     const [la, lo] = [num(lat), num(lng)]
     if ((la !== undefined && !(la >= -90 && la <= 90)) || (lo !== undefined && !(lo >= -180 && lo <= 180))) { setErro('Latitude vai de -90 a 90 e longitude de -180 a 180.'); return }
+    if ((la === undefined) !== (lo === undefined)) { setErro('Informe latitude e longitude juntas, ou deixe as duas em branco.'); return }
     if (!txt.trim() && la === undefined && lo === undefined) { salvar(null); return }
     setErro('')
     salvar({ ...(txt.trim() && { txt: txt.trim() }), ...(la !== undefined && { lat: la }), ...(lo !== undefined && { lng: lo }) })

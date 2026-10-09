@@ -100,7 +100,8 @@ select is(has_column_privilege('authenticated', 'public.task_columns', 'kind', '
 -- Estrutura -----------------------------------------------------------------------------------------------------------------
 select policies_are('public', 'producer_tasks', array['gf_mfa_aal2', 'tasks_apagar', 'tasks_criar', 'tasks_editar', 'tasks_ver'],
   'producer_tasks: regras por operação e a de 2FA');
-select policies_are('public', 'task_boards', array['gf_mfa_aal2', 'task_boards_ver'], 'task_boards: ver e 2FA');
+-- task_boards_recibos vem da 2B (20261106); sem a 2B, tirar da lista
+select policies_are('public', 'task_boards', array['gf_mfa_aal2', 'task_boards_recibos', 'task_boards_ver'], 'task_boards: ver, recibos (2B) e 2FA');
 select policies_are('public', 'task_columns',
   array['gf_mfa_aal2', 'task_columns_apagar', 'task_columns_criar', 'task_columns_editar', 'task_columns_ver'], 'task_columns: regras');
 select policies_are('public', 'team_member_tools', array['gf_mfa_aal2', 'team_member_tools_dono'], 'team_member_tools: dono e 2FA');
