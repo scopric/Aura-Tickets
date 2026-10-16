@@ -184,7 +184,7 @@ select throws_ok($$update public.producer_tasks set column_id = (select c.id fro
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000002');
 select throws_ok($$insert into public.producer_tasks (producer_id, title, board_id) values
   ('fc000000-0000-4000-8000-000000000002', 'Invasor', (select board_id from _ids))$$,
-  '42501', 'Quadro de outro produtor.', 'P2 não grava em quadro de P1');
+  '42501', 'new row violates row-level security policy for table "producer_tasks"', 'P2 não grava em quadro de P1'); -- mensagem igual à da regra desde a 20261108 (não revela se o quadro existe)
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000001');
 select is((select count(*) from public.team_member_tools), 3::bigint, 'P1 lê as permissões da própria equipe');
 select is(public.equipe_pode('fc000000-0000-4000-8000-000000000001', 'quadro', 'ver', 'fc000000-0000-4000-8000-0000000000a4'),
