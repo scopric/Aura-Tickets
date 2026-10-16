@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { semSegredo } from '../lib/tracking'
 
-// Tipos aceitos pelo schema do banco (CHECK constraint alinhado com setup.sql)
+// Tipos aceitos pelo schema do banco (CHECK constraint alinhado com feedback_type_check em supabase/migrations/20260930134600_baseline.sql)
 export type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
 
 export interface FeedbackData {
