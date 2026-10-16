@@ -112,7 +112,8 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">9. Validação pública de certificados</h2>
-            <p>Quem tem o código de um certificado (por exemplo, pelo QR impresso nele) pode confirmar, na página pública de validação, o nome informado na compra do ingresso, o evento, a data do evento, o organizador (que pode ser o nome do produtor, quando ele for pessoa física), a data de emissão e a carga horária. Além desses dados, a página não mostra CPF, e-mail, telefone nem qualquer outro dado do titular. A página não é indexada por buscadores.</p>
+            <p>Quem tem o código de um certificado (por exemplo, pelo QR impresso nele) pode confirmar, na página pública de validação, o nome informado na compra do ingresso, o evento, a data do evento, o organizador (que pode ser o nome do produtor, quando ele for pessoa física), a data de emissão e a carga horária, e ver o desenho do certificado (modelo, cores, textos, logotipo e assinatura definidos pelo organizador). Além desses dados, a página não mostra CPF, e-mail, telefone nem qualquer outro dado do titular. A página não é indexada por buscadores.</p>
+            <p>O link e o QR do certificado são pessoais: quem os tiver vê o seu nome. Se o certificado for revogado, a página mostra apenas que ele foi revogado e a data da revogação. Você pode pedir a revogação ao organizador do evento e pedir a eliminação dos seus dados à Evokaa pelo contato da seção 11 (dpo@evokaa.com.br).</p>
           </section>
 
           <section>
