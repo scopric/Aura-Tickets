@@ -803,7 +803,7 @@ values ('teste@newsletter.com');
 
 | Tabela | Status | Notas |
 |--------|--------|-------|
-| users | ✅ Verificado | Schema ativo (substitui `profiles`) |
+| profiles | ✅ Verificado | Criada no baseline.sql (a tabela `users` não existe) |
 | events | ✅ Verificado | Criada no baseline.sql |
 | ticket_types | ✅ Verificado | Criada no baseline.sql |
 | orders | ✅ Verificado | Criada no baseline.sql |
