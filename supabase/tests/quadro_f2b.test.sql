@@ -133,7 +133,7 @@ select pg_temp.como('authenticated', pg_temp.i('02'));
 with u as (update public.task_boards set show_receipts = false where producer_id = pg_temp.i('01') returning 1)
   select is((select count(*) from u), 0::bigint, 'outro produtor não altera show_receipts do quadro alheio (0 linhas)');
 select pg_temp.como('authenticated', pg_temp.i('01'));
-select throws_ok($$update public.task_boards set name = 'outro nome'$$, '42501', null, 'o dono não altera o nome do quadro pela API');
+select throws_ok($$update public.task_boards set is_default = false$$, '42501', null, 'o dono não altera is_default do quadro pela API (o nome passou a ser do dono na fatia F)');
 select lives_ok($$update public.task_boards set show_receipts = false where producer_id = pg_temp.i('01')$$, 'o dono desliga show_receipts');
 select is((select show_receipts from public.task_boards where producer_id = pg_temp.i('01')), false, 'show_receipts desligado');
 select lives_ok($$update public.task_boards set show_receipts = true where producer_id = pg_temp.i('01')$$, 'o dono religa show_receipts');
