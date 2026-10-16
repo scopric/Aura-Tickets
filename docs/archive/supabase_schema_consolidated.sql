@@ -1,4 +1,4 @@
--- OBSOLETO (arquivado em 09/10/2026). NAO RODAR: este script comeca com DROP TABLE ... CASCADE
+-- OBSOLETO (arquivado em 16/10/2026). NAO RODAR: este script comeca com DROP TABLE ... CASCADE
 -- e apaga tabelas. A fonte da verdade do banco e supabase/migrations/20260930134600_baseline.sql.
 
 -- SCRIPT DE CONSOLIDAÇÃO DO SCHEMA DO SUPABASE - AURA TICKETS

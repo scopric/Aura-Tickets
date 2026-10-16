@@ -199,7 +199,7 @@ NotFoundError: Failed to execute 'insertBefore' on 'Node'
 
 **Sintoma:** Signup pode falhar silenciosamente ou buscar perfil em tabela errada.
 
-**Obsoleto (09/10/2026):** o banco de produção usa `profiles`; `supabase/migrations/20260930134600_baseline.sql` não cria tabela `users`, e `app/src/hooks/useAuth.ts` já grava em `profiles`. O `app/database-setup.sql` que descrevia `users` foi removido. Texto original abaixo mantido só como histórico.
+**Obsoleto (16/10/2026):** o banco de produção usa `profiles`; `supabase/migrations/20260930134600_baseline.sql` não cria tabela `users`, e `app/src/hooks/useAuth.ts` já grava em `profiles`. O `app/database-setup.sql` que descrevia `users` foi removido. Texto original abaixo mantido só como histórico.
 
 **Causa (histórico):** O código possuía referências conflitantes:
 - `app/src/hooks/useAuth.ts` linha 196: `supabase.from('users').update(...)`
