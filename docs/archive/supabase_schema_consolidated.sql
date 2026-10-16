@@ -1,3 +1,6 @@
+-- OBSOLETO (arquivado em 16/10/2026). NAO RODAR: este script comeca com DROP TABLE ... CASCADE
+-- e apaga tabelas. A fonte da verdade do banco e supabase/migrations/20260930134600_baseline.sql.
+
 -- SCRIPT DE CONSOLIDAÇÃO DO SCHEMA DO SUPABASE - AURA TICKETS
 -- Este script limpa tabelas anteriores e reconstrói o banco de dados com chaves estrangeiras,
 -- triggers automáticos, RLS habilitadas e total compatibilidade com a tipagem TypeScript do app.

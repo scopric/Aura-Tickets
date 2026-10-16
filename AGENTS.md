@@ -199,13 +199,13 @@ NotFoundError: Failed to execute 'insertBefore' on 'Node'
 
 **Sintoma:** Signup pode falhar silenciosamente ou buscar perfil em tabela errada.
 
-**Causa:** O código possui referências conflitantes:
+**Obsoleto (16/10/2026):** o banco de produção usa `profiles`; `supabase/migrations/20260930134600_baseline.sql` não cria tabela `users`, e `app/src/hooks/useAuth.ts` já grava em `profiles`. O `app/database-setup.sql` que descrevia `users` foi removido. Texto original abaixo mantido só como histórico.
+
+**Causa (histórico):** O código possuía referências conflitantes:
 - `app/src/hooks/useAuth.ts` linha 196: `supabase.from('users').update(...)`
 - `app/src/stores/authStore.ts` linha 87: `supabase.from('profiles').select('*')`
-- `app/database-setup.sql` (schema real): cria tabela `public.users`
+- `app/database-setup.sql` (removido): criava tabela `public.users`
 - `supabase_schema.sql` (schema antigo/legado na raiz): cria tabela `profiles`
-
-**Solução pendente:** Unificar todas as referências para `users` (que é o schema ativo em `database-setup.sql`). Atualizar `authStore.ts` para buscar em `users`.
 
 ---
 
@@ -563,9 +563,7 @@ Use este checklist antes de entregar features ou fazer deploy.
 
 ## 🗄️ Schema do Banco de Dados (Supabase)
 
-> ⚠️ **FONTE DA VERDADE:** O schema completo e atual está em `app/database-setup.sql` (558 linhas). O arquivo `supabase_schema.sql` na raiz é **LEGADO** e usa tabela `profiles` em vez de `users`.
->
-> **Inconsistência conhecida:** O `authStore.ts` busca `profiles` mas o schema real cria `users`. O `useAuth.ts` já usa `users`. **Corrigir `authStore.ts` para buscar em `users`.**
+> ⚠️ **FONTE DA VERDADE:** `supabase/migrations/20260930134600_baseline.sql` (retrato da produção, regerado em 08/10/2026; ver `supabase/migrations/README.md`). Os arquivos soltos `app/database-setup.sql`, `app/setup.sql`, `app/schema.sql`, `app/seed.sql` e `supabase/supabase_schema_consolidated.sql` eram cópias antigas e saíram do caminho (removidos ou em `docs/archive/`). `supabase_schema.sql` na raiz continua legado.
 
 Execute este SQL no **SQL Editor** do Supabase (painel do projeto) para criar todas as tabelas necessárias.
 
@@ -805,12 +803,12 @@ values ('teste@newsletter.com');
 
 | Tabela | Status | Notas |
 |--------|--------|-------|
-| users | ✅ Verificado | Schema ativo (substitui `profiles`) |
-| events | ✅ Verificado | Criada pelo setup.sql |
-| ticket_types | ✅ Verificado | Criada pelo setup.sql |
-| orders | ✅ Verificado | Criada pelo setup.sql |
-| order_items | ✅ Verificado | Criada pelo setup.sql |
-| tickets | ✅ Verificado | Criada pelo setup.sql |
+| profiles | ✅ Verificado | Criada no baseline.sql (a tabela `users` não existe) |
+| events | ✅ Verificado | Criada no baseline.sql |
+| ticket_types | ✅ Verificado | Criada no baseline.sql |
+| orders | ✅ Verificado | Criada no baseline.sql |
+| order_items | ✅ Verificado | Criada no baseline.sql |
+| tickets | ✅ Verificado | Criada no baseline.sql |
 | event_summary (view) | ✅ Verificado | View materializada criada |
 | **feedback** | ✅ Verificado | Insert de teste OK |
 | **contact_messages** | ✅ Verificado | Insert de teste OK |
