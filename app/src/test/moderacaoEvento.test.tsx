@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AdminEvents from '../pages/admin/Events'
 import { dominioDaTransmissao, hashConfere, imagemSegura, seloIngressosAlterados } from '../lib/moderacaoEvento'

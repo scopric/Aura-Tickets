@@ -1,7 +1,7 @@
 import { comTempo, lerIngressos } from './lib/ingressosOffline'
 import { AuthRetryableFetchError, isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { Fragment, Suspense, lazy, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { Routes, Route, useLocation, useParams, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation, useParams, Navigate } from 'react-router'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAuth } from './hooks/useAuth'

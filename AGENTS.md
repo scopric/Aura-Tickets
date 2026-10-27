@@ -496,7 +496,7 @@ Use este checklist antes de entregar features ou fazer deploy.
 ---
 
 ### 4. Migrar React Router para v7
-**Status:** 🟡 **NÃO URGENTE**. O projeto usa `react-router-dom` ^6.30.3 com future flags ativadas (`v7_startTransition`, `v7_relativeSplatPath`). Funciona corretamente. Migrar para v7 é opcional.
+**Status:** ✅ **FEITO (27/10/2026)**. O projeto usa `react-router` 7.18.4 (o pacote `react-router-dom` deixou de existir no v7; tudo vem de `react-router`). As future flags do v6 viraram o comportamento padrão e saíram do `<BrowserRouter>`.
 
 ---
 

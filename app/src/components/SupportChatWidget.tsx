@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Headset, Loader2, LogIn, Mail, MessageCircle, Send, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'

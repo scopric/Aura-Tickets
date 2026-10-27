@@ -1,7 +1,7 @@
 // Mapa das 30 telas do produtor na lateral por escopo (fase V4a; porte de refs/navegacao/codigo/evokaa-mapa-navegacao.mjs).
 // Escopo "produtora": todas as telas, cada uma na sua seção. Escopo "evento": só as que têm `noEvento`, já com o
 // evento na URL. Rotas reais do App.tsx (o teste confere). Tela que não existe fica fora (Decisão 22).
-import { matchPath } from 'react-router' // mesma implementação do react-router-dom; o dom não exporta o tipo neste ambiente (TS2305)
+import { matchPath } from 'react-router'
 
 export type Escopo = 'produtora' | 'evento'
 

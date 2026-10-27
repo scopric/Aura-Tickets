@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import CheckoutPayment from '../pages/checkout/Payment'
 
 // Espera do Pix: consulta o status a cada 5 s, continua depois que o Pix/reserva vencem e navega uma vez só ao pagar

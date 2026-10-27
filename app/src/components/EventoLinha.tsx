@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import EventoCapa, { type EventoCapaDados } from './EventoCapa'
 import { aPartirDe, rotuloClassificacao, type EventoCatalogo } from '../lib/explorar'
 import { rotuloFormato } from '../lib/tipoEvento'

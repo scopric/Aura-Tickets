@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { FORMATOS, ESTILOS, MAX_ESTILOS, rotuloFormato } from '../../lib/tipoEvento'
 import { useCreateEvent } from '../../hooks/useEvents'

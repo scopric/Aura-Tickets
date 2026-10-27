@@ -1,6 +1,6 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group'
 import { Sun, Moon, SunMoon } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { useTheme } from '../contexts/ThemeContext'
 import { rotaForcadaEscuro, type Tema } from '../lib/tema'
 import { cn } from '../lib/utils'

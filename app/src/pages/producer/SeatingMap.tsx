@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
 import { useCorProdutor } from '../../hooks/useCorProdutor'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'

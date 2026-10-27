@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { mensagemDoServidor } from '../../hooks/useEntregaIngresso'

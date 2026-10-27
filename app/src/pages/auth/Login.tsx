@@ -1,6 +1,6 @@
 import { apagarIngressosGuardados } from '../../lib/ingressosOffline'
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2, Edit3 } from 'lucide-react'
 import { useAuth, erroDeLogin } from '../../hooks/useAuth'
 import { toast } from 'sonner'

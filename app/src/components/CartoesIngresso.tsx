@@ -1,5 +1,5 @@
 import { type CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Qr } from './icones/evokaa16'
 import EventoCapa from './EventoCapa'
 import { temFoto, varsDoEvento } from '../lib/corEvento'

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
 import { useAuth } from '../hooks/useAuth'
