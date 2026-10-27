@@ -8,6 +8,8 @@ import LeitorCamera from '@/components/producer/LeitorCamera'
 import RitmoDeEntrada from '@/components/producer/RitmoDeEntrada'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Segmented } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -94,6 +96,9 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
   const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; leitura: Leitura } | null>(null)
   const [contagem, setContagem] = useState({ total: 0, usados: 0, cancelados: 0, transferidos: 0 })
   const [atualizadoEm, setAtualizadoEm] = useState('')
+  const [desfazendo, setDesfazendo] = useState<TicketCheck | null>(null) // entrada que está no diálogo de desfazer
+  const [motivoDesfazer, setMotivoDesfazer] = useState('')
+  const [salvandoDesfazer, setSalvandoDesfazer] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const eventoAtual = useRef('') // descarta resposta de evento que já não está na tela
@@ -308,6 +313,33 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
   // Confirmar check-in manual na listagem
   const manualCheckIn = async (ticket: TicketCheck) => {
     await handleScan(ticket.ticketCode)
+  }
+
+  const abrirDesfazer = (ticket: TicketCheck) => { setMotivoDesfazer(''); setDesfazendo(ticket) }
+  const motivoOk = motivoDesfazer.trim().length >= 3 && motivoDesfazer.trim().length <= 200
+  // Desfaz no servidor (função checkin_desfazer: grava o motivo e o histórico) e só então atualiza a lista
+  const confirmarDesfazer = async () => {
+    if (!desfazendo || !motivoOk || salvandoDesfazer) return
+    const evento = selectedEventId
+    setSalvandoDesfazer(true)
+    try {
+      const { error } = await supabase.rpc('checkin_desfazer' as never, { p_ticket_id: desfazendo.id, p_motivo: motivoDesfazer.trim() } as never)
+      if (error) throw error
+      toast.success(`Entrada de ${desfazendo.name} desfeita.`)
+      setDesfazendo(null)
+      if (eventoAtual.current !== evento) return
+      versaoLista.current++
+      const id = desfazendo.id
+      setLastScan(l => (l?.ticket.id === id ? null : l)) // o cartão "Acesso Permitido" desse ingresso não pode ficar na tela
+      setTickets(ts => ts.map(t => t.id === id ? { ...t, status: 'pendente', checkInTime: null, checkedInAt: null } : t))
+      loadTickets(evento, true)
+    } catch (err) {
+      // só a mensagem escrita por nós no banco (P0001, 22023, 42501) vai para a tela; erro técnico fica genérico
+      const e = err as { code?: string; message?: string }
+      toast.error(e?.message && ['P0001', '22023', '42501'].includes(e.code ?? '') ? e.message : 'Não foi possível desfazer a entrada. Tente de novo.')
+    } finally {
+      setSalvandoDesfazer(false)
+    }
   }
 
   useEffect(() => {
@@ -528,6 +560,11 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                             <I.Liberado size={14} /> {t.checkInTime ? `Confirmado às ${t.checkInTime}` : 'Confirmado'}
                           </div>
                         )}
+                        {t.status === 'usado' && (
+                          <Button size="sm" variant="outline" className="mt-1 min-h-11" onClick={() => abrirDesfazer(t)} aria-label={`Desfazer entrada de ${t.name}`}>
+                            Desfazer entrada
+                          </Button>
+                        )}
                         {t.status === 'cancelado' && <div className="text-xs font-medium text-destructive">Cancelado</div>}
                         {t.status === 'transferido' && <div className="text-xs font-medium text-muted-foreground">Transferido</div>}
                         {t.status === 'pendente' && equipe && <div className="text-xs text-muted-foreground">Não entrou</div>}
@@ -552,7 +589,6 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
             <div className="mt-8">
               <SectionTitle>Em breve</SectionTitle>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <EmBreve titulo="Desfazer entrada" descricao="Cancelar um check-in feito por engano, pedindo o motivo e deixando registro. Precisa de uma função nova no banco (RPC), ainda não criada." acao="Desfazer entrada" />
                 <EmBreve titulo="PIN do porteiro" descricao="Cada porteiro entra com um PIN próprio, sem usar a senha do produtor. Precisa de uma coluna e uma regra novas no banco." acao="Criar PIN" />
                 <EmBreve titulo="Modo offline" descricao="Baixar a lista no aparelho e sincronizar quando a internet voltar. Precisa de service worker (fase M4). Hoje o check-in precisa de internet." acao="Ativar modo offline" />
                 <EmBreve titulo="Selo de meia-entrada" descricao="Mostrar na leitura que o ingresso é meia, para conferir o documento. A função de validação precisa devolver o benefício, ainda não devolve." acao="Ver selo de meia" />
@@ -563,6 +599,26 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
           )}
         </>
       )}
+
+      <Dialog open={!!desfazendo} onOpenChange={aberto => { if (!aberto && !salvandoDesfazer) setDesfazendo(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desfazer entrada</DialogTitle>
+            <DialogDescription>
+              {desfazendo?.name}{desfazendo?.checkInTime ? `, entrou às ${desfazendo.checkInTime}` : ''}. O ingresso volta a valer e pode ser lido de novo. O motivo fica registrado.
+            </DialogDescription>
+          </DialogHeader>
+          <form id="form-desfazer-entrada" onSubmit={e => { e.preventDefault(); confirmarDesfazer() }} className="grid gap-1.5">
+            <Label htmlFor="desfazer-motivo">Motivo</Label>
+            <Input id="desfazer-motivo" required minLength={3} maxLength={200} autoComplete="off" value={motivoDesfazer} onChange={e => setMotivoDesfazer(e.target.value)} placeholder="Ex.: leitura no ingresso errado" />
+            <p className="text-xs text-muted-foreground">De 3 a 200 caracteres. Não escreva dados pessoais.</p>
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDesfazendo(null)} disabled={salvandoDesfazer}>Cancelar</Button>
+            <Button type="submit" form="form-desfazer-entrada" loading={salvandoDesfazer} disabled={!motivoOk}>Desfazer entrada</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

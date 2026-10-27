@@ -48,9 +48,10 @@ describe('Check-in do produtor', () => {
     expect(await screen.findByText('Comparecimento')).toBeInTheDocument()
     expect(screen.getByText('50%')).toBeInTheDocument()
     expect(screen.getByText('1 de 2')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Desfazer entrada' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'Modo offline' })).toBeInTheDocument()
     expect(screen.getByText(/Hoje o check-in precisa de internet/)).toBeInTheDocument()
-    for (const n of ['Desfazer entrada', 'PIN do porteiro', 'Selo de meia-entrada', 'Filtro por portaria e por membro', 'Etiqueta e impressão']) expect(screen.getByRole('heading', { name: n })).toBeInTheDocument()
+    for (const n of ['PIN do porteiro', 'Selo de meia-entrada', 'Filtro por portaria e por membro', 'Etiqueta e impressão']) expect(screen.getByRole('heading', { name: n })).toBeInTheDocument()
   })
 
   it('lista: filtra por situação, ordena, mostra o ritmo e exporta CSV sem e-mail nem CPF', async () => {
@@ -154,5 +155,111 @@ describe('Check-in da equipe', () => {
     expect(await screen.findByText('Ana')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Exportar CSV/ })).toBeNull()
     expect(screen.getByRole('region', { name: 'Ritmo de entrada por hora' })).toBeInTheDocument()
+  })
+})
+
+describe('Desfazer entrada', () => {
+  beforeEach(() => {
+    banco.total.current = null; banco.linhas.current = dois; banco.fator.mockReset().mockResolvedValue(false)
+    banco.rpc.mockReset().mockResolvedValue({ data: null, error: null })
+  })
+
+  it('o botão só aparece em quem entrou; sem motivo, não confirma', async () => {
+    const u = userEvent.setup()
+    montar(<ProducerCheckIn />, '/producer/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    expect(screen.getAllByRole('button', { name: /^Desfazer entrada de / })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' })).toBeInTheDocument()
+    await u.click(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' }))
+    const dialogo = await screen.findByRole('dialog')
+    expect(within(dialogo).getByText(/Ana Souza, entrou às/)).toBeInTheDocument()
+    const confirmar = within(dialogo).getByRole('button', { name: 'Desfazer entrada' })
+    expect(confirmar).toBeDisabled()
+    await u.type(within(dialogo).getByLabelText('Motivo'), 'ab')
+    expect(confirmar).toBeDisabled()
+    expect(banco.rpc).not.toHaveBeenCalled()
+  })
+
+  it('confirma com o motivo: chama a função, avisa e a pessoa volta a "não entrou"', async () => {
+    banco.rpc.mockImplementation(async () => { banco.linhas.current = [t('01', 'Ana Souza', 'active', null), dois[1]]; return { data: null, error: null } }) // o banco passa a devolver o ingresso ativo
+    const u = userEvent.setup()
+    montar(<ProducerCheckIn />, '/producer/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    await u.click(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' }))
+    const dialogo = await screen.findByRole('dialog')
+    await u.type(within(dialogo).getByLabelText('Motivo'), '  Leitura por engano ')
+    await u.click(within(dialogo).getByRole('button', { name: 'Desfazer entrada' }))
+    await waitFor(() => expect(banco.rpc).toHaveBeenCalledWith('checkin_desfazer', { p_ticket_id: '01', p_motivo: 'Leitura por engano' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.queryByRole('button', { name: /^Desfazer entrada de / })).toBeNull()
+  })
+
+  it('erro da função: mostra o aviso e mantém o diálogo aberto', async () => {
+    banco.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Não foi possível desfazer: nada feito.' } })
+    const u = userEvent.setup()
+    montar(<ProducerCheckIn />, '/producer/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    await u.click(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' }))
+    const dialogo = await screen.findByRole('dialog')
+    await u.type(within(dialogo).getByLabelText('Motivo'), 'Engano')
+    await u.click(within(dialogo).getByRole('button', { name: 'Desfazer entrada' }))
+    const { toast } = await import('sonner')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível desfazer: nada feito.'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('erro técnico (sem código nosso): mensagem genérica, sem vazar o texto do banco', async () => {
+    banco.rpc.mockResolvedValue({ data: null, error: { code: '42P01', message: 'relation public.x does not exist' } })
+    const u = userEvent.setup()
+    montar(<ProducerCheckIn />, '/producer/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    await u.click(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' }))
+    const dialogo = await screen.findByRole('dialog')
+    expect(within(dialogo).getByText(/Não escreva dados pessoais/)).toBeInTheDocument()
+    await u.type(within(dialogo).getByLabelText('Motivo'), 'Engano')
+    await u.click(within(dialogo).getByRole('button', { name: 'Desfazer entrada' }))
+    const { toast } = await import('sonner')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível desfazer a entrada. Tente de novo.'))
+  })
+
+  it('desfazer o ingresso que está no cartão da leitura limpa o cartão "Acesso Permitido"', async () => {
+    const track = { stop: vi.fn() }
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [track], getVideoTracks: () => [track] }) }, configurable: true })
+    banco.invoke.mockReset().mockResolvedValue({ data: { valid: true, message: 'ok', buyerName: 'Ana Souza', ticketId: '01' }, error: null })
+    const u = userEvent.setup()
+    montar(<ProducerCheckIn />, '/producer/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.type(screen.getByLabelText('Código do ingresso'), '3f2504e0-4f89-41d3-9a0c-0305e82c3301{enter}')
+    expect(await screen.findByText('Acesso Permitido')).toBeInTheDocument()
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    banco.rpc.mockImplementation(async () => { banco.linhas.current = [t('01', 'Ana Souza', 'active', null), dois[1]]; return { data: null, error: null } })
+    await u.click(screen.getByRole('button', { name: 'Desfazer entrada de Ana Souza' }))
+    const dialogo = await screen.findByRole('dialog')
+    await u.type(within(dialogo).getByLabelText('Motivo'), 'Engano')
+    await u.click(within(dialogo).getByRole('button', { name: 'Desfazer entrada' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await u.click(screen.getByRole('radio', { name: /Leitura|Ler/ }))
+    expect(screen.queryByText('Acesso Permitido')).toBeNull()
+  })
+
+  it('a equipe também desfaz, pela mesma função', async () => {
+    banco.rpc.mockImplementation(async (nome: string) => ({
+      team_eventos: { data: [{ id: 'e1', title: 'Festa Um', start_date: '2026-10-16T22:00:00Z', producer_id: 'p1', producer_name: 'Casa' }], error: null },
+      team_lista_ingressos: { data: [{ id: 'k1', buyer_name: 'Ana', status: 'used', checked_in_at: '2026-10-10T22:30:00Z', tipo: 'Pista' }], error: null },
+      team_contagem: { data: [{ total: 2, usados: 1, cancelados: 0, transferidos: 0 }], error: null },
+    }[nome] ?? { data: null, error: null }))
+    const u = userEvent.setup()
+    montar(<EquipeCheckIn />, '/equipe/checkin?eventId=e1')
+    await screen.findByText('Comparecimento')
+    await u.click(screen.getByRole('radio', { name: /Lista/ }))
+    await u.click(await screen.findByRole('button', { name: 'Desfazer entrada de Ana' }))
+    const dialogo = await screen.findByRole('dialog')
+    await u.type(within(dialogo).getByLabelText('Motivo'), 'Engano na porta')
+    await u.click(within(dialogo).getByRole('button', { name: 'Desfazer entrada' }))
+    await waitFor(() => expect(banco.rpc).toHaveBeenCalledWith('checkin_desfazer', { p_ticket_id: 'k1', p_motivo: 'Engano na porta' }))
   })
 })
