@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useNavigate } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router'
 import Lateral from '../components/producer/Lateral'
 
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }) // o Radix Tooltip usa

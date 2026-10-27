@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Eye, EyeOff, ArrowRight, ArrowLeft, User, Building, Loader2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type { Role } from '../../types/auth'

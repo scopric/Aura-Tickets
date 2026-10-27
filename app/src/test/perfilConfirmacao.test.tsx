@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { loading: vi.fn(() => 'id'), success: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))

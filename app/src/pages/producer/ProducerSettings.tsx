@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import { Instagram } from 'lucide-react' // sem equivalente na família Evokaa 16 (o lucide marca Instagram como obsoleto: some no lucide 1.0)

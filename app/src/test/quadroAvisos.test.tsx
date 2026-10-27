@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProducerTasks from '../pages/producer/Tasks'
 import CartaoVerso from '../components/producer/quadro/CartaoVerso'

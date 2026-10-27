@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield, Check, CheckCircle2, Paintbrush, Sparkles } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'

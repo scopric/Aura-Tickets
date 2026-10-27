@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import NotificationsTopButton, { tempoRelativo } from '../components/NotificationsTopButton'
 import ParticipantNotifications from '../pages/app/Notifications'
 import { urlDoAviso } from '../hooks/useNotifications'

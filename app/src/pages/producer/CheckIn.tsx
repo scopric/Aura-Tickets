@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { PageHeader, EmptyState, Erro, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { CabecalhoEvento, EmBreve, KpiCard } from '@/components/producer/ui-evento'

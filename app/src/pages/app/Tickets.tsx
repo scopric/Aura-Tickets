@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import { X } from 'lucide-react'
 import { SetaEsquerda } from '../../components/icones/evokaa16'
 import { LinhaAnterior, Linha, Passe } from '../../components/CartoesIngresso'

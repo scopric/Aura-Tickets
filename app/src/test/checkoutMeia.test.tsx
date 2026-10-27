@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 

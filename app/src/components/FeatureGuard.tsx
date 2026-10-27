@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Lock } from 'lucide-react'
 import { useFeatures } from '../hooks/useFeatures'
 import PageLoading from './PageLoading'

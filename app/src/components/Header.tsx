@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, useRef } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { Menu, X, UserPlus, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'

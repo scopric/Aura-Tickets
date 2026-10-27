@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

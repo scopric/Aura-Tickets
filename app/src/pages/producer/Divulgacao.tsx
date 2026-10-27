@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'

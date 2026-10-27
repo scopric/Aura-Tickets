@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router'
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'

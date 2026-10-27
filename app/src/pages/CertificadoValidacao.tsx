@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Ban, CheckCircle2, Printer, SearchX, WifiOff } from 'lucide-react'
 import { codigoValido, validarCertificado } from '../lib/certificadoValidar'
