@@ -14,11 +14,12 @@ export interface DbNotification {
 }
 
 /** Caminho interno do aviso (metadata.url), ou null. Só aceita "/algo": nunca endereço de fora, "//" nem "/\\".
- *  Também barra espaço, tab, quebra de linha e outros caracteres de controle: o navegador os apaga antes de ler
- *  a URL, e "/\t/x.com" viraria "//x.com" (outro site). */
+ *  Também barra espaço, tab, quebra de linha e outros caracteres de controle: o navegador apaga tab e quebra de
+ *  linha antes de ler a URL, e "/\t/x.com" viraria "//x.com" (outro site); os demais viram %xx e só atrapalham. */
 export function urlDoAviso(n: Pick<DbNotification, 'metadata'>): string | null {
   const url = n.metadata?.url
-  return typeof url === 'string' && /^\/(?![\/\\])[^\s\\\x00-\x1f\x7f]*$/.test(url) ? url : null
+  // eslint-disable-next-line no-control-regex -- barrar caractere de controle é o objetivo da regra
+  return typeof url === 'string' && /^\/(?![/\\])[^\s\\\x00-\x1f\x7f]*$/.test(url) ? url : null
 }
 
 export function useUserNotifications() {
