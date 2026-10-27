@@ -669,7 +669,7 @@ export default function Home() {
     { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva é um tipo de ingresso exclusivo onde 6 pessoas desconhecidas são agrupadas por afinidade de perfil. Cada pessoa responde um questionário rápido de perfil; a formação automática das mesas por afinidade chega em breve.' },
     { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que você cadastre vendedores com códigos únicos, cupons de desconto exclusivos e limites de ingressos, e acompanhe seus afiliados no painel.' },
     { question: 'Quais formas de pagamento são aceitas?', answer: 'Na compra de ingressos, hoje aceitamos Pix. O pagamento por cartão de crédito chega em breve.' },
-    { question: 'Como funciona o check-in?', answer: 'Na porta do evento, você pode usar o modo Scanner (digita o código do ingresso) ou o modo Lista (busca o nome do participante). Ambos funcionam offline e atualizam em tempo real.' },
+    { question: 'Como funciona o check-in?', answer: 'Na porta do evento, você pode usar o modo Scanner (digita o código do ingresso) ou o modo Lista (busca o nome do participante). Os dois precisam de internet e atualizam os números a cada 20 segundos.' },
     { question: 'A Evokaa funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Você também pode criar tipos personalizados.' },
     { question: 'Como entro em contato com o suporte?', answer: 'Use o botão de feedback no canto inferior direito de qualquer página. Nossa equipe responde em até 24h. Produtores têm acesso ao FAQ completo no painel.' },
   ]
