@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useFavoritos, useSalvarPendente } from '../hooks/useFavoritos'
 import { consumirVolta } from '../lib/voltaEvento'
 import BotaoSalvar from '../components/BotaoSalvar'
-import Salvos from '../pages/app/Salvos'
+import Salvos from '../components/Salvos'
 
 // public.favoritos simulada. select('event_id').eq() lê `linhas`; select('… events (*)').eq().order() lê `salvos`;
 // insert e delete().eq().eq() respondem com `resposta`
