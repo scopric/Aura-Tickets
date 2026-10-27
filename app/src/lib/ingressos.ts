@@ -6,13 +6,14 @@ import { partesBrasilia, precoDe, pedidoParaBanco, vendaParaBanco, quantidadeDe,
 // Tela Ingressos e Cupons do produtor, sem tela: ordem dos ingressos, números do topo, pagamento do ingresso, códigos em lote e CSV de cupons.
 
 // ---- ordem dos ingressos ----------------------------------------------------------------------------------------
-type Ordenavel = { id: string; sort_order?: number | null; created_at?: string }
+type Ordenavel = { id: string; sort_order?: number | null; created_at?: string; price?: number | null }
 
 /** Pela coluna sort_order, de 1 em diante. Sem ordem (nulo ou 0) vai por último, e o empate é pela criação:
- *  ingresso novo fica no fim da lista, que é onde o produtor espera achá-lo. */
+ *  ingresso novo fica no fim da lista, que é onde o produtor espera achá-lo.
+ *  Ainda empatou (lotes criados juntos, sem ordem)? Preço crescente, para o Primeiro Lote vir antes do Terceiro; o id só desempata de vez. */
 export const ordenar = <T extends Ordenavel>(l: T[]): T[] => {
   const chave = (t: T) => t.sort_order || Infinity
-  return [...l].sort((a, b) => (chave(a) === chave(b) ? 0 : chave(a) < chave(b) ? -1 : 1) || (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id))
+  return [...l].sort((a, b) => (chave(a) === chave(b) ? 0 : chave(a) < chave(b) ? -1 : 1) || (a.created_at ?? '').localeCompare(b.created_at ?? '') || (a.price ?? 0) - (b.price ?? 0) || a.id.localeCompare(b.id))
 }
 
 /** Tira o item de `de` e põe em `para`. Posição fora da lista devolve a mesma ordem */

@@ -1,14 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import EventoConteudo from '../components/EventoConteudo'
-import { CapaInclinada } from '../components/EventoVitrine'
 
-// Ingresso como objeto: carimbo com dados reais, número de série, foil e inclinação só com mouse e movimento permitido
+// Vitrine chapada (estilo Sympla/DICE): sem foil, carimbo, pilha de papéis, picote ou inclinação; data só uma vez; compra num botão só
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) } }))
 
 const evento = (o: Record<string, unknown> = {}) => ({
@@ -24,62 +23,45 @@ const montar = (e: never, previa?: 'moldura' | 'folha') => render(
 )
 
 beforeEach(() => { window.scrollTo = vi.fn() as unknown as typeof window.scrollTo })
-afterEach(() => vi.unstubAllGlobals())
 
-describe('vitrine: ingresso como objeto', () => {
-  it('carimbo usa o local, a cidade e o dia do evento, sem texto fixo de lote ou vendas', () => {
+describe('vitrine chapada', () => {
+  it('não há mais foil, carimbo, picote, canhoto, série nem rótulo mono no DOM', () => {
     const { container } = montar(evento())
-    const carimbo = container.querySelector('.evv-carimbo')!
-    expect(carimbo.getAttribute('aria-hidden')).toBe('true')
-    const t = carimbo.textContent ?? ''
-    expect(t).toContain('CLUBE MORGENAU')
-    expect(t).toContain('CURITIBA')
-    expect(t).toContain('16')
-    expect(t).toContain('OUT')
-    expect(t).not.toMatch(/lote|vendas|aberta/i)
+    for (const c of ['.evv-carimbo', '.evv-foil', '.evv-luz', '.evv-picote', '.evv-canhoto', '.evv-capa-obj', '.evv-gr', '.evv-mono', '.evv-selo', '.evv-mapa']) expect(container.querySelector(c), c).toBeNull()
+    expect(container.textContent).not.toMatch(/Nº AE8B2D/)
   })
 
-  it('sem data não há carimbo', () => {
-    const { container } = montar(evento({ date: null }))
-    expect(container.querySelector('.evv-carimbo')).toBeNull()
-  })
-
-  it('número de série: os 6 primeiros caracteres do id, em maiúsculas, só no cabeçalho do bilhete (decorativo)', () => {
+  it('a data aparece uma vez só: no topo, junto da hora, e não há linha "Data" nas informações', () => {
     const { container } = montar(evento())
-    const serie = [...container.querySelectorAll('.evv-mono')].find(e => /AE8B2D/.test(e.textContent ?? ''))!
-    expect(serie.textContent).toBe('Nº AE8B2D')
-    expect(serie.getAttribute('aria-hidden')).toBe('true')
-    expect(container.querySelector('.evv-capa-in')?.textContent ?? '').not.toMatch(/AE8B2D/) // nada de série sobre a capa
-    expect(screen.getByRole('heading', { level: 2, name: 'Ingressos' })).toBeInTheDocument()
+    expect(screen.getByText(/Sexta-feira, 16 de outubro · 22h/)).toBeInTheDocument()
+    const rotulos = [...container.querySelectorAll('span.uppercase')].map((e) => e.textContent)
+    expect(rotulos).toEqual(expect.arrayContaining(['Horário', 'Local', 'Faixa etária']))
+    expect(rotulos).not.toContain('Data')
+    expect(container.textContent!.match(/16 de outubro/g)).toHaveLength(1)
   })
 
-  it('modo previa não tem carimbo, foil, picote, canhoto nem série', () => {
+  it('a linha de data do topo usa a cor do evento (--evento-texto, já com 4,5:1 nos dois temas)', () => {
+    montar(evento())
+    expect(screen.getByText(/16 de outubro/).className).toContain('text-[var(--evento-texto)]')
+  })
+
+  it('a faixa etária é só texto (sem selo) e o local tem a pílula "Abrir no mapa"', () => {
+    const { container } = montar(evento({ classificacao: 'A18' }))
+    expect(screen.getByText('Classificação: 18 anos')).toBeInTheDocument()
+    expect(container.querySelector('svg.evv-selo')).toBeNull()
+    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa para Clube Morgenau/ })).toHaveTextContent('Abrir no mapa')
+  })
+
+  it('modo previa não ganha o desenho novo (sem topo largo, sem pílula do mapa, sem rodapé do cartão)', () => {
     const { container } = montar(evento(), 'moldura')
-    for (const c of ['.evv-carimbo', '.evv-foil', '.evv-picote', '.evv-canhoto', '.evv-bilhete-in', '.evv-mono']) expect(container.querySelector(c), c).toBeNull()
+    for (const c of ['.evv-compra', '.evv-bilhete-in', '.evv-lista']) expect(container.querySelector(c), c).toBeNull()
+    expect(screen.queryByRole('button', { name: /aplicativo de mapa/ })).toBeNull()
   })
 
-  it('canhoto mostra o total do carrinho sem a palavra ingresso nem um segundo botão de compra', () => {
+  it('um único botão de compra, dentro do cartão de ingressos, sem o texto "ingresso" duplicado em outro total', () => {
     const { container } = montar(evento())
-    const canhoto = container.querySelector('.evv-canhoto')!
-    expect(canhoto.textContent).not.toMatch(/ingresso|A partir de/i)
-    expect(canhoto.querySelector('button')).toBeNull()
-  })
-
-  it('foil e inclinação só agem com mouse e sem reduzir movimento (o foil lê as variáveis do ponteiro)', () => {
-    const mover = () => {
-      const { container, unmount } = render(<CapaInclinada><i /></CapaInclinada>)
-      const fora = container.firstElementChild as HTMLElement
-      vi.spyOn(fora, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100 } as DOMRect)
-      act(() => { fora.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 50, clientY: 50 })) })
-      const obj = fora.firstElementChild as HTMLElement
-      const r = [obj.hasAttribute('data-inclina'), obj.style.getPropertyValue('--fx')]
-      unmount()
-      return r
-    }
-    const media = (reduzir: boolean, mouse: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') ? reduzir : q.includes('hover') ? mouse : false }))
-    media(false, true); expect(mover()).toEqual([true, '50'])
-    media(false, false); expect(mover()).toEqual([false, ''])
-    media(true, true); expect(mover()).toEqual([false, ''])
+    expect(screen.getAllByRole('button', { name: 'Comprar' })).toHaveLength(1)
+    expect(container.querySelector('#ingressos .evv-compra')).not.toBeNull()
   })
 
   it('o recuo da lista de ingressos fica na área que rola (>= 8 px) e não há rolagem horizontal', () => {
@@ -90,8 +72,8 @@ describe('vitrine: ingresso como objeto', () => {
     expect(regra).toMatch(/overflow-x:\s*hidden/)
   })
 
-  it('o canhoto é aria-hidden (o total já é lido na barra de compra)', () => {
-    const { container } = montar(evento())
-    expect(container.querySelector('.evv-canhoto')?.getAttribute('aria-hidden')).toBe('true')
+  it('o CSS não guarda mais nenhum efeito (foil, carimbo, grão, picote, mask, drop-shadow)', () => {
+    const css = readFileSync(resolve(__dirname, '../components/EventoVitrine.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(css).not.toMatch(/foil|carimbo|picote|evv-gr|mask|drop-shadow|conic-gradient|mix-blend|rotate\(/)
   })
 })

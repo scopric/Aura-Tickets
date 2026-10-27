@@ -157,6 +157,6 @@ describe('organizador na página', () => {
     expect(i('titulo={event.title} fino />')).toBeLessThan(i('id="h-aparencia"'))
     const q = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { container } = render(<QueryClientProvider client={q}><MemoryRouter><ThemeProvider><EventoConteudo evento={evento()} previa="moldura" /></ThemeProvider></MemoryRouter></QueryClientProvider>)
-    expect(container.querySelector('.evv-mono, dl')).toBeNull()
+    expect(container.querySelector('#h-organizador, dl')).toBeNull()
   })
 })

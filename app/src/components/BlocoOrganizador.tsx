@@ -68,27 +68,27 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
       accent_color: typeof e.accent_color === 'string' ? e.accent_color : null,
     }))
 
-  const canal = 'alvo-44 grid size-11 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--muted-foreground))] transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] hover:text-foreground focus-visible:bg-[var(--ev-tint-hover)] focus-visible:text-foreground focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none'
+  const canal = 'alvo-44 grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] hover:text-foreground focus-visible:bg-[var(--ev-tint-hover)] focus-visible:text-foreground focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none'
   const botao = 'alvo-44 inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-transform duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0'
   const reconhecidas = redes.map((r) => ({ r, rede: iconeDaRede(r.url) }))
   const comIcone = reconhecidas.filter((x) => x.rede)
   const emTexto = reconhecidas.filter((x) => !x.rede)
   const temCanais = ig || site || email
-  const rotuloMono = 'evv-mono text-muted-foreground'
+  const rotulo = 'text-[11px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground'
 
   return (
-    <section aria-labelledby="h-organizador" className="py-6">
-      <div className="mx-5 rounded-[20px] border border-border p-6 shadow-[inset_0_2px_0_var(--evento)]" style={{ backgroundColor: 'color-mix(in oklab, var(--evento) 6%, hsl(var(--card)))' }}>
+    <section aria-labelledby="h-organizador" className="border-t border-border px-5 py-6">
+      <div>
         <h2 id="h-organizador" className="flex items-center gap-4 text-[11px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground after:h-px after:flex-1 after:bg-border">Organizador</h2>
         <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <span aria-hidden="true" className="font-display grid size-[52px] place-items-center rounded-full border border-border text-lg font-extrabold" style={{ background: 'var(--evento-fundo)', color: 'var(--evento-texto)' }}>{iniciais(nome || '')}</span>
+          <span aria-hidden="true" className="grid size-10 place-items-center rounded-full border border-border text-sm font-semibold" style={{ background: 'var(--evento-fundo)', color: 'var(--evento-texto)' }}>{iniciais(nome || '')}</span>
           <div className="min-w-0">
-            {nome && <p className="font-display line-clamp-2 break-words text-lg font-bold leading-6">{nome}</p>}
+            {nome && <p className="line-clamp-2 break-words text-base font-medium leading-6">{nome}</p>}
             {sub && <p className="break-words text-[12.5px] leading-5 text-muted-foreground">{sub}</p>}
           </div>
           {/* Contato escondido até o clique. Isto só tira os links do DOM: a RPC ainda devolve os dados (mitigação parcial contra raspagem, não total). */}
           {(wa || email) && !revelado && (
-            <button type="button" aria-expanded={false} onClick={() => setRevelado(true)} className={cn(botao, 'col-span-2 border border-foreground text-foreground hover:bg-foreground/5 md:col-span-1')}>Mostrar contato</button>
+            <button type="button" aria-expanded={false} onClick={() => setRevelado(true)} className={cn(botao, 'col-span-2 border border-border text-foreground hover:bg-[var(--ev-tint-hover)] md:col-span-1')}>Mostrar contato</button>
           )}
           {(wa || email) && revelado && (
             <div className="col-span-2 flex flex-wrap items-center gap-3 md:col-span-1 md:flex-col md:items-stretch">
@@ -108,8 +108,8 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
 
         {(realizados || desde) && (
           <dl className="mt-5 flex divide-x divide-border border-y border-border py-3">
-            {realizados && <div className="flex flex-1 flex-col-reverse justify-end pr-4"><dt className={rotuloMono}>eventos realizados</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{realizados}</dd></div>}
-            {desde && <div className={cn('flex flex-1 flex-col-reverse justify-end', realizados && 'pl-4')}><dt className={rotuloMono}>no ar desde</dt><dd className="font-display text-3xl font-extrabold tabular-nums leading-9">{desde}</dd></div>}
+            {realizados && <div className="flex flex-1 flex-col-reverse justify-end pr-4"><dt className={rotulo}>eventos realizados</dt><dd className="text-xl font-medium tabular-nums leading-8">{realizados}</dd></div>}
+            {desde && <div className={cn('flex flex-1 flex-col-reverse justify-end', realizados && 'pl-4')}><dt className={rotulo}>no ar desde</dt><dd className="text-xl font-medium tabular-nums leading-8">{desde}</dd></div>}
           </dl>
         )}
 
@@ -126,11 +126,11 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
 
         {(temCanais || redes.length > 0) && (
           <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {ig && <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer nofollow" aria-label="Instagram (abre em nova aba)" title={`instagram.com/${ig}`} className={canal}><IconeInstagram size={20} /></a>}
-            {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" aria-label="Site (abre em nova aba)" title={dominio(site)!} className={canal}><I.Globo size={20} /></a>}
+            {ig && <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer nofollow" aria-label="Instagram (abre em nova aba)" title={`instagram.com/${ig}`} className={canal}><IconeInstagram size={18} /></a>}
+            {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" aria-label="Site (abre em nova aba)" title={dominio(site)!} className={canal}><I.Globo size={18} /></a>}
             {comIcone.map(({ r, rede }, i) => {
               const Icone = rede!.Icone
-              return <a key={`${i}-${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`${rede!.nome} (abre em nova aba)`} title={dominio(r.url)!} className={canal}><Icone size={20} /></a>
+              return <a key={`${i}-${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`${rede!.nome} (abre em nova aba)`} title={dominio(r.url)!} className={canal}><Icone size={18} /></a>
             })}
             {emTexto.length > 0 && (temCanais || comIcone.length > 0) && <span aria-hidden="true" className="mx-2 h-5 w-px bg-border" />}
             {emTexto.map(({ r }, i) => (
@@ -149,26 +149,20 @@ function Anfitriao({ o, titulo, wa, ig, site, email, redes, cnpj }: {
 
         {outros.length > 0 && (
           <div className="mt-5 border-t border-border pt-4">
-            <h3 className={rotuloMono}>Outros eventos</h3>
+            <h3 className={rotulo}>Outros eventos</h3>
             <ul className="mt-2">
               {outros.map((e, i) => {
                 // data REAL: "2026-13-45", "0000-00-00" e "2026-02-30" não passam; sem data válida o item fica só com título e link
                 const bruta = e.date ? new Date(`${e.date}T00:00:00`) : null
                 const d = bruta && !isNaN(bruta.getTime()) && `${bruta.getFullYear()}-${String(bruta.getMonth() + 1).padStart(2, '0')}-${String(bruta.getDate()).padStart(2, '0')}` === e.date ? bruta : null
                 const hora = d ? e.time?.match(/^(\d{1,2}):(\d{2})/) : null
-                const quando = d ? [d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''), hora && `${+hora[1]}h${hora[2] === '00' ? '' : hora[2]}`].filter(Boolean).join(' · ') : ''
+                const quando = d ? [`${d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}, ${d.getDate()} ${d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}`, hora && `${+hora[1]}h${hora[2] === '00' ? '' : hora[2]}`].filter(Boolean).join(' · ') : ''
                 return (
                   <li key={`${e.id}-${i}`}>
                     <Link to={`/event/${e.id}`} className="alvo-44 -mx-2 flex min-h-[64px] items-center gap-3 rounded-ev-md px-2 py-2 transition-colors duration-rapido hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none">
-                      {d && (
-                        <span aria-hidden="true" className="grid min-w-12 shrink-0 justify-items-center rounded-ev-lg border border-border px-2 py-1">
-                          <b className="font-display text-xl font-extrabold tabular-nums leading-none">{d.getDate()}</b>
-                          <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
-                        </span>
-                      )}
                       <EventoCapa evento={{ id: e.id, title: e.title, cover_image: e.cover_image, image_url: e.image_url, accent_color: e.accent_color, date: e.date }} tamanho="mini" />
                       <span className="min-w-0 flex-1">
-                        <span className="font-display line-clamp-2 break-words text-[15px] font-bold leading-5">{e.title}</span>
+                        <span className="line-clamp-2 break-words text-[15px] font-medium leading-5">{e.title}</span>
                         {quando && <span className="block text-[13px] leading-5 text-muted-foreground">{quando}</span>}
                       </span>
                     </Link>
