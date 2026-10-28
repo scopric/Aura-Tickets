@@ -8,40 +8,18 @@ import { ThemeProvider } from '../contexts/ThemeContext'
 import EventoConteudo from '../components/EventoConteudo'
 import MapaEvento from '../components/MapaEvento'
 import Atracoes from '../components/Atracoes'
-import SeloClassificacao from '../components/SeloClassificacao'
-import { coordenadasValidas, ehApple, linksDeMapa, pecasDoMapa } from '../lib/mapaEvento'
+import { coordenadasValidas, ehApple, linksDeMapa } from '../lib/mapaEvento'
 
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) } }))
 
 const CWB = { lat: -25.4310044, lng: -49.2484121 }
 
 describe('mapa: contas e links', () => {
-  it('pecasDoMapa: valores conhecidos', () => {
-    const o = pecasDoMapa(0, 0, 1)
-    expect([o.x0, o.y0, o.fx, o.fy]).toEqual([1, 1, 0, 0])
-    const c = pecasDoMapa(CWB.lat, CWB.lng, 15) // conta feita à parte: xt 11901,3001 e yt 18778,7632
-    expect([c.x0, c.y0]).toEqual([11901, 18778])
-    expect(c.fx).toBeCloseTo(0.3001, 3)
-    expect(c.fy).toBeCloseTo(0.7632, 3)
-    expect(c.pecas).toHaveLength(6)
-    expect(c.pecas[0].url).toBe('https://tile.openstreetmap.org/15/11900/18778.png')
-    expect(c.pinoX).toBeCloseTo(332.9, 0)
-    expect(c.pinoY).toBeCloseTo(195.4, 0)
-  })
-
   it('coordenadasValidas: texto numérico passa; o resto (vazio, 0x10, 1e999, vírgula, polos, ilha nula) não', () => {
     expect(coordenadasValidas('-25.43', '-49.24')).toEqual({ lat: -25.43, lng: -49.24 })
     expect(coordenadasValidas(' 12 ', ' -3.5 ')).toEqual({ lat: 12, lng: -3.5 })
     expect(coordenadasValidas(85.05, 180)).not.toBeNull()
     for (const [a, b] of [['', ''], [null, null], [NaN, 1], ['x', '1'], [91, 0], [0, 181], [undefined, 3], [85.06, 0], [-85.06, 0], [90, 0], [-90, 0], [0, 0], ['0', '0'], ['0x10', '5'], ['1e999', '5'], ['-25,43', '-49'], [Infinity, 0]]) expect(coordenadasValidas(a, b), `${a} ${b}`).toBeNull()
-  })
-
-  it('pecasDoMapa: lng +-180 e latitudes altas ficam dentro de 0..2^z-1, sem NaN', () => {
-    for (const [lat, lng] of [[10, 180], [10, -180], [85.05, 0], [-85.05, 0], [85.05, 180]]) {
-      const o = pecasDoMapa(lat, lng, 15)
-      for (const p of o.pecas) { expect(p.x).toBeGreaterThanOrEqual(0); expect(p.x).toBeLessThan(2 ** 15); expect(p.y).toBeGreaterThanOrEqual(0); expect(p.y).toBeLessThan(2 ** 15); expect(p.url).not.toMatch(/Infinity|NaN/) }
-      expect(Number.isFinite(o.pinoY)).toBe(true)
-    }
   })
 
   it('links dos três apps, com e sem coordenadas, tudo codificado', () => {
@@ -69,43 +47,21 @@ describe('mapa: contas e links', () => {
 })
 
 describe('MapaEvento', () => {
-  const props = { nome: 'Clube Morgenau', endereco: 'Av. Senador Souza Naves 945 · Curitiba', consulta: 'Clube Morgenau, Curitiba', mapaUrl: 'https://g/x' }
+  const props = { nome: 'Clube Morgenau', consulta: 'Clube Morgenau, Curitiba', mapaUrl: 'https://g/x' }
   afterEach(() => vi.restoreAllMocks())
 
-  it('coordenadas válidas (mesmo como texto): 6 peças e a atribuição OSM com link seguro', () => {
-    const { container } = render(<MapaEvento {...props} lat="-25.4310044" lng="-49.2484121" />)
-    expect(container.querySelectorAll('img')).toHaveLength(6)
-    const osm = screen.getByRole('link', { name: /OpenStreetMap/ })
-    expect(osm).toHaveAttribute('href', 'https://www.openstreetmap.org/copyright')
-    expect(osm).toHaveAttribute('rel', 'noopener noreferrer')
-  })
-
-  it('coordenada inválida ou ausente: cartão estilizado, sem peças e sem atribuição; sem endereço: nada', () => {
-    for (const [lat, lng] of [[null, null], ['', ''], [NaN, 5], [95, 5]]) {
-      const { container, unmount } = render(<MapaEvento {...props} lat={lat} lng={lng} />)
-      expect(container.querySelectorAll('img')).toHaveLength(0)
-      expect(container.querySelector('.evv-mapa-grade')).not.toBeNull()
-      expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull()
-      unmount()
-    }
-    const { container } = render(<MapaEvento {...props} endereco="" />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it('peça que falha ao carregar: troca para o cartão estilizado e mantém botão e endereço', () => {
+  it('é só a pílula "Abrir no mapa": sem peças do OpenStreetMap, sem imagem e sem atribuição', () => {
     const { container } = render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
-    fireEvent.error(container.querySelector('img')!)
     expect(container.querySelectorAll('img')).toHaveLength(0)
-    expect(container.querySelector('.evv-mapa-grade')).not.toBeNull()
     expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull()
-    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toHaveTextContent('Av. Senador Souza Naves 945')
+    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa para Clube Morgenau/ })).toHaveTextContent('Abrir no mapa')
   })
 
-  it('folha: abre, mostra os 3 apps (Apple primeiro no iPhone), Esc fecha e o foco volta ao cartão', async () => {
+  it('folha: abre, mostra os 3 apps (Apple primeiro no iPhone), Esc fecha e o foco volta à pílula', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
     render(<MapaEvento {...props} lat={CWB.lat} lng={CWB.lng} />)
-    const cartao = screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })
-    fireEvent.click(cartao)
+    const pilula = screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })
+    fireEvent.click(pilula)
     const links = await screen.findAllByRole('link', { name: /Google Maps|Waze|Apple Mapas/ })
     expect(links.map((l) => l.textContent?.replace(' (abre em nova aba)', ''))).toEqual(['Apple Mapas', 'Google Maps', 'Waze'])
     for (const l of links) { expect(l).toHaveAttribute('target', '_blank'); expect(l).toHaveAttribute('rel', 'noopener noreferrer') }
@@ -114,7 +70,7 @@ describe('MapaEvento', () => {
     fireEvent.keyDown(dialogo, { key: 'Escape', code: 'Escape' })
     // o Vaul espera a animação de saída para desmontar (o jsdom não a dispara): vale o estado "closed"
     await waitFor(() => expect(dialogo).toHaveAttribute('data-state', 'closed'))
-    await waitFor(() => expect(cartao).toHaveFocus())
+    await waitFor(() => expect(pilula).toHaveFocus())
   })
 
   it('no Android o Google vem primeiro', async () => {
@@ -134,6 +90,14 @@ describe('Atracoes', () => {
     const muitas = Array.from({ length: 20 }, (_, i) => ({ id: `a${i}`, nome: `Atração ${i}` }))
     render(<Atracoes atracoes={muitas} />)
     expect(screen.getAllByRole('listitem')).toHaveLength(12)
+  })
+
+  it('lista simples: foto redonda de 40 px ou monograma, nome e Instagram, sem carrossel', () => {
+    const { container } = render(<Atracoes atracoes={[{ id: '1', nome: 'Maria Sanfoneira' }, { id: '2', nome: 'Trio', foto: 'https://x.com/c.jpg' }]} />)
+    expect(screen.getByRole('list', { name: 'Lista de atrações' }).tagName).toBe('UL')
+    expect(container.querySelector('.evv-monograma')?.textContent).toBe('MS')
+    expect(container.querySelector('img')?.className).toMatch(/size-10.*rounded-full/)
+    expect(container.querySelector('.snap-x, [tabindex]')).toBeNull()
   })
 
   it('Instagram inválido não vira link; válido vira, com rel certo', () => {
@@ -158,7 +122,7 @@ describe('Atracoes', () => {
   })
 })
 
-describe('SeloClassificacao e página', () => {
+describe('página', () => {
   const evento = (o: Record<string, unknown> = {}) => ({
     id: 'ae8b2db2-27df-4187-974d-154244d0b5ea', title: 'Noite', date: '2026-12-12', time: '22:00:00', venue_name: 'Clube', venue_address: 'Rua A 1', venue_city: 'Curitiba',
     cover_image: null, accent_color: '#a55c65', visibility: 'public', ticket_types: [], ...o,
@@ -170,36 +134,26 @@ describe('SeloClassificacao e página', () => {
   )
   beforeEach(() => { window.scrollTo = vi.fn() as unknown as typeof window.scrollTo })
 
-  it('selo é aria-hidden e o texto da classificação segue inteiro num elemento', () => {
-    const { container } = montar(evento({ classificacao: 'A18' }))
+  it('faixa etária é só o texto, inteiro num elemento', () => {
+    montar(evento({ classificacao: 'A18' }))
     expect(screen.getByText('Classificação: 18 anos')).toBeInTheDocument()
-    const selo = container.querySelector('.evv-selo')!
-    expect(selo.getAttribute('aria-hidden')).toBe('true')
-    expect(selo.textContent).toBe('18')
-  })
-
-  it('sem classificação não há selo; faixa livre mostra L', () => {
-    expect(render(<SeloClassificacao valor={null} />).container.firstChild).toBeNull()
-    expect(render(<SeloClassificacao valor="AL" />).container.querySelector('.evv-selo')?.textContent).toBe('L')
-    const { container } = montar(evento())
-    expect(container.querySelector('.evv-selo')).toBeNull()
   })
 
   it('a área de compra nunca é escondida pela entrada ao rolar', () => {
     const { container } = montar(evento())
     expect(container.querySelector('#ingressos')?.hasAttribute('data-entra')).toBe(false)
-    expect(container.querySelector('[data-entra] #ingressos, [data-entra] button')).toBeNull()
+    expect(container.querySelector('[data-entra] #ingressos, [data-entra] .evv-compra')).toBeNull()
   })
 
-  it('com previa nada novo aparece (mapa, selo, atrações)', () => {
+  it('com previa nada novo aparece (pílula do mapa, atrações)', () => {
     const { container } = montar(evento({ classificacao: 'A18' }), 'moldura')
-    expect(container.querySelector('.evv-selo, .evv-mapa, #h-atracoes')).toBeNull()
+    expect(container.querySelector('#h-atracoes')).toBeNull()
+    expect(screen.queryByRole('button', { name: /aplicativo de mapa/ })).toBeNull()
   })
 
-  it('na página, com endereço, o cartão do mapa aparece e o link "Como chegar" da linha Local continua', () => {
+  it('na página, a linha Local tem a pílula "Abrir no mapa"', () => {
     montar(evento())
-    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /^Como chegar: Clube/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Escolher aplicativo de mapa para Clube/ })).toBeInTheDocument()
   })
 })
 

@@ -145,3 +145,11 @@ describe('CSV de cupons', () => {
     expect(validarCupons(m, []).validas).toHaveLength(1)
   })
 })
+
+describe('ordem dos ingressos: empate total', () => {
+  it('lotes criados juntos e sem sort_order saem do menor para o maior preço (Primeiro antes do Terceiro), seja qual for o id', () => {
+    const c = '2026-10-04T22:22:51.796282+00:00'
+    const l = [tt('9-terceiro', { created_at: c, price: 35 }), tt('1-quarto', { created_at: c, price: 40 }), tt('5-primeiro', { created_at: c, price: 25 }), tt('0-segundo', { created_at: c, price: 30 })]
+    expect(ordenar(l).map(t => t.price)).toEqual([25, 30, 35, 40])
+  })
+})
