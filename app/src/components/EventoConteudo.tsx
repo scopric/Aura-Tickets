@@ -242,7 +242,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
               Finalizar <I.ChevronDireita size={16} />
             </Button>
           ) : (
-            <Button size="lg" className={cta} disabled={aVenda.length === 0 || !!previa} onClick={() => document.getElementById('ingressos')?.scrollIntoView()}>
+            <Button size="lg" className={cta} disabled={aVenda.length === 0 || !!previa} onClick={() => { const el = document.getElementById('ingressos'); el?.scrollIntoView(); el?.focus({ preventScroll: true }) }}>
               Comprar <I.ChevronDireita size={16} />
             </Button>
           )}
