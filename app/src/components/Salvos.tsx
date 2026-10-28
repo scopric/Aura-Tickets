@@ -1,10 +1,10 @@
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import EventoLinha, { Preco } from '../../components/EventoLinha'
-import { useEventosSalvos, useFavoritos } from '../../hooks/useFavoritos'
-import { rotuloDia } from '../../lib/explorar'
-import { diaBR, horaCurta } from '../../lib/visaoEvento'
+import EventoLinha, { Preco } from './EventoLinha'
+import { useEventosSalvos, useFavoritos } from '../hooks/useFavoritos'
+import { rotuloDia } from '../lib/explorar'
+import { diaBR, horaCurta } from '../lib/visaoEvento'
 
 const hojeSP = () => diaBR(Date.now())
 

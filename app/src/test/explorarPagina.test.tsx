@@ -20,7 +20,7 @@ const evento = (id: string, p: Record<string, unknown> = {}) => ({
   venue_name: 'Casa Mirante', venue_city: 'Curitiba', category: 'Show', ticket_types: [{ price: 50 }], ...p,
 })
 
-vi.mock('../pages/app/Salvos', () => ({ default: () => <p>lista dos salvos</p> }))
+vi.mock('../components/Salvos', () => ({ default: () => <p>lista dos salvos</p> }))
 
 const Local = () => <p data-testid="local">{useLocation().pathname}</p>
 function montar(url = '/events', aba?: 'salvos') {
