@@ -7,7 +7,7 @@
 // Testes: cd supabase && deno test --allow-env functions/pagbank-cartao-preparar/handler_test.ts
 import { corsHeaders } from '../_shared/cors.ts'
 import { clientIp } from '../_shared/ip.ts'
-import { mascarar, reaisParaCentavos, type PagbankCfg } from '../_shared/pagbank.ts'
+import { mascarar, PagbankErro, reaisParaCentavos, type PagbankCfg } from '../_shared/pagbank.ts'
 import { lerCorpo, UUID_RE, type Pedido } from '../pagbank-criar-pedido/handler.ts'
 
 export type Deps = {
@@ -64,10 +64,12 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
   try { b = JSON.parse(bruto) } catch { return json(400, { error: 'Dados inválidos.' }) }
   if (typeof b?.order_id !== 'string' || !UUID_RE.test(b.order_id)) return json(400, { error: 'Dados inválidos.' })
   if (typeof b.captcha_token !== 'string' || !b.captcha_token) return json(400, { error: 'Não foi possível validar a segurança do pagamento.' })
-  // limites próprios do cartão (além do por usuário): por pedido (5) e por IP (15) em 10 min
-  const lp = await d.limitarChave(req, 'pagbank-cartao-pedido:', b.order_id, 5)
+  // limites próprios do cartão (além do por usuário): por pedido (5) e por IP (30) em 10 min
+  const lp = await d.limitarChave(req, 'pagbank-cartao-pedido-prep:', b.order_id, 5)
   if (lp) return lp
-  const lip = await d.limitarChave(req, 'pagbank-cartao-ip:', clientIp(req.headers).ip ?? '', 15)
+  // ponytail: teto por IP de 30/10 min (e não 15) porque operadoras móveis compartilham IP entre muitos compradores; rever com os números reais depois do lançamento
+  const ipc = clientIp(req.headers).ip
+  const lip = ipc ? await d.limitarChave(req, 'pagbank-cartao-ip:', ipc, 30) : null // sem IP identificado: pula só este limite
   if (lip) return lip
   if (!(await d.captcha(b.captcha_token, clientIp(req.headers).ip, 'pagbank_cartao'))) {
     return json(400, { error: 'Não foi possível validar a segurança do pagamento. Recarregue a página e tente de novo.' })
@@ -91,7 +93,7 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
     }
     return json(200, { public_key: chave.public_key, session: sessao.session, total_centavos: total, ambiente: sdk.ambiente })
   } catch (e) {
-    log('pedido', b.order_id, e instanceof Error ? e.message : e)
+    log('pedido', b.order_id, e instanceof PagbankErro ? `PagbankErro status=${e.status}` : e instanceof Error ? e.name : 'erro')
     return json(502, { error: 'Não foi possível preparar o pagamento por cartão agora. Tente de novo em instantes.' })
   }
 }

@@ -33,7 +33,9 @@ Deno.test("sucesso: public_key, session, total do banco em centavos, ambiente; c
   assertEquals(await r.json(), { public_key: "PK-SECRETA", session: "SESSAO-SECRETA", total_centavos: 11050, ambiente: "SANDBOX" });
   assertEquals(m.acoes, ["pagbank_cartao"]);
   assertEquals(m.pb, [{ caminho: "/public-keys/card", body: undefined }]); // GET, só leitura
-  assertEquals(m.lims, [`pagbank-cartao-pedido:${OID}:5`, "pagbank-cartao-ip::15"]);
+  assertEquals(m.lims, [`pagbank-cartao-pedido-prep:${OID}:5`]); // sem IP identificado: pula o limite por IP, os outros ficam
+  const ci = montar(); await handler(req(undefined, { Authorization: "Bearer jwt", "x-real-ip": "1.2.3.4" }), ci.deps);
+  assertEquals(ci.lims, [`pagbank-cartao-pedido-prep:${OID}:5`, "pagbank-cartao-ip:1.2.3.4:30"]);
   assertEquals(m.sdk, [{ baseUrl: "https://sandbox.sdk.pagseguro.com", caminho: "/checkout-sdk/sessions", body: {} }]);
 });
 
@@ -62,9 +64,9 @@ Deno.test("login, entrada, captcha, método e tamanho", async () => {
 });
 
 Deno.test("limite por pedido ou IP estourado: devolve o 429 e não chama o PagBank", async () => {
-  for (const alvo of ["pagbank-cartao-pedido:", "pagbank-cartao-ip:"]) {
+  for (const alvo of ["pagbank-cartao-pedido-prep:", "pagbank-cartao-ip:"]) {
     const m = montar({ limitarChave: (_r, pre) => Promise.resolve(pre === alvo ? new Response("{}", { status: 429 }) : null) });
-    assertEquals((await handler(req(), m.deps)).status, 429); assertEquals(m.pb.length + m.sdk.length, 0);
+    assertEquals((await handler(req(undefined, { Authorization: "Bearer jwt", "x-real-ip": "1.2.3.4" }), m.deps)).status, 429); assertEquals(m.pb.length + m.sdk.length, 0);
   }
 });
 

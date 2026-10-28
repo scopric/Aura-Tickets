@@ -57,6 +57,10 @@ Deno.serve(req => handler(req, {
     const { error } = await admin.from('orders').update({ gateway_payment_id: null }).eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`)
     if (error) throw new Error(`soltar trava: ${error.message}`)
   },
+  liberarOrde: async (id, pagbankId) => {
+    const { error } = await admin.from('orders').update({ gateway_payment_id: null }).eq('id', id).eq('gateway_payment_id', pagbankId).eq('status', 'pending')
+    if (error) throw new Error(`liberar pedido recusado: ${error.message}`)
+  },
   trocar: async (id, pagbankId) => {
     const { data, error } = await admin.from('orders').update({ payment_gateway: 'pagbank', payment_method: 'credit_card', gateway_payment_id: pagbankId })
       .eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`).select('id')
