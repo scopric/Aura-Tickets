@@ -7,10 +7,10 @@ const app = readFileSync(resolve(__dirname, '../App.tsx'), 'utf8')
 const rotasDoApp = new Set([...app.matchAll(/path="([^"]+)"/g)].map(m => m[1]))
 
 describe('mapa de navegação do produtor (V4a)', () => {
-  it('mapeia as 32 telas (31 na lista + o botão "+" de Criar evento), sem repetir', () => {
-    expect(NAV).toHaveLength(31)
-    expect(new Set(NAV.map(t => t.tela)).size).toBe(31)
-    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(32)
+  it('mapeia as 33 telas (32 na lista + o botão "+" de Criar evento), sem repetir', () => {
+    expect(NAV).toHaveLength(32)
+    expect(new Set(NAV.map(t => t.tela)).size).toBe(32)
+    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(33)
   })
 
   it('toda tela está numa seção do vocabulário e não existe "Ferramentas"', () => {
@@ -70,8 +70,8 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(hrefDaTela('/producer/ingressos', 'e1')).toBe('/producer/ingressos?eventId=e1')
   })
 
-  it('Decisão 143: Banners, Lista de interesse, Galeria, Tarefas e CRM só no escopo da produtora', () => {
-    for (const nome of ['Banners', 'Lista de interesse', 'Galeria', 'Tarefas', 'CRM']) {
+  it('Decisão 143: Banners, Lista de interesse, Galeria, Tarefas, Quadros e CRM só no escopo da produtora', () => {
+    for (const nome of ['Banners', 'Lista de interesse', 'Galeria', 'Tarefas', 'Quadros', 'CRM']) {
       expect(NAV.find(t => t.tela === nome)?.noEvento, nome).toBeUndefined()
     }
   })
@@ -85,7 +85,7 @@ describe('mapa de navegação do produtor (V4a)', () => {
 
   it('escopo da produtora: tudo, menos Início e Dashboards (itens soltos) e a Pasta (linha do evento)', () => {
     const telas = SECOES.flatMap(s => filtra('produtora', s))
-    expect(telas).toHaveLength(31 - 3)
+    expect(telas).toHaveLength(32 - 3)
   })
 })
 

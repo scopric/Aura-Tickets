@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { KindColuna } from '../lib/tarefas'
@@ -164,6 +164,11 @@ export function useQuadro(eventoId: string | null, ativo: boolean) {
 
 export class ConflitoCartao extends Error {}
 
+/** Último updated_at conhecido do cartão em QUALQUER lista sob a chave (a lista geral e a de um quadro): o mais novo vence */
+export function updatedAtLido(qc: QueryClient, chave: unknown[], id: string): string | undefined {
+  return qc.getQueriesData<DbTask[]>({ queryKey: chave }).flatMap(([, d]) => (Array.isArray(d) ? d : [])).filter(t => t.id === id && t.updated_at).map(t => t.updated_at!).sort().at(-1)
+}
+
 /** Move um cartão (coluna e posição no modo novo; só o status no modo antigo). Otimista, com volta se o banco recusar */
 export function useMoverTarefa() {
   const { user } = useAuth()
@@ -174,7 +179,7 @@ export function useMoverTarefa() {
     // um movimento por vez: o seguinte usa o updated_at que o anterior gravou (senão dois movimentos seguidos dariam conflito falso)
     scope: { id: 'mover-tarefa' },
     mutationFn: async ({ tarefa, mudanca }: { tarefa: DbTask; mudanca: Partial<Pick<DbTask, 'column_id' | 'position' | 'status'>> }) => {
-      const lido = queryClient.getQueryData<DbTask[]>(chave)?.find(t => t.id === tarefa.id)?.updated_at ?? tarefa.updated_at
+      const lido = updatedAtLido(queryClient, chave, tarefa.id) ?? tarefa.updated_at
       let q = supabase.from('producer_tasks').update(mudanca as never).eq('id', tarefa.id).eq('producer_id', tarefa.producer_id)
       // duas pessoas no mesmo cartão: só grava se ninguém mexeu desde que a tela leu (0 linhas = alguém mexeu)
       if (lido) q = q.eq('updated_at', lido)
@@ -182,7 +187,7 @@ export function useMoverTarefa() {
       if (error) throw error
       if (!data?.length) throw new ConflitoCartao('Outra pessoa mexeu neste cartão')
       const gravado = (data[0] as { updated_at?: string }).updated_at
-      if (gravado) queryClient.setQueryData<DbTask[]>(chave, old => old?.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)))
+      if (gravado) queryClient.setQueriesData<DbTask[]>({ queryKey: chave }, old => (Array.isArray(old) ? old.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)) : old))
     },
     onMutate: async ({ tarefa, mudanca }) => {
       await queryClient.cancelQueries({ queryKey: chave })

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData, type QueryClie
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
-import { ConflitoCartao, SEM_SQL_DO_QUADRO, type DbTask } from './useProducerTools'
+import { ConflitoCartao, SEM_SQL_DO_QUADRO, updatedAtLido, type DbTask } from './useProducerTools'
 
 // Camada de dados do cartão completo do quadro (docs/sql/20261105_quadro_f2a_cartao.sql, fatia 2A).
 // Antes do SQL as tabelas não existem: as leituras devolvem vazio (modo antigo) e a tela segue como estava.
@@ -380,14 +380,14 @@ export function useAtualizarCartao() {
     mutationFn: async ({ tarefa, campos }: { tarefa: DbTask; campos: CamposCartao }) => {
       if (campos.cover && !/^#[0-9a-fA-F]{6}$/.test(campos.cover)) throw new ErroTela('Cor da capa inválida')
       if (campos.title !== undefined) campos = { ...campos, title: texto(campos.title, 200, 'Título') }
-      const lido = qc.getQueryData<DbTask[]>(chave)?.find(t => t.id === tarefa.id)?.updated_at ?? tarefa.updated_at
+      const lido = updatedAtLido(qc, chave, tarefa.id) ?? tarefa.updated_at
       let q = db.from('producer_tasks').update(campos).eq('id', tarefa.id).eq('producer_id', tarefa.producer_id)
       if (lido) q = q.eq('updated_at', lido) // 0 linhas = alguém mexeu desde que a tela leu
       const { data, error } = await q.select('*')
       if (error) falhar(error)
       if (!data?.length) throw new ConflitoCartao('Outra pessoa mexeu neste cartão')
       const gravado = (data[0] as { updated_at?: string }).updated_at
-      if (gravado) qc.setQueryData<DbTask[]>(chave, old => old?.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)))
+      if (gravado) qc.setQueriesData<DbTask[]>({ queryKey: chave }, old => (Array.isArray(old) ? old.map(t => (t.id === tarefa.id ? { ...t, updated_at: gravado } : t)) : old))
     },
     onMutate: async ({ tarefa, campos }) => {
       await qc.cancelQueries({ queryKey: chave })
