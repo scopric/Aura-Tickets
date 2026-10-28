@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { AvatarPessoa } from '@/components/producer/quadro/pecas'
 import { cn } from '@/lib/utils'

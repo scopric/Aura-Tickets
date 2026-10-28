@@ -1,4 +1,4 @@
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import PageLoading from '../../components/PageLoading'
 import { supabase } from '../../lib/supabase'
