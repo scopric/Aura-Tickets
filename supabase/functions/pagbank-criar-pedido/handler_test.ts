@@ -22,13 +22,17 @@ const pagbankOk = (id = "ORDE_1") => ({
   charges: [{ payment_method: { pix: { expiration_date: "2026-10-08T12:09:00Z" } }, qr_code: { text: "000201PIX" }, links: [] }],
 });
 function montar(ov: Partial<Deps> = {}, p: Pedido | null = pedido()) {
+  const ev: string[] = [];
   const chamadas: { caminho: string; init: { method: string; body?: any; idempotencia?: string } }[] = [];
   const deps: Deps = {
     env: k => ENV[k] ?? "", limitar: () => Promise.resolve(null), autenticar: () => Promise.resolve({ id: "u1", email: "ana@x.com" }),
+    limitarChave: (_r, pre, ch, max) => { ev.push(`lim:${pre}${ch.slice(0, 12)}:${max}`); return Promise.resolve(null); },
+    trava: (id) => { ev.push("trava"); return Promise.resolve(true); }, destravar: () => { ev.push("destrava"); return Promise.resolve(); },
+    trocar: (_i, p) => { ev.push("troca:" + p); return Promise.resolve(true); },
     esperar: () => Promise.resolve(), captcha: () => Promise.resolve(true), carregar: () => Promise.resolve(p), gravar: () => Promise.resolve(true),
     pagbank: (caminho, init) => { chamadas.push({ caminho, init }); return Promise.resolve(pagbankOk()); }, agora: () => AGORA, ...ov,
   };
-  return { deps, chamadas };
+  return { deps, chamadas, ev };
 }
 const req = (corpo: unknown = { order_id: OID, captcha_token: "t", customer: { tax_id: "529.982.247-25", phone: "(11) 99999-9999" } }, h: Record<string, string> = { Authorization: "Bearer jwt" }) =>
   new Request("https://p.supabase.co/functions/v1/pagbank-criar-pedido", { method: "POST", headers: h, body: JSON.stringify(corpo) });
@@ -258,21 +262,23 @@ const ENC = "A".repeat(340) + "==";
 const TDS = "3DS_" + "0123456789abcdef0123456789abcdef0123";
 const cartao = (o: Record<string, unknown> = {}) => ({ encrypted: ENC, three_ds_id: TDS, holder_name: "ANA SILVA", ...o });
 const reqC = (c: unknown = cartao()) => req({ order_id: OID, captcha_token: "t", customer: { tax_id: "529.982.247-25", phone: "11999999999" }, cartao: c });
-const pagoCartao = (status = "PAID") => ({ id: "ORDE_C1", reference_id: OID, charges: [{ status, payment_method: { type: "CREDIT_CARD" } }] });
+const pagoCartao = (status = "PAID") => ({ id: "ORDE_C1", reference_id: OID, charges: [{ id: "CHAR_1", status, payment_method: { type: "CREDIT_CARD" } }] });
+const cartaoDeps = (st: string, ov: Partial<Deps> = {}, p: Pedido | null = pedido()) => {
+  const m = montar(ov, p);
+  m.deps.pagbank = (caminho, init) => { m.chamadas.push({ caminho, init }); return Promise.resolve(pagoCartao(st)); };
+  return m;
+};
 
-Deno.test("cartão: PAID = 200 pago; corpo com valor do banco, store:false, 3DS, split e itens iguais ao Pix; grava credit_card", async () => {
-  let gravado = "";
+Deno.test("cartão: PAID = 200 pago; trava, cobra com valor do banco/store:false/3DS/split e troca a trava pelo ORDE_", async () => {
   const acoes: (string | undefined)[] = [];
-  const { deps, chamadas } = montar({
-    pagbank: (caminho, init) => { chamadas.push({ caminho, init }); return Promise.resolve(pagoCartao()); },
-    gravar: (_i, _p, m) => { gravado = m ?? "pix"; return Promise.resolve(true); },
-    captcha: (_t, _ip, a) => { acoes.push(a); return Promise.resolve(true); },
-  });
-  const r = await handler(reqC(), deps);
+  const m = cartaoDeps("PAID", { captcha: (_t, _ip, a) => { acoes.push(a); return Promise.resolve(true); } });
+  const r = await handler(reqC(), m.deps);
   assertEquals(r.status, 200);
   assertEquals(await r.json(), { ok: true, status: "pago" });
-  assertEquals(gravado, "credit_card"); assertEquals(acoes, ["pagbank_cartao"]);
-  const c = chamadas[0].init.body.charges[0];
+  assertEquals(acoes, ["pagbank_cartao"]);
+  assertEquals(m.ev.filter(e => !e.startsWith("lim:")), ["trava", "troca:ORDE_C1"]);
+  assertEquals(m.ev.filter(e => e.startsWith("lim:")), [`lim:pagbank-cartao-pedido:${OID.slice(0, 12)}:5`, "lim:pagbank-cartao-ip::15", "lim:pagbank-3ds:" + TDS.slice(0, 12) + ":1"]);
+  const c = m.chamadas[0].init.body.charges[0];
   assertEquals(c.amount.value, 11000);
   assertEquals(c.payment_method, {
     type: "CREDIT_CARD", installments: 1, capture: true, soft_descriptor: "EVOKAA",
@@ -281,84 +287,164 @@ Deno.test("cartão: PAID = 200 pago; corpo com valor do banco, store:false, 3DS,
   });
   assertEquals(c.splits.receivers.map((x: any) => x.amount.value), [1000, 10000]);
   const pix = montar(); await handler(req(), pix.deps);
-  assertEquals(chamadas[0].init.body.items, pix.chamadas[0].init.body.items);
-  assertEquals(chamadas[0].init.body.notification_urls, pix.chamadas[0].init.body.notification_urls);
-  assert(!chamadas[0].init.idempotencia!.includes(ENC.slice(0, 20)));
+  assertEquals(m.chamadas[0].init.body.items, pix.chamadas[0].init.body.items);
+  assertEquals(m.chamadas[0].init.body.notification_urls, pix.chamadas[0].init.body.notification_urls);
 });
 
-Deno.test("cartão: chave depende do 3DS e não do cartão cifrado; Pix segue igual e usa 'pagbank_checkout'", async () => {
-  const chave = async (c: unknown) => { const m = montar({ pagbank: () => Promise.resolve(pagoCartao()) }); const ch: any[] = []; m.deps.pagbank = (_c, i) => { ch.push(i); return Promise.resolve(pagoCartao()); }; await handler(reqC(c), m.deps); return ch[0].idempotencia; };
-  const a = await chave(cartao()), b = await chave(cartao({ encrypted: "B".repeat(340) + "==" })), c = await chave(cartao({ three_ds_id: "3DS_" + "f".repeat(36) }));
+Deno.test("cartão: chave = pedido+3DS+cpf (sem cartão cifrado e sem telefone); Pix segue igual", async () => {
+  const chave = async (c: unknown, fone = "11999999999") => {
+    const m = cartaoDeps("PAID");
+    await handler(req({ order_id: OID, captcha_token: "t", customer: { tax_id: "529.982.247-25", phone: fone }, cartao: c }), m.deps);
+    return m.chamadas[0].init.idempotencia;
+  };
+  const a = await chave(cartao()), b = await chave(cartao({ encrypted: "B".repeat(340) + "==" }), "21988887777"), c = await chave(cartao({ three_ds_id: "3DS_" + "f".repeat(36) }));
   assertEquals(a, b); assert(a !== c);
   let acao: string | undefined = "x";
   const p = montar({ captcha: (_t, _ip, a) => { acao = a; return Promise.resolve(true); } });
   assertEquals((await handler(req(), p.deps)).status, 200);
   assertEquals(acao, "pagbank_checkout");
   assertEquals(p.chamadas[0].init.body.charges[0].payment_method.type, "PIX");
+  assertEquals(p.ev.filter(e => e === "trava" || e.startsWith("lim:pagbank-3ds")).length, 0); // Pix não trava nem usa limite do cartão
 });
 
-Deno.test("cartão: DECLINED = 402 sem gravar (pedido não fica preso)", async () => {
-  let gravou = false;
-  const { deps } = montar({ pagbank: () => Promise.resolve(pagoCartao("DECLINED")), gravar: () => { gravou = true; return Promise.resolve(true); } });
-  const r = await handler(reqC(), deps);
-  assertEquals(r.status, 402);
-  assertEquals((await r.json()).error, "Cartão recusado pelo banco. Confira os dados ou tente outro cartão.");
-  assert(!gravou);
-});
-
-Deno.test("cartão: IN_ANALYSIS/WAITING/AUTHORIZED = processando", async () => {
+Deno.test("cartão: status em lista fechada; recusa/desconhecido = 402, sem trocar e soltando a trava", async () => {
   for (const s of ["IN_ANALYSIS", "WAITING", "AUTHORIZED"]) {
-    const r = await handler(reqC(), montar({ pagbank: () => Promise.resolve(pagoCartao(s)) }).deps);
+    const m = cartaoDeps(s);
+    const r = await handler(reqC(), m.deps);
     assertEquals(r.status, 200); assertEquals(await r.json(), { ok: true, status: "processando" });
+    assert(m.ev.includes("troca:ORDE_C1"));
+  }
+  for (const s of ["DECLINED", "CANCELED", "NOVO_STATUS"]) {
+    const m = cartaoDeps(s);
+    const r = await handler(reqC(), m.deps);
+    assertEquals(r.status, 402);
+    assertEquals((await r.json()).error, "Cartão recusado pelo banco. Confira os dados ou tente outro cartão.");
+    assert(m.ev.includes("destrava") && !m.ev.some(e => e.startsWith("troca")), s);
   }
 });
 
-Deno.test("cartão: 3DS de outro valor (400 AUTHENTICATION_METHOD) = 409; conflito de idempotência = 409 sem vazar", async () => {
-  const a = await handler(reqC(), montar({ pagbank: () => Promise.reject(new PagbankErro(400, "PagBank POST /orders -> 400 code=40002 param=authentication_method.id")) }).deps);
-  assertEquals(a.status, 409);
-  assertEquals((await a.json()).error, "A verificação do cartão não confere com o valor do pedido. Tente de novo.");
-  const b = await handler(reqC(), montar({ pagbank: () => Promise.reject(new PagbankErro(409, "code=IDEMPOTENCY_CONFLICT")) }).deps);
-  assertEquals(b.status, 409); assert(!(await b.text()).includes("IDEMPOTENCY"));
-  const c = await handler(reqC(), montar({ pagbank: () => Promise.reject(new PagbankErro(400, "code=40002 param=outro")) }).deps);
-  assertEquals(c.status, 502);
+Deno.test("cartão: trava negada (0 linhas) = 409 sem chamar o PagBank; 3DS reusado = 409; tabela do 3DS falhando = 503", async () => {
+  const a = montar({ trava: () => Promise.resolve(false) });
+  const ra = await handler(reqC(), a.deps);
+  assertEquals(ra.status, 409); assertEquals((await ra.json()).error, "Já existe um pagamento em andamento para este pedido."); assertEquals(a.chamadas.length, 0);
+  const lim = (st: number) => (_r: Request, pre: string) => Promise.resolve(pre === "pagbank-3ds:" ? new Response("{}", { status: st }) : null);
+  const b = montar({ limitarChave: lim(429) });
+  const rb = await handler(reqC(), b.deps);
+  assertEquals(rb.status, 409); assertEquals((await rb.json()).error, "A verificação do cartão já foi usada. Tente de novo."); assertEquals(b.chamadas.length, 0);
+  const c = montar({ limitarChave: lim(500) });
+  assertEquals((await handler(reqC(), c.deps)).status, 503); assertEquals(c.chamadas.length, 0);
+});
+
+Deno.test("cartão: limite por pedido ou por IP estourado devolve 429 antes de cobrar", async () => {
+  for (const alvo of ["pagbank-cartao-pedido:", "pagbank-cartao-ip:"]) {
+    const m = montar({ limitarChave: (_r, pre) => Promise.resolve(pre === alvo ? new Response("{}", { status: 429 }) : null) });
+    assertEquals((await handler(reqC(), m.deps)).status, 429); assertEquals(m.chamadas.length, 0);
+  }
+});
+
+Deno.test("cartão: falha definitiva (3DS, idempotência, outro 4xx) solta a trava; incerta (5xx, rede, resposta ilegível) mantém e alerta", async () => {
+  const falha = (e: unknown) => montar({ pagbank: () => Promise.reject(e) });
+  const a = falha(new PagbankErro(400, "PagBank POST /orders -> 400 code=40002 param=authentication_method.id"));
+  const ra = await handler(reqC(), a.deps);
+  assertEquals(ra.status, 409); assertEquals((await ra.json()).error, "A verificação do cartão não confere com o valor do pedido. Tente de novo."); assert(a.ev.includes("destrava"));
+  const b = falha(new PagbankErro(409, "code=IDEMPOTENCY_CONFLICT"));
+  const rb = await handler(reqC(), b.deps);
+  assertEquals(rb.status, 409); assert(!(await rb.text()).includes("IDEMPOTENCY")); assert(b.ev.includes("destrava"));
+  const c = falha(new PagbankErro(400, "code=40002 param=outro"));
+  assertEquals((await handler(reqC(), c.deps)).status, 502); assert(c.ev.includes("destrava"));
+  const alertas: string[] = [];
+  const orig = console.error; console.error = (...x: unknown[]) => { alertas.push(x.map(String).join(" ")); };
+  try {
+    const incertos = [
+      falha(new PagbankErro(500, "x")), falha(new PagbankErro(504, "timeout")), falha(new Error("rede")),
+      montar({ pagbank: () => Promise.resolve({ id: "ORDE_1", reference_id: OID, charges: [] }) }),
+      montar({ pagbank: () => Promise.resolve({ id: "ORDE_1", reference_id: "outro", charges: [{ status: "PAID" }] }) }),
+    ];
+    for (const m of incertos) {
+      const r = await handler(reqC(), m.deps);
+      assertEquals(r.status, 502);
+      assertEquals((await r.json()).error, "Não conseguimos confirmar o pagamento. Aguarde alguns minutos e confira Meus ingressos antes de tentar de novo.");
+      assert(!m.ev.includes("destrava") && !m.ev.some(e => e.startsWith("troca")));
+    }
+  } finally { console.error = orig; }
+  assertEquals(alertas.filter(l => l.includes("ALERTA_PAGBANK") && l.includes("pedido=") && !l.includes(OID)).length, 5);
+});
+
+Deno.test("cartão: troca da trava perdida: se o pedido já está com o mesmo ORDE_ segue; se é outro, cancela a cobrança e alerta", async () => {
+  const igual = cartaoDeps("PAID", { trocar: () => Promise.resolve(false), carregar: () => Promise.resolve(pedido({ gateway_payment_id: "ORDE_C1" })) });
+  igual.deps.carregar = (() => { let n = 0; return () => Promise.resolve(++n === 1 ? pedido() : pedido({ gateway_payment_id: "ORDE_C1" })); })();
+  assertEquals((await handler(reqC(), igual.deps)).status, 200);
+  assertEquals(igual.chamadas.length, 1);
+  let n = 0;
+  const outro = cartaoDeps("PAID", { trocar: () => Promise.resolve(false), carregar: () => Promise.resolve(++n === 1 ? pedido() : pedido({ gateway_payment_id: "ORDE_OUTRO" })) });
+  const orig = console.error; const logs: string[] = []; console.error = (...x: unknown[]) => { logs.push(x.join(" ")); };
+  let r: Response;
+  try { r = await handler(reqC(), outro.deps); } finally { console.error = orig; }
+  assertEquals(r.status, 409);
+  assertEquals(outro.chamadas.map(c => c.caminho), ["/orders", "/charges/CHAR_1/cancel"]);
+  assert(logs.some(l => l.includes("ALERTA_PAGBANK")));
+});
+
+Deno.test("trava do cartão ou valor não-ORDE_: Pix e cartão respondem 409 sem consultar o PagBank", async () => {
+  for (const q of [req, reqC]) {
+    for (const gid of [`CARTAO-${OID}`, "qualquer-coisa"]) {
+      const m = montar({}, pedido({ gateway_payment_id: gid }));
+      const r = await handler(q(), m.deps);
+      assertEquals(r.status, 409); assertEquals((await r.json()).error, "Já existe um pagamento em andamento para este pedido."); assertEquals(m.chamadas.length, 0);
+    }
+  }
+  // Pix em pedido que já tem cobrança de cartão (ORDE_ gravado): 409, não 502
+  const pix = montar({ pagbank: () => Promise.resolve(pagoCartao()) }, pedido({ gateway_payment_id: "ORDE_C1" }));
+  assertEquals((await handler(req(), pix.deps)).status, 409);
+  // cartão em pedido com Pix gravado: 409
+  const c = montar({ pagbank: () => Promise.resolve(pagbankOk()) }, pedido({ gateway_payment_id: "ORDE_1" }));
+  assertEquals((await handler(reqC(), c.deps)).status, 409);
+  // cartão já gravado: devolve o status
+  const ja = montar({ pagbank: () => Promise.resolve(pagoCartao()) }, pedido({ gateway_payment_id: "ORDE_C1" }));
+  assertEquals((await handler(reqC(), ja.deps)).status, 200);
 });
 
 Deno.test("cartão: validações de entrada", async () => {
   const ruins = [
     cartao({ encrypted: "A".repeat(199) }), cartao({ encrypted: "A".repeat(601) }), cartao({ encrypted: "A".repeat(300) + "!!" }),
     cartao({ encrypted: 5 }), cartao({ three_ds_id: "3DS_curto" }), cartao({ three_ds_id: "XXX_" + "0".repeat(36) }),
-    cartao({ holder_name: "A" }), cartao({ holder_name: "A".repeat(61) }), cartao({ holder_name: "  " }), cartao({ holder_name: 7 }), null, "x",
+    cartao({ holder_name: "A" }), cartao({ holder_name: "A".repeat(61) }), cartao({ holder_name: "  " }), cartao({ holder_name: 7 }),
+    cartao({ holder_name: "Ana <script>" }), cartao({ holder_name: "Ana 123" }), null, "x",
   ];
   for (const c of ruins) {
     const m = montar();
     assertEquals((await handler(reqC(c), m.deps)).status, 400, JSON.stringify(c).slice(0, 60)); assertEquals(m.chamadas.length, 0);
   }
+  for (const nome of ["José D'Ávila-Souza Jr.", "  Ana Silva  "]) assertEquals((await handler(reqC(cartao({ holder_name: nome })), cartaoDeps("PAID").deps)).status, 200, nome);
   assertEquals((await handler(req({ order_id: OID, captcha_token: "t", customer: { tax_id: "111.111.111-11" }, cartao: cartao() }), montar().deps)).status, 400);
 });
 
-Deno.test("cartão: pedido de outro usuário, vencido, captcha ruim e pedido já com Pix", async () => {
+Deno.test("cartão: pedido de outro usuário, vencido e captcha ruim", async () => {
   assertEquals((await handler(reqC(), montar({}, pedido({ user_id: "outro" })).deps)).status, 404);
   const v = montar({}, pedido({ reservado_ate: "2026-10-08T11:59:00Z" }));
   assertEquals((await handler(reqC(), v.deps)).status, 409); assertEquals(v.chamadas.length, 0);
   assertEquals((await handler(reqC(), montar({ captcha: () => Promise.resolve(false) }).deps)).status, 400);
-  const pix = montar({ pagbank: () => Promise.resolve(pagbankOk()) }, pedido({ gateway_payment_id: "ORDE_1" }));
-  assertEquals((await handler(reqC(), pix.deps)).status, 409);
-  const ja = montar({ pagbank: () => Promise.resolve(pagoCartao()) }, pedido({ gateway_payment_id: "ORDE_C1" }));
-  assertEquals((await handler(reqC(), ja.deps)).status, 200);
 });
 
-Deno.test("cartão: nenhum log nem resposta contém o cartão cifrado ou o 3DS", async () => {
+Deno.test("cartão: nenhum log nem resposta contém o cartão cifrado ou o 3DS, mesmo com erro que os ecoa", async () => {
   const logs: string[] = [];
   const orig = console.error; console.error = (...a: unknown[]) => { logs.push(a.map(String).join(" ")); };
   try {
-    const falhas = [new PagbankErro(500, "x"), new PagbankErro(400, "code=40002 param=authentication_method.id"), new PagbankErro(409, "code=IDEMPOTENCY_CONFLICT"), new Error("boom")];
+    const eco = `code=${ENC.slice(0, 60)} param=${TDS} value=${ENC} id=${TDS} body={"encrypted":"${ENC}","id":"${TDS}"}`;
+    const falhas = [
+      new PagbankErro(500, eco), new PagbankErro(400, `${eco} code=40002 param=authentication_method.id`), new PagbankErro(409, `${eco} code=IDEMPOTENCY_CONFLICT`),
+      new PagbankErro(422, eco), new Error(eco), new TypeError(eco),
+    ];
     for (const e of falhas) {
       const r = await handler(reqC(), montar({ pagbank: () => Promise.reject(e) }).deps);
       const t = await r.text();
-      assert(!t.includes(ENC) && !t.includes(TDS));
+      assert(!t.includes(ENC.slice(0, 30)) && !t.includes(TDS));
     }
-    await handler(reqC(), montar({ pagbank: () => Promise.resolve(pagoCartao("DECLINED")) }).deps);
+    // erro fora do POST (carregar) também
+    await handler(reqC(), montar({ carregar: () => Promise.reject(new Error(eco)) }).deps);
+    await handler(reqC(), cartaoDeps("DECLINED").deps);
   } finally { console.error = orig; }
+  const todo = logs.join("\n");
   assert(logs.length > 0);
-  assert(!logs.join("\n").includes(ENC.slice(0, 30)) && !logs.join("\n").includes(TDS));
+  assert(!todo.includes(ENC.slice(0, 20)) && !todo.includes(TDS) && !todo.includes(TDS.slice(4, 24)));
 });

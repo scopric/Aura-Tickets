@@ -12,15 +12,16 @@ const pedido = (o: Partial<Pedido> = {}): Pedido => ({
   evento: { producer_id: "p", start_date: "2026-12-01T22:00:00Z", end_date: null }, itens: [], payout_account_id: null, ...o,
 });
 function montar(ov: Partial<Deps> = {}, p: Pedido | null = pedido()) {
-  const pb: { caminho: string; body: unknown }[] = [], sdk: { baseUrl: string; caminho: string; body: unknown }[] = [], acoes: string[] = [];
+  const lims: string[] = [], pb: { caminho: string; body: unknown }[] = [], sdk: { baseUrl: string; caminho: string; body: unknown }[] = [], acoes: string[] = [];
   const deps: Deps = {
+    limitarChave: (_r, pre, ch, max) => { lims.push(`${pre}${ch}:${max}`); return Promise.resolve(null); },
     env: k => ENV[k] ?? "", limitar: () => Promise.resolve(null), autenticar: () => Promise.resolve({ id: "u1", email: null }),
     captcha: (_t, _ip, a) => { acoes.push(a); return Promise.resolve(true); }, carregar: () => Promise.resolve(p),
     pagbank: (caminho, init) => { pb.push({ caminho, body: init.body }); return Promise.resolve({ public_key: "PK-SECRETA" }); },
     sdk: (baseUrl, caminho, body) => { sdk.push({ baseUrl, caminho, body }); return Promise.resolve({ session: "SESSAO-SECRETA" }); },
     agora: () => AGORA, ...ov,
   };
-  return { deps, pb, sdk, acoes };
+  return { deps, pb, sdk, acoes, lims };
 }
 const req = (corpo: unknown = { order_id: OID, captcha_token: "t" }, h: Record<string, string> = { Authorization: "Bearer jwt" }) =>
   new Request("https://p.supabase.co/functions/v1/pagbank-cartao-preparar", { method: "POST", headers: h, body: JSON.stringify(corpo) });
@@ -31,7 +32,8 @@ Deno.test("sucesso: public_key, session, total do banco em centavos, ambiente; c
   assertEquals(r.status, 200);
   assertEquals(await r.json(), { public_key: "PK-SECRETA", session: "SESSAO-SECRETA", total_centavos: 11050, ambiente: "SANDBOX" });
   assertEquals(m.acoes, ["pagbank_cartao"]);
-  assertEquals(m.pb, [{ caminho: "/public-keys", body: { type: "card" } }]);
+  assertEquals(m.pb, [{ caminho: "/public-keys/card", body: undefined }]); // GET, só leitura
+  assertEquals(m.lims, [`pagbank-cartao-pedido:${OID}:5`, "pagbank-cartao-ip::15"]);
   assertEquals(m.sdk, [{ baseUrl: "https://sandbox.sdk.pagseguro.com", caminho: "/checkout-sdk/sessions", body: {} }]);
 });
 
@@ -57,6 +59,13 @@ Deno.test("login, entrada, captcha, método e tamanho", async () => {
   assertEquals((await handler(req(), c.deps)).status, 400); assertEquals(c.pb.length, 0);
   assertEquals((await handler(new Request("https://x/f", { method: "GET" }), montar().deps)).status, 405);
   assertEquals((await handler(req({ order_id: OID, captcha_token: "x".repeat(5000) }), montar().deps)).status, 413);
+});
+
+Deno.test("limite por pedido ou IP estourado: devolve o 429 e não chama o PagBank", async () => {
+  for (const alvo of ["pagbank-cartao-pedido:", "pagbank-cartao-ip:"]) {
+    const m = montar({ limitarChave: (_r, pre) => Promise.resolve(pre === alvo ? new Response("{}", { status: 429 }) : null) });
+    assertEquals((await handler(req(), m.deps)).status, 429); assertEquals(m.pb.length + m.sdk.length, 0);
+  }
 });
 
 Deno.test("limite por usuário só depois do login", async () => {

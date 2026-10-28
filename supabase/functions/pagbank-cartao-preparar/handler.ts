@@ -14,6 +14,8 @@ export type Deps = {
   env: (k: string) => string
   limitar: (req: Request, userId: string) => Promise<Response | null>
   autenticar: (token: string) => Promise<{ id: string; email: string | null } | null>
+  /** Limite por chave (pedido, IP): devolve a recusa (429 igual à do Pix) ou null */
+  limitarChave: (req: Request, prefixo: string, chave: string, max: number) => Promise<Response | null>
   captcha: (token: string, ip: string | null, acao: string) => Promise<boolean>
   carregar: (orderId: string, userId: string) => Promise<Pedido | null>
   /** Chamada à API do PagBank (baseUrl/caminho já resolvidos por quem implementa) */
@@ -62,6 +64,11 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
   try { b = JSON.parse(bruto) } catch { return json(400, { error: 'Dados inválidos.' }) }
   if (typeof b?.order_id !== 'string' || !UUID_RE.test(b.order_id)) return json(400, { error: 'Dados inválidos.' })
   if (typeof b.captcha_token !== 'string' || !b.captcha_token) return json(400, { error: 'Não foi possível validar a segurança do pagamento.' })
+  // limites próprios do cartão (além do por usuário): por pedido (5) e por IP (15) em 10 min
+  const lp = await d.limitarChave(req, 'pagbank-cartao-pedido:', b.order_id, 5)
+  if (lp) return lp
+  const lip = await d.limitarChave(req, 'pagbank-cartao-ip:', clientIp(req.headers).ip ?? '', 15)
+  if (lip) return lip
   if (!(await d.captcha(b.captcha_token, clientIp(req.headers).ip, 'pagbank_cartao'))) {
     return json(400, { error: 'Não foi possível validar a segurança do pagamento. Recarregue a página e tente de novo.' })
   }
@@ -77,7 +84,7 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
     const total = reaisParaCentavos(pedido.total)
     if (!Number.isInteger(total) || total <= 0) return json(409, { error: 'Este pedido não precisa de pagamento.' })
 
-    const chave = await d.pagbank('/public-keys', { method: 'POST', body: { type: 'card' } })
+    const chave = await d.pagbank('/public-keys/card', { method: 'GET' })
     const sessao = await d.sdk(sdk.host, '/checkout-sdk/sessions', {})
     if (typeof chave.public_key !== 'string' || !chave.public_key || typeof sessao.session !== 'string' || !sessao.session) {
       throw new Error('PagBank sem public_key ou session')

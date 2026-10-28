@@ -38,11 +38,29 @@ Deno.serve(req => handler(req, {
       })),
     } as Pedido
   },
-  gravar: async (id, pagbankId, metodo = 'pix') => {
+  gravar: async (id, pagbankId) => {
     const { data, error } = await admin.from('orders')
-      .update({ payment_gateway: 'pagbank', payment_method: metodo, gateway_payment_id: pagbankId })
+      .update({ payment_gateway: 'pagbank', payment_method: 'pix', gateway_payment_id: pagbankId })
       .eq('id', id).eq('status', 'pending').is('gateway_payment_id', null).select('id')
     if (error) throw new Error(`gravação do pedido: ${error.message}`)
+    return (data?.length ?? 0) > 0
+  },
+  limitarChave: (r, prefixo, chave, max) => limitarPorIp(r, admin, (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders(r), 'Content-Type': 'application/json' } }), prefixo, { chave, max }),
+  // trava do cartão: 'CARTAO-<pedido>' em gateway_payment_id (único por pedido; confirmar_pedido_pago sobrescreve se o pagamento existiu)
+  trava: async (id) => {
+    const { data, error } = await admin.from('orders').update({ gateway_payment_id: `CARTAO-${id}` })
+      .eq('id', id).eq('status', 'pending').is('gateway_payment_id', null).select('id')
+    if (error) throw new Error(`trava do pedido: ${error.message}`)
+    return (data?.length ?? 0) > 0
+  },
+  destravar: async (id) => {
+    const { error } = await admin.from('orders').update({ gateway_payment_id: null }).eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`)
+    if (error) throw new Error(`soltar trava: ${error.message}`)
+  },
+  trocar: async (id, pagbankId) => {
+    const { data, error } = await admin.from('orders').update({ payment_gateway: 'pagbank', payment_method: 'credit_card', gateway_payment_id: pagbankId })
+      .eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`).select('id')
+    if (error) throw new Error(`troca da trava: ${error.message}`)
     return (data?.length ?? 0) > 0
   },
   pagbank: (caminho, init) => pagbankFetch(cfg(), caminho, init),

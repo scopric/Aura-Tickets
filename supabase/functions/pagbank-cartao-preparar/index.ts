@@ -18,6 +18,7 @@ Deno.serve(req => handler(req, {
     const { data: { user }, error } = await admin.auth.getUser(t)
     return error || !user ? null : { id: user.id, email: user.email ?? null }
   },
+  limitarChave: (r, prefixo, chave, max) => limitarPorIp(r, admin, (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders(r), 'Content-Type': 'application/json' } }), prefixo, { chave, max }),
   captcha: (t, ip, acao) => verificarRecaptcha(t, ip, env, fetch, acao),
   carregar: async (id, uid) => {
     const { data: o, error } = await admin.from('orders')
