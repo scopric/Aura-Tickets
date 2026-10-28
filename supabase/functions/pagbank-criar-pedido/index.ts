@@ -17,7 +17,7 @@ Deno.serve(req => handler(req, {
     const { data: { user }, error } = await admin.auth.getUser(t)
     return error || !user ? null : { id: user.id, email: user.email ?? null }
   },
-  captcha: (t, ip) => verificarRecaptcha(t, ip, env),
+  captcha: (t, ip, acao) => verificarRecaptcha(t, ip, env, fetch, acao),
   carregar: async (id, uid) => {
     const { data: o, error } = await admin.from('orders')
       .select('id,user_id,status,reservado_ate,total,subtotal,discount,service_fee,processing_fee,customer_name,customer_email,gateway_payment_id,events(producer_id,start_date,end_date),order_items(id,ticket_type_id,quantity,unit_price,ticket_types(name))')
@@ -38,9 +38,9 @@ Deno.serve(req => handler(req, {
       })),
     } as Pedido
   },
-  gravar: async (id, pagbankId) => {
+  gravar: async (id, pagbankId, metodo = 'pix') => {
     const { data, error } = await admin.from('orders')
-      .update({ payment_gateway: 'pagbank', payment_method: 'pix', gateway_payment_id: pagbankId })
+      .update({ payment_gateway: 'pagbank', payment_method: metodo, gateway_payment_id: pagbankId })
       .eq('id', id).eq('status', 'pending').is('gateway_payment_id', null).select('id')
     if (error) throw new Error(`gravação do pedido: ${error.message}`)
     return (data?.length ?? 0) > 0
