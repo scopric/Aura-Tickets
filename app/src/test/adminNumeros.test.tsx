@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 
 const from = vi.hoisted(() => vi.fn())
 vi.mock('../lib/supabase', () => ({ supabase: { from, auth: { mfa: { listFactors: () => Promise.resolve({ data: { totp: [] } }) } } } }))

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { FileText, Shield, Mail, Share2, Check } from 'lucide-react'
 
 interface LGPDConsentProps {

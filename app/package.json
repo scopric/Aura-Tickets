@@ -69,14 +69,13 @@
     "react-dom": "19.2.7",
     "react-hook-form": "7.79.0",
     "react-resizable-panels": "4.11.2",
-    "react-router": "6.30.6",
-    "react-router-dom": "6.30.6",
+    "react-router": "7.18.4",
     "recharts": "2.15.4",
     "sonner": "2.0.7",
     "tailwind-merge": "3.6.0",
     "three": "0.184.0",
     "vaul": "1.1.2",
-    "zod": "4.4.3",
+    "zod": "4.6.7",
     "zustand": "5.0.14"
   },
   "devDependencies": {

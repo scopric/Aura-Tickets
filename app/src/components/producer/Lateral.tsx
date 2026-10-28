@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import EventoCapa from '@/components/EventoCapa'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { Root as TooltipRoot } from '@radix-ui/react-tooltip'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Plus, MessageSquare, ArrowRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 
 interface FAQItem {
   question: string

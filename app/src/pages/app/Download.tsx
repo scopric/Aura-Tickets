@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { getAppMode, siteUrl } from '@/lib/appHost'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'

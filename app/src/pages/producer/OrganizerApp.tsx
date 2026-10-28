@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 

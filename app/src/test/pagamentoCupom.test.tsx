@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import CheckoutPayment from '../pages/checkout/Payment'
 
 // Tela 06 fatia 2: cupom opcional e recusas do servidor (reservar_ingressos devolve ok:false, o hook as transforma em erro com motivo)

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { SectionTitle, chipNeutro } from '@/components/producer/ui'
 import { EmBreve } from '@/components/producer/ui-evento'

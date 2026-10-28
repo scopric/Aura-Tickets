@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { X } from 'lucide-react'
 import { PRIVACY_VERSION } from '../lib/legal'
 import { fecharPolitica, useCamada } from '../lib/camadas'

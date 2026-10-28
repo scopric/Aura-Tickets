@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Link } from 'react-router-dom'
+import { MemoryRouter, Link } from 'react-router'
 import { fireEvent } from '@testing-library/react'
 import { AuthRetryableFetchError } from '@supabase/supabase-js'
 

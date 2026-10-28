@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePublicEvent } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'

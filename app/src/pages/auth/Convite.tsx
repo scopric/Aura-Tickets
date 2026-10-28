@@ -1,6 +1,6 @@
 import { apagarIngressosGuardados } from '../../lib/ingressosOffline'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { ArrowRight, CheckCircle2, ClipboardList, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { queryClient } from '../../lib/queryClient'

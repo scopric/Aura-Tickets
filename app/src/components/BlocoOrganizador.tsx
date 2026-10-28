@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { formatCNPJ } from '../lib/formatters'
 import { marcaOk, rotuloOk, emailSemProibidos } from '../lib/organizadorTexto'

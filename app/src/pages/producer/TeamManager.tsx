@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'

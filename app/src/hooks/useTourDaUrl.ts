@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router'
 import { tourDaRota } from '../lib/tours'
 import { useCamada } from '../lib/camadas'
 import { useRegistrarTour } from './useTourLog'

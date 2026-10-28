@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { appUrl } from '../lib/appHost'
 import { ArrowRight } from 'lucide-react'
 import gsap from 'gsap'
