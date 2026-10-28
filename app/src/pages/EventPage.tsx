@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router'
 import { useEffect } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'

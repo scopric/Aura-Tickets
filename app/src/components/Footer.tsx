@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { appUrl } from '../lib/appHost'
 import { rotaForcadaEscuro } from '../lib/tema'
 import { ArrowUpRight, Loader2 } from 'lucide-react'

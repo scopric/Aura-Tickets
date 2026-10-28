@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { camposPadrao } from '../lib/certificados'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CertificadoValidacao from '../pages/CertificadoValidacao'
 import { BASE_VALIDACAO, codigoValido, urlDoCertificado, validarCertificado } from '../lib/certificadoValidar'

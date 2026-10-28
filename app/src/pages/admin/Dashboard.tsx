@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { PageHeader, SectionTitle, Stat } from '@/components/producer/ui'

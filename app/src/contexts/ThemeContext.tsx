@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { CHAVE_TEMA, lerTema, rotaForcadaEscuro, temaPadrao, type Tema } from '../lib/tema'
 
 interface ThemeContextType {

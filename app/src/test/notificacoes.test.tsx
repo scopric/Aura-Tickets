@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import NotificationsTopButton, { tempoRelativo } from '../components/NotificationsTopButton'
 import ParticipantNotifications from '../pages/app/Notifications'
 import { urlDoAviso } from '../hooks/useNotifications'
@@ -104,6 +104,18 @@ describe('urlDoAviso', () => {
     expect(urlDoAviso({ metadata: { url: 'https://mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: { url: '//mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: { url: '/\\mal.example' } })).toBeNull()
+    // tab e quebra de linha: o navegador os apaga e "/\t/x" vira "//x" (outro site)
+    expect(urlDoAviso({ metadata: { url: '/\t/mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/\n/mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/\r\\mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/ /mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: 'javascript:alert(1)' } })).toBeNull()
+    // barra invertida e controle no MEIO do caminho (cada um sozinho, para a regra não afrouxar sem o teste cair)
+    expect(urlDoAviso({ metadata: { url: '/x\\y' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/\x01x' } })).toBeNull()
+    // as formas que o banco grava de verdade continuam valendo
+    expect(urlDoAviso({ metadata: { url: '/producer/events/3f2b8c1e-0a9d-4c3e-9f1a-2b7c8d9e0f11/edit' } })).toBe('/producer/events/3f2b8c1e-0a9d-4c3e-9f1a-2b7c8d9e0f11/edit')
+    expect(urlDoAviso({ metadata: { url: '/producer/tasks?cartao=3f2b8c1e-0a9d-4c3e-9f1a-2b7c8d9e0f11' } })).toBe('/producer/tasks?cartao=3f2b8c1e-0a9d-4c3e-9f1a-2b7c8d9e0f11')
     expect(urlDoAviso({ metadata: { url: '/app/salvos' } })).toBe('/app/salvos')
     expect(urlDoAviso({ metadata: null })).toBeNull()
   })

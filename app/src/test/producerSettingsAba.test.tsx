@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router'
 import ProducerSettings from '../pages/producer/ProducerSettings'
 
 // o mesmo objeto a cada render: o componente sincroniza o formulário em useEffect([data])

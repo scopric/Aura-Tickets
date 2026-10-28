@@ -1,5 +1,5 @@
 import * as I from '@/components/icones/evokaa16'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'

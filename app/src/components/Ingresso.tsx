@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import { Agenda, Atualizar, Baixar, ChevronDireita, Email, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'

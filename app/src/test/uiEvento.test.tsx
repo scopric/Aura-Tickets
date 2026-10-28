@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router'
 import { AbasDeArea, BarraFiltros, CabecalhoEvento, EmBreve, KpiCard } from '../components/producer/ui-evento'
 
 // o Tooltip (Radix) mede o conteúdo ao abrir; o jsdom não tem ResizeObserver

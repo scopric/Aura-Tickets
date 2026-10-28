@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { PreviaCorpo, type DadosPrevia } from '../components/producer/PreviaIngresso'
 import IngressoVisual from '../components/producer/IngressoVisual'
 import { AZUL_EVOKAA, ESTILO_PADRAO, corDoTopo, estiloDoBanco, estiloLimpo, estiloParaBanco, textoSobre } from '../lib/ingressoEstilo'

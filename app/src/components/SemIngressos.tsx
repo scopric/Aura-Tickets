@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Ingressos } from './icones/evokaa16'
 import { Button } from './ui/button'
 import { useUserOrders } from '../hooks/useCheckout'

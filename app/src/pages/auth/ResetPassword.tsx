@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { ArrowLeft, Eye, EyeOff, Lock, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase, initialAuthHash } from '../../lib/supabase'
 import { toast } from 'sonner'

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import ProducerLayout from '../components/ProducerLayout'
 import { avisarCamada, CHAVE_AVISO_POLITICA, fecharPolitica } from '../lib/camadas'
 import { COOKIE_CONSENT_KEY, COOKIE_CONSENT_VERSION } from '../lib/tracking'

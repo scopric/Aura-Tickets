@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CartaoVerso from '../components/producer/quadro/CartaoVerso'
 import Quadro from '../components/producer/quadro/Quadro'

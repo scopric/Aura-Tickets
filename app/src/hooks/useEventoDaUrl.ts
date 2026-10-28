@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { gravarNav, lerNav, ULTIMO_EVENTO } from '../lib/navegacaoProdutor'
 
 /**

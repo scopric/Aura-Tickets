@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 import { toast } from 'sonner'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import AppDownload from '../pages/app/Download'
 import { detectarSistema, esquecerEvento, ouvirInstalacao } from '../lib/instalar'

@@ -1,7 +1,7 @@
 import { comTempo, lerIngressos } from './lib/ingressosOffline'
 import { AuthRetryableFetchError, isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { Fragment, Suspense, lazy, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { Routes, Route, useLocation, useParams, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation, useParams, Navigate } from 'react-router'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAuth } from './hooks/useAuth'
@@ -77,7 +77,9 @@ const ProducerAffiliates = lazy(() => import('./pages/producer/Affiliates'))
 const ProducerCheckIn = lazy(() => import('./pages/producer/CheckIn'))
 const EquipeCheckIn = lazy(() => import('./pages/producer/CheckIn').then(m => ({ default: m.EquipeCheckIn })))
 const Equipe = lazy(() => import('./pages/app/Equipe'))
-const ProducerTasks = lazy(() => import('./pages/producer/Tasks'))
+const ProducerTasks = lazy(() => import('./pages/producer/TarefasRota')) // a lista de tarefas; link ?cartao= vai para o quadro do cartão
+const ProducerQuadros = lazy(() => import('./pages/producer/Quadros'))
+const ProducerQuadro = lazy(() => import('./pages/producer/QuadroPagina'))
 const ProducerCoupons = lazy(() => import('./pages/producer/Coupons'))
 const ProducerPartners = lazy(() => import('./pages/producer/Partners'))
 const ProducerTimeline = lazy(() => import('./pages/producer/Timeline'))
@@ -412,6 +414,9 @@ function Layout() {
               <Route path="/producer/checkin" element={<FeatureGuard featureKey="checkin"><ProducerCheckIn /></FeatureGuard>} />
               <Route path="/producer/comunicacao" element={<ComingSoon titulo="Comunicação com participantes" descricao="Mensagens aos participantes do evento por e-mail e WhatsApp." />} />
               <Route path="/producer/tarefas" element={<ProducerTasks />} />
+              <Route path="/producer/tasks" element={<ProducerTasks />} />{/* o link dos avisos do quadro (metadata.url) usa este caminho */}
+              <Route path="/producer/quadros" element={<ProducerQuadros />} />
+              <Route path="/producer/quadros/:boardId" element={<ProducerQuadro />} />
               <Route path="/producer/cupons" element={<ProducerCoupons />} />
               <Route path="/producer/parceiros" element={<ProducerPartners />} />
               <Route path="/producer/timeline" element={<ProducerTimeline />} />
