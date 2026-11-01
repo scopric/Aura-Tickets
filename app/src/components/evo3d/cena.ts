@@ -59,6 +59,7 @@ export async function montar(host: HTMLElement, urls: Urls): Promise<() => void>
     const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder)
     gltf = await loader.loadAsync(urls.modelo)
   } catch (e) { console.warn('Evo: modelo não carregou, fica o poster', e); desistir(); return () => {} }
+  cena.add(gltf.scene) // já na cena: qualquer desistir() daqui em diante libera geometria e texturas do modelo
   // Saiu da rota enquanto baixava (o React tirou o host do DOM): não decodifica textura nem gera PMREM à toa
   if (!host.isConnected) { desistir(); return () => {} }
   const malhas: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>[] = []
@@ -72,7 +73,7 @@ export async function montar(host: HTMLElement, urls: Urls): Promise<() => void>
     mat.metalness = 0; mat.metalnessMap = null; mat.roughnessMap = null; mat.roughness = 0.55; mat.envMapIntensity = 0.5; mat.needsUpdate = true
   }
 
-  const evo = new THREE.Group(); evo.add(gltf.scene); cena.add(evo)
+  const evo = new THREE.Group(); evo.add(gltf.scene); cena.add(evo) // add() tira o modelo da cena e o põe no grupo
   // Centraliza no chão e normaliza a altura para 6 unidades
   const caixa = new THREE.Box3().setFromObject(gltf.scene), tam = caixa.getSize(new THREE.Vector3()), centro = caixa.getCenter(new THREE.Vector3())
   const k = 6 / tam.y; gltf.scene.scale.setScalar(k)

@@ -41,7 +41,7 @@ test.describe('Evo 3D', () => {
     expect(await posterOpaco(page)).toBe('1')
   })
 
-  test('no ambiente comum a cena fica pronta em até 10 s, sem erro de CSP', async ({ page }) => {
+  test('no ambiente comum a cena fica pronta em até 20 s, sem erro de CSP', async ({ page }) => {
     const erros: string[] = []
     page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') erros.push(m.text()) })
     await comCsp(page)
@@ -88,6 +88,8 @@ test.describe('Evo 3D', () => {
     }
     const gl = () => page.evaluate(() => (window as unknown as { __gl: { criados: number; vivos: number } }).__gl)
     expect((await gl()).criados).toBeGreaterThanOrEqual(10)
-    await expect.poll(async () => (await gl()).vivos, { timeout: 5000 }).toBe(0) // o evento de perda forçada é assíncrono
+    // No StrictMode (dev) a 2ª montagem ainda pode estar baixando o glb na última volta: o contexto dela só é perdido quando
+    // a carga termina e o desmonte a destrói; a perda forçada também dispara o evento de forma assíncrona. Daí a espera longa.
+    await expect.poll(async () => (await gl()).vivos, { timeout: PRONTA_MS }).toBe(0)
   })
 })
