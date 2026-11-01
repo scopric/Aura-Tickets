@@ -63,7 +63,7 @@ Por opacidade: as coisas aparecem e somem, não deslizam nem crescem. Micro (hov
 ## 6. Componentes (cartas)
 
 - **Botão principal:** pílula 500 px, fundo `--ev3-acento`, rótulo branco 14 px 700 em chrome, 12 × 18 px de preenchimento, altura ≥ 44 px; hover escurece por opacidade, nunca brilho; um por tela.
-- **Desabilitado e "Esgotado":** nunca o acento apagado (gasta o violeta numa não-ação e o texto fica ilegível). Botão fantasma com borda `--ev3-fio`, texto `--ev3-terciario`, `aria-disabled="true"` e o motivo escrito ao lado ("Esgotado", "Vendas encerradas"); mantém 44 px.
+- **Desabilitado e "Esgotado":** nunca o acento apagado (gasta o violeta numa não-ação e o texto fica ilegível). Mesmo formato do botão que substitui (pílula 500 no lugar do principal, raio 5 no lugar do fantasma), borda `--ev3-fio`, texto `--ev3-terciario`, `aria-disabled="true"` e o motivo escrito ("Esgotado", "Vendas encerradas"); mantém 44 px. `aria-disabled` não bloqueia o clique: o manipulador da ação ignora o toque e nada acontece.
 - **Botão fantasma:** raio 5 px, borda 1 px `--ev3-contorno`, texto branco 12–14 px; hover `--ev3-vidro`; é o padrão para tudo o que não é a ação principal.
 - **Campo:** raio 5 px, borda 1 px `--ev3-contorno`, texto 16 px em corpo, rótulo 12 px em chrome acima; foco: anel branco 2 px a 2 px do contorno; erro: borda e mensagem em `--ev3-erro`, com `aria-invalid` e `aria-describedby`, nunca só cor.
 - **Cartão:** raio 12 px, borda 1 px `--ev3-fio`, 28 px de preenchimento, fundo transparente (ou `--ev3-veu` se há cena atrás); sem sombra.
