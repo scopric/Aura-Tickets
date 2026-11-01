@@ -2,11 +2,13 @@
    Só baixam quando uma regra as usa, então não pesam nas telas que ainda estão no contrato v3.4. */
 @font-face { font-family: 'Syne'; src: url('/fonts/syne.woff2') format('woff2'); font-weight: 400 800; font-display: swap; }
 @font-face { font-family: 'Newsreader'; src: url('/fonts/newsreader.woff2') format('woff2'); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: 'Newsreader'; src: url('/fonts/newsreader-italic.woff2') format('woff2'); font-weight: 200 800; font-style: italic; font-display: swap; }
 @font-face { font-family: 'Big Shoulders'; src: url('/fonts/big-shoulders.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
 
 /* Evokaa — tokens da identidade v3.0 (Modo Refero, base Active Theory; Decisões 244–246).
    Regras e papéis em app/DESIGN-SYSTEM.md. Só variáveis: nada aqui muda uma tela sozinho.
-   O prefixo ev3- separa estes tokens dos do contrato v3.4 (ev-*), que seguem valendo onde a Fase 4 ainda não chegou. */
+   O prefixo ev3- separa estes tokens dos do contrato v3.4 (ev-*), que seguem valendo onde a Fase 4 ainda não chegou.
+   No Tailwind as cores ev3-* são var() sem canal alfa: bg-ev3-acento/50 NÃO gera classe (use --ev3-veu/--ev3-vidro para translucidez). */
 :root {
   /* Cor (papéis fechados; valores do reference lock v2) */
   --ev3-fundo: #000000;            /* canvas do site: preto absoluto, nunca cinza de página */
@@ -17,6 +19,7 @@
   --ev3-acento: #8f33f5;           /* só ação principal e seleção; rótulo por cima SEMPRE branco (5,30:1; preto dá 3,96:1) */
   --ev3-acento-texto: #b57cf8;     /* violeta como texto sobre preto (7,20:1); nunca #8f33f5 como texto */
   --ev3-foco: #ffffff;             /* anel de foco neutro, 2 px, fora do controle */
+  --ev3-erro: #ef5a52;             /* texto e borda de erro sobre preto (6,25:1); o --destructive-text do v3.4 é trio HSL e no claro dá 3,95:1 */
   --ev3-placa: #ffffff;            /* placa opaca do QR (Pix e ingresso): única superfície branca sólida permitida */
   --ev3-veu: rgb(0 0 0 / 0.8);     /* painel com texto sobre a cena: opacidade >= 0,8 (desvio consciente b) */
   --ev3-vidro: rgb(255 255 255 / 0.1); /* preenchimento de botão fantasma em hover/ativo */
@@ -54,5 +57,8 @@
   --ev3-curva-sai: ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --ev3-mov-micro: 0ms; --ev3-mov-base: 120ms; --ev3-mov-cena: 0ms; }
+  :root { --ev3-mov-micro: 0.01ms; --ev3-mov-base: 120ms; --ev3-mov-cena: 0.01ms; } /* 0.01ms e não 0: transitionend ainda dispara */
+}
+@media (prefers-contrast: more) {
+  :root { --ev3-fio: #999999; --ev3-veu: rgb(0 0 0 / 0.95); }
 }

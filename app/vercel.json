@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/|images/|videos/|evo/|quadro-modelo/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|images/|videos/|evo/|fonts/|quadro-modelo/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -16,13 +16,13 @@
       ]
     },
     {
-      "source": "/(images|videos|evo)/(.*)",
+      "source": "/(images|videos|evo|fonts)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
       ]
     },
     {
-      "source": "/((?!assets/|images/|videos/|evo/|quadro-modelo/).*)",
+      "source": "/((?!assets/|images/|videos/|evo/|fonts/|quadro-modelo/).*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]

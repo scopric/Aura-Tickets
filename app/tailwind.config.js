@@ -21,7 +21,7 @@ module.exports = {
           fundo: "var(--ev3-fundo)", texto: "var(--ev3-texto)", terciario: "var(--ev3-terciario)",
           fio: "var(--ev3-fio)", contorno: "var(--ev3-contorno)", acento: "var(--ev3-acento)",
           "acento-texto": "var(--ev3-acento-texto)", foco: "var(--ev3-foco)", placa: "var(--ev3-placa)",
-          veu: "var(--ev3-veu)", vidro: "var(--ev3-vidro)",
+          veu: "var(--ev3-veu)", vidro: "var(--ev3-vidro)", erro: "var(--ev3-erro)",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

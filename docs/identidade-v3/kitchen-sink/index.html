@@ -12,11 +12,12 @@
   /* As fontes do tokens-v3.css apontam para /fonts (raiz do app); aqui, servido da raiz do repositório, o caminho é outro */
   @font-face { font-family: 'Syne'; src: url(../../../app/public/fonts/syne.woff2) format('woff2'); font-weight: 400 800; font-display: swap; }
   @font-face { font-family: 'Newsreader'; src: url(../../../app/public/fonts/newsreader.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
+  @font-face { font-family: 'Newsreader'; src: url(../../../app/public/fonts/newsreader-italic.woff2) format('woff2'); font-weight: 200 800; font-style: italic; font-display: swap; }
   @font-face { font-family: 'Big Shoulders'; src: url(../../../app/public/fonts/big-shoulders.woff2) format('woff2'); font-weight: 100 900; font-display: swap; }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--ev3-fundo); color: var(--ev3-texto); }
-  body { padding: 0 16px var(--ev3-secao); font: 400 var(--ev3-texto-corpo)/var(--ev3-entrelinha-corpo) var(--ev3-fonte-corpo); }
+  body { padding: 0 16px var(--ev3-secao); font: 400 var(--ev3-texto-corpo)/var(--ev3-entrelinha-corpo) var(--ev3-fonte-corpo); font-synthesis: none; }
   main { max-width: 1120px; margin: 0 auto; }
   section { padding: var(--ev3-secao) 0; border-bottom: 1px solid var(--ev3-fio); }
   section:last-of-type { border-bottom: 0; }
@@ -38,23 +39,27 @@
 
   /* 2 tipografia */
   .titulo { font: 700 var(--ev3-titulo-evento)/0.92 var(--ev3-fonte-display); text-transform: uppercase; margin: 0; text-wrap: balance; }
-  .data { font: 700 var(--ev3-data-monumental)/0.9 var(--ev3-fonte-display); font-variant-numeric: tabular-nums; }
+  .data { font: 700 var(--ev3-data-monumental)/0.9 var(--ev3-fonte-display); } /* Big Shoulders não tem dígitos tabulares: valor fixo */
   .data small { display: block; font: 400 12px/1.5 var(--ev3-fonte-chrome); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ev3-terciario); margin-top: var(--ev3-esp-12); }
   .corpo { max-width: 62ch; margin: var(--ev3-esp-28) 0 0; }
 
   /* 6 componentes */
   .btn { font: var(--ev3-peso-botao) var(--ev3-texto-botao)/1.2 var(--ev3-fonte-chrome); background: var(--ev3-acento); color: #fff; border: 0; border-radius: var(--ev3-raio-pilula); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: pointer; transition: opacity var(--ev3-mov-micro) var(--ev3-curva-sai); }
   .btn:hover { opacity: 0.94; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .esgotado { font: 400 14px/1.2 var(--ev3-fonte-chrome); background: transparent; color: var(--ev3-terciario); border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-pilula); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: not-allowed; }
   .fantasma { font: 400 14px/1.2 var(--ev3-fonte-chrome); background: transparent; color: var(--ev3-texto); border: 1px solid var(--ev3-contorno); border-radius: var(--ev3-raio-controle); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: pointer; transition: background var(--ev3-mov-micro) var(--ev3-curva-sai); }
   .fantasma:hover { background: var(--ev3-vidro); }
   .pilula { font: 400 12px/1.5 var(--ev3-fonte-chrome); border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-pilula); padding: 4px 12px; min-height: 28px; color: var(--ev3-texto); background: transparent; }
+  /* pílula selecionável é botão com alvo de 44 px (área invisível, como .alvo-44 do index.css, aqui sem a condição de toque para a prova medir) */
+  button.pilula { cursor: pointer; position: relative; }
+  button.pilula::before { content: ''; position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; min-width: 44px; min-height: 44px; transform: translate(-50%, -50%); }
+  nav a, nav span { display: inline-flex; align-items: center; min-height: var(--ev3-alvo); }
   .pilula.sel { background: var(--ev3-acento); border-color: var(--ev3-acento); color: #fff; }
   .campo { display: grid; gap: var(--ev3-esp-6); max-width: 420px; }
   .campo label { font: 400 12px/1.5 var(--ev3-fonte-chrome); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ev3-terciario); }
   .campo input { font: 400 var(--ev3-texto-campo)/1.5 var(--ev3-fonte-corpo); color: var(--ev3-texto); background: transparent; border: 1px solid var(--ev3-contorno); border-radius: var(--ev3-raio-controle); padding: 12px; min-height: var(--ev3-alvo); }
-  .campo.erro input { border-color: #ef5a52; }
-  .campo.erro small { color: #ef5a52; font: 400 12px/1.5 var(--ev3-fonte-chrome); }
+  .campo.erro input { border-color: var(--ev3-erro); }
+  .campo.erro small { color: var(--ev3-erro); font: 400 12px/1.5 var(--ev3-fonte-chrome); }
   .cartao { border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-cartao); padding: var(--ev3-cartao-pad); max-width: 420px; }
   .cartao h3 { font: 700 14px/1.2 var(--ev3-fonte-chrome); margin: 0 0 var(--ev3-esp-12); }
   .cartao p { margin: 0; }
@@ -69,7 +74,6 @@
   .placa { background: var(--ev3-placa); border-radius: var(--ev3-raio-cartao); padding: 24px; width: 232px; }
   .placa svg { display: block; width: 184px; height: 184px; }
   .placa p { margin: 12px 0 0; font: 400 12px/1.5 var(--ev3-fonte-chrome); color: #000; text-align: center; }
-  @media (max-width: 720px) { .titulo { font-size: clamp(40px, 11vw, 64px); } }
 </style>
 </head>
 <body>
@@ -90,28 +94,29 @@
       <div class="amostra"><i style="background:var(--ev3-acento-texto)"></i><b>acento como texto</b><span>#b57cf8 · 7,20</span></div>
       <div class="amostra"><i style="background:var(--ev3-veu); border-color: var(--ev3-contorno)"></i><b>véu</b><span>rgb(0 0 0 / .8) + blur 4</span></div>
       <div class="amostra"><i style="background:var(--ev3-placa)"></i><b>placa do QR</b><span>#ffffff opaco, só aqui</span></div>
+      <div class="amostra"><i style="background:var(--ev3-erro)"></i><b>erro</b><span>#ef5a52 · 6,25</span></div>
     </div>
   </section>
 
   <section>
     <h2>2 · Tipografia · chrome 12/14 · corpo 16/1,88 · display só em título de evento e número</h2>
     <nav class="linha-itens chrome" style="text-transform:uppercase; letter-spacing:.04em; margin-bottom: 28px">
-      <span>Explorar</span><span>Criar evento</span><span>Entrar</span><a href="#" class="ativo">Meus ingressos</a>
+      <a href="#">Explorar</a><a href="#">Criar evento</a><a href="#">Entrar</a><a href="#" class="ativo">Meus ingressos</a>
     </nav>
     <h1 class="titulo">Noite de Forró<br>na Estação</h1>
     <div class="data">14<small>novembro · sábado · 21h</small></div>
-    <p class="corpo">A Evokaa é a plataforma de ingressos feita para quem organiza e para quem vai. Você cria o evento, define os lotes e acompanha as vendas em tempo real; quem compra vê o preço completo antes de qualquer botão e recebe o ingresso com código dinâmico. Sem surpresas no caixa, sem fila na porta. <a href="#">Saiba como funciona</a>.</p>
+    <p class="corpo">A Evokaa é a plataforma de ingressos feita para quem organiza e para quem vai. Você cria o evento, define os lotes e acompanha as vendas em tempo real; quem compra vê o preço completo antes de qualquer botão e recebe o ingresso com código dinâmico. Sem surpresas no caixa, sem fila na porta, com <em>ênfase real em itálico verdadeiro</em>. <a href="#">Saiba como funciona</a>.</p>
   </section>
 
   <section>
     <h2>6 · Botões, pílulas e campo</h2>
     <div class="linha-itens">
       <button class="btn" type="button">Comprar ingresso</button>
-      <button class="btn" type="button" disabled>Esgotado</button>
+      <button class="esgotado" type="button" aria-disabled="true">Esgotado</button>
       <button class="fantasma" type="button">Ver programação</button>
-      <span class="pilula">Forró</span><span class="pilula sel">Curitiba</span><span class="pilula">Hoje</span>
+      <button class="pilula" type="button" aria-pressed="false">Forró</button><button class="pilula sel" type="button" aria-pressed="true">Curitiba</button><button class="pilula" type="button" aria-pressed="false">Hoje</button><span class="pilula">só rótulo</span>
     </div>
-    <p class="nota">Um botão principal por tela; o resto é fantasma. Foco de teclado: anel branco de 2 px (use Tab).</p>
+    <p class="nota">Um botão principal por tela; o resto é fantasma. "Esgotado" é fantasma com fio #4d4d4d e texto terciário, nunca o acento apagado. Pílula de filtro é botão com alvo de 44 px. Foco de teclado: anel branco de 2 px (use Tab).</p>
     <div class="linha-itens" style="align-items:flex-start; margin-top:28px; gap:28px">
       <div class="campo"><label for="c1">E-mail para receber o ingresso</label><input id="c1" type="email" placeholder="você@exemplo.com.br" /></div>
       <div class="campo erro"><label for="c2">CPF</label><input id="c2" type="text" value="123" aria-invalid="true" aria-describedby="c2e" /><small id="c2e">Digite os 11 números do CPF.</small></div>
