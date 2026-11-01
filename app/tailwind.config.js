@@ -79,6 +79,10 @@ module.exports = {
         sans: ['Plus Jakarta Sans', 'Inter', 'Geist', 'system-ui', 'sans-serif'],
         // nome do evento e números de dado (contrato v3.4, §3); largura com font-stretch
         display: ['Archivo', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        // identidade v3.0 (Decisão 249): três famílias com papéis fechados (DESIGN-SYSTEM.md §2)
+        'ev3-chrome': ['Syne', 'system-ui', 'sans-serif'],
+        'ev3-corpo': ['Newsreader', 'Georgia', 'serif'],
+        'ev3-display': ['Big Shoulders', 'Arial Narrow', 'sans-serif'],
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",

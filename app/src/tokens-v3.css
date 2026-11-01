@@ -1,3 +1,9 @@
+/* Fontes da identidade v3.0 (Decisão 249): auto-hospedadas, variáveis, subset latin (cobre ç ã õ é), font-display swap.
+   Só baixam quando uma regra as usa, então não pesam nas telas que ainda estão no contrato v3.4. */
+@font-face { font-family: 'Syne'; src: url('/fonts/syne.woff2') format('woff2'); font-weight: 400 800; font-display: swap; }
+@font-face { font-family: 'Newsreader'; src: url('/fonts/newsreader.woff2') format('woff2'); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: 'Big Shoulders'; src: url('/fonts/big-shoulders.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+
 /* Evokaa — tokens da identidade v3.0 (Modo Refero, base Active Theory; Decisões 244–246).
    Regras e papéis em app/DESIGN-SYSTEM.md. Só variáveis: nada aqui muda uma tela sozinho.
    O prefixo ev3- separa estes tokens dos do contrato v3.4 (ev-*), que seguem valendo onde a Fase 4 ainda não chegou. */
@@ -17,10 +23,10 @@
   --ev3-desfoque: blur(4px);       /* único desfoque do sistema, atrás de painel translúcido */
   /* --evento (cor do evento) é definida por evento, só em capa, cena e data da vitrine; nunca em chrome */
 
-  /* Tipografia: três famílias com papéis fechados. Os nomes entram depois do Portão 2 (escolha do Ricardo). */
-  --ev3-fonte-chrome: system-ui, sans-serif;        /* navegação, rótulos, botões, metadados: 12 px (400) e 14 px (700) */
-  --ev3-fonte-corpo: Georgia, serif;                /* prosa: 16 px, entrelinha 1,88 */
-  --ev3-fonte-display: 'Arial Narrow', sans-serif;  /* SÓ título de evento e número grande (data, preço) */
+  /* Tipografia: três famílias com papéis fechados (Decisão 249; OFL 1.1, arquivos e licenças em public/fonts/) */
+  --ev3-fonte-chrome: 'Syne', system-ui, sans-serif;                 /* navegação, rótulos, botões, metadados: 12 px (400) e 14 px (700) */
+  --ev3-fonte-corpo: 'Newsreader', Georgia, serif;                   /* prosa: 16 px, entrelinha 1,88 */
+  --ev3-fonte-display: 'Big Shoulders', 'Arial Narrow', sans-serif;  /* SÓ título de evento e número grande (data, preço) */
   --ev3-texto-chrome: 12px;  --ev3-entrelinha-chrome: 1.5;
   --ev3-texto-botao: 14px;   --ev3-peso-botao: 700;
   --ev3-texto-corpo: 16px;   --ev3-entrelinha-corpo: 1.88;

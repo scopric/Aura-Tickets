@@ -29,13 +29,15 @@ Violeta em todo o sistema (Decisão 246): site, app do participante, painel do p
 
 ## 2. Tipografia
 
-Três famílias, três papéis, nenhum cruzamento. **Nomes definidos no Portão 2** (prova em `docs/identidade-v3/fontes/`, só OFL 1.1, auto-hospedadas em `public/fonts/` com `font-display: swap` e a licença ao lado).
+Três famílias, três papéis, nenhum cruzamento (Decisão 249, escolha do Ricardo entre três combinações em `docs/identidade-v3/fontes/`). Todas sob SIL Open Font License 1.1, sem Reserved Font Name: uso comercial, web e auto-hospedagem permitidos. Arquivos woff2 (variáveis, subset latin) e `OFL-*.txt` em `public/fonts/`; `@font-face` com `font-display: swap` em `src/tokens-v3.css`.
 
-| Papel | Token | Tamanho / entrelinha | Peso | Onde | Onde não |
-| --- | --- | --- | --- | --- | --- |
-| Chrome | `--ev3-fonte-chrome` | 12 px / 1,5 · botão 14 px / 1,2 | 400 · botão 700 | navegação, rótulo, botão, metadado, tabela | prosa, título de evento |
-| Corpo | `--ev3-fonte-corpo` | 16 px / 1,88 | 400 (itálico só ênfase real) | descrição, texto legal, e-mail, campo de formulário | botão, rótulo, número |
-| Display | `--ev3-fonte-display` | título 44–88 px / 0,92 · data 72–160 px / 0,9 · número 28 px | 700 (ou 400 se a família só tem um peso) | **só** título de evento, data monumental, preço e contagem | título de seção, texto corrido, botão, logotipo |
+| Papel | Família (autor) | Token | Tamanho / entrelinha | Peso | Onde | Onde não |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chrome | **Syne** (Bonjour Monde) | `--ev3-fonte-chrome` / `font-ev3-chrome` | 12 px / 1,5 · botão 14 px / 1,2 | 400 · botão 700 | navegação, rótulo, botão, metadado, tabela | prosa, título de evento |
+| Corpo | **Newsreader** (Production Type, eixo óptico) | `--ev3-fonte-corpo` / `font-ev3-corpo` | 16 px / 1,88 | 400 (itálico só ênfase real) | descrição, texto legal, e-mail, campo de formulário | botão, rótulo, número |
+| Display | **Big Shoulders** (Patric King) | `--ev3-fonte-display` / `font-ev3-display` | título 44–88 px / 0,92 · data 72–160 px / 0,9 · número 28 px | 700 | **só** título de evento, data monumental, preço e contagem | título de seção, texto corrido, botão, logotipo |
+
+Descartadas: Fontshare (General Sans, Switzer, Sentient, Gambetta, Erode): a ITF Free Font License v2.0 proíbe subset, conversão de formato e repositório público; Tusker Grotesk: paga.
 
 Regras: caixa-alta só no display e no chrome de 12 px; sem rótulo em caixa-alta em cima de todo título; sem palavra decorativa em itálico, serifa ou cor dentro do título; campo de texto nunca abaixo de 16 px (o iPhone amplia); `text-wrap: balance` em título; números tabulares em data, preço e contagem.
 
