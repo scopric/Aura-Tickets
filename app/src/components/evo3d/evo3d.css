@@ -1,0 +1,10 @@
+/* Evo 3D: poster por baixo, canvas por cima; `.pronta` entra no canvas quando a cena renderiza o primeiro quadro
+   (e sai na perda de contexto). Os dois posters foram capturados com o enquadramento da cena, então o cruzamento
+   não mostra dois Evos. */
+.evo3d { position: relative; width: 100%; height: 100%; min-height: 240px; background: #000; }
+.evo3d picture, .evo3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.evo3d picture img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.evo3d canvas { opacity: 0; transition: opacity 1.2s ease; }
+.evo3d canvas.pronta { opacity: 1; }
+.evo3d:has(canvas.pronta) picture { opacity: 0; transition: opacity 1.2s ease; }
+@media (prefers-reduced-motion: reduce) { .evo3d canvas, .evo3d:has(canvas.pronta) picture { transition: none; } }
