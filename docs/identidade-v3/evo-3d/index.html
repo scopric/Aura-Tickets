@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Evo 3D — prova</title>
+<link rel="icon" href="data:," />
+<!-- Prova local da Fase 2 do Modo Refero (Decisões 244–247). Fora das rotas do produto.
+     v4.1: o Evo vem de um modelo texturizado (evo.glb, gerado por imagem→3D no Space microsoft/TRELLIS.2, MIT, a partir
+     do quadro-chave do mascote). A versão em peças geométricas foi reprovada pelo Ricardo (index-procedural-v3.html, só histórico).
+     three.js pela CDN só nesta prova; no produto entra pelo npm, em chunk separado por rota, com o GLB simplificado e comprimido. -->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; }
+  body { display: grid; place-items: center; overflow: hidden;
+         font: 400 12px/1.5 ui-sans-serif, system-ui, sans-serif; color: #c6c6c6; }
+  /* O poster é o padrão: fica visível até a cena estar pronta. Se o 3D não carregar (ou não deve carregar), ele continua.
+     Dois posters, paisagem e retrato, capturados com o mesmo enquadramento da cena, para o cruzamento não mostrar dois Evos. */
+  #poster { position: fixed; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; transition: none; }
+  #cena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 1.2s ease; }
+  #cena.pronta { opacity: 1; }
+  #cena.pronta + picture #poster { opacity: 0; transition: opacity 1.2s ease; }
+  #rotulo { position: fixed; left: 16px; bottom: 16px; letter-spacing: 0.02em; }
+  #rotulo b { color: #fff; font-weight: 400; }
+  @media (prefers-reduced-motion: reduce) { #cena, #cena.pronta + picture #poster { transition: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="cena" aria-label="Evo, mascote da Evokaa, em 3D" role="img"></canvas>
+<picture>
+  <source media="(max-aspect-ratio: 3/4)" srcset="evo-3d-poster-retrato.webp" />
+  <!-- alt vazio: o canvas já anuncia o Evo; quando o 3D não carrega, o canvas continua com o rótulo -->
+  <img id="poster" src="evo-3d-poster.webp" alt="" />
+</picture>
+<div id="rotulo"><b>Evo</b> · prova 3D · v4.1 glTF · <span id="fps"></span></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const canvas = document.getElementById('cena');
+const params = new URLSearchParams(location.search);
+const anguloFixo = params.get('angulo');
+const modelo = params.get('modelo') ?? 'evo-web.glb'; // só na prova; no produto o caminho é fixo (34 mil triângulos, meshopt, 1,4 MB)
+const reduzido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Fica no poster (regra do lock): movimento reduzido, economia de dados, aparelho fraco, sem WebGL2
+const fraco = navigator.connection?.saveData || (navigator.deviceMemory && navigator.deviceMemory < 4);
+const gl = (!reduzido() && !fraco || anguloFixo !== null) && canvas.getContext('webgl2', { antialias: true, alpha: true });
+if (gl) montar(gl);
+
+async function montar(gl) {
+  const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.NeutralToneMapping; // o ACES lavava a cor da marca
+  renderer.toneMappingExposure = 1.0;
+
+  const cena = new THREE.Scene();
+  const pm = new THREE.PMREMGenerator(renderer), sala = new RoomEnvironment();
+  cena.environment = pm.fromScene(sala, 0.04).texture; pm.dispose(); sala.dispose();
+  const camera = new THREE.PerspectiveCamera(24, 1, 0.01, 100);
+  const desistir = () => { cena.environment?.dispose(); renderer.dispose(); renderer.forceContextLoss(); };
+
+  // Luz de estúdio sobre material fosco: principal branca alta à esquerda, preenchimento frio fraco, contraluz neutra fria
+  cena.add(new THREE.HemisphereLight(0xffffff, 0x0a0a12, 0.35));
+  const principal = new THREE.DirectionalLight(0xffffff, 2.0); principal.position.set(4, 7, 6); cena.add(principal);
+  const preench = new THREE.DirectionalLight(0xcfd8ff, 0.6); preench.position.set(-6, 1, 4); cena.add(preench);
+  const contra = new THREE.DirectionalLight(0xbfcbff, 0.9); contra.position.set(-3, 5, -7); cena.add(contra);
+
+  // Modelo texturizado. Se não carregar, ou vier sem textura (WebP sem suporte, arquivo quebrado), o poster fica.
+  let gltf;
+  try { const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder); /* meshopt: evo-web.glb, 34 mil triângulos, 1,4 MB */ gltf = await loader.loadAsync(modelo); } catch (e) { console.warn('Evo: modelo não carregou, fica o poster', e); desistir(); return; }
+  const malhas = []; gltf.scene.traverse(o => { if (o.isMesh) malhas.push(o); });
+  if (!malhas.length || !malhas.every(m => m.material?.map?.image)) { console.warn('Evo: textura não carregou, fica o poster'); desistir(); return; }
+  // O gerador marcou o material inteiro como metal (mapa de metal quase branco): a cor ficava refém do reflexo e 17 % mais escura
+  for (const m of malhas) { const mat = m.material; mat.metalness = 0; mat.metalnessMap = null; mat.roughnessMap = null; mat.roughness = 0.55; mat.envMapIntensity = 0.5; mat.needsUpdate = true; }
+
+  const evo = new THREE.Group(); evo.add(gltf.scene); cena.add(evo);
+  // Centraliza no chão e normaliza a altura para 6 unidades
+  const caixa = new THREE.Box3().setFromObject(gltf.scene), tam = caixa.getSize(new THREE.Vector3()), centro = caixa.getCenter(new THREE.Vector3());
+  const k = 6 / tam.y; gltf.scene.scale.setScalar(k);
+  gltf.scene.position.set(-centro.x * k, -caixa.min.y * k - 1.2, -centro.z * k);
+  gltf.scene.updateMatrixWorld(true);
+
+  // Marca no peito: a textura gerada embaralhou o símbolo e o texto; cobre com um retalho branco e projeta a marca real
+  // (ícone e palavra) por DecalGeometry sobre a própria malha, no ponto onde um raio frontal toca o peito.
+  const carregar = src => new Promise((ok, erro) => new THREE.TextureLoader().load(src, t => { t.colorSpace = THREE.SRGBColorSpace; ok(t); }, undefined, erro));
+  try {
+    const [icone, texto] = await Promise.all([carregar('marca.png'), carregar('marca-texto.png')]);
+    const raio = new THREE.Raycaster(new THREE.Vector3(0, 0.95, 5), new THREE.Vector3(0, 0, -1));
+    const toque = raio.intersectObjects(malhas, false)[0];
+    if (toque) {
+      const p = toque.point, n = toque.face.normal.clone().transformDirection(toque.object.matrixWorld);
+      const olhar = p.clone().add(n), ori = new THREE.Object3D(); ori.position.copy(p); ori.lookAt(olhar); // projetor olha para dentro do peito
+      const decal = (tamanho, material, dy = 0, dz = 0.12) => {
+        const pos = p.clone().add(n.clone().multiplyScalar(dz)); pos.y += dy;
+        const g = new DecalGeometry(toque.object, pos, ori.rotation, tamanho); evo.add(new THREE.Mesh(g, material));
+      };
+      decal(new THREE.Vector3(1.3, 1.35, 0.6), new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }), 0);
+      decal(new THREE.Vector3(0.56, 0.56, 0.6), new THREE.MeshStandardMaterial({ map: icone, transparent: true, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false }), 0.2);
+      decal(new THREE.Vector3(0.7, 0.125, 0.6), new THREE.MeshStandardMaterial({ map: texto, transparent: true, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false }), -0.2);
+    }
+  } catch (e) { console.warn('Evo: decalque da marca não carregou', e); }
+
+  function enquadrar() {
+    const w = canvas.clientWidth, h = canvas.clientHeight, aspect = w / h;
+    renderer.setSize(w, h, false); camera.aspect = aspect;
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    camera.position.set(0, 2.0, Math.max(6.6 / (2 * tan), (tam.x * k + 0.8) / aspect / (2 * tan)) * 1.08);
+    camera.lookAt(0, 1.8, 0); camera.updateProjectionMatrix();
+    if (!anim) renderer.render(cena, camera);
+  }
+  addEventListener('resize', enquadrar);
+
+  // Movimento: pose 3/4 fixa com oscilação lenta de ±17° (14 s) e flutuação mínima; pausa fora da tela, aba oculta,
+  // movimento reduzido e perda de contexto.
+  const POSE = -0.35;
+  let anim = 0, intervalo = 0, visivel = true, perdido = false, quadros = 0, total = 0, t0 = performance.now();
+  const relogio = new THREE.Timer(); relogio.connect(document);
+  const podeAnimar = () => anguloFixo === null && !reduzido() && visivel && !perdido && !document.hidden;
+  function quadro() {
+    relogio.update(); const t = relogio.getElapsed();
+    evo.rotation.y = anguloFixo !== null ? +anguloFixo : POSE + Math.sin(t * 2 * Math.PI / 14) * 0.3;
+    evo.position.y = anguloFixo !== null ? 0 : Math.sin(t * 0.8) * 0.04;
+    renderer.render(cena, camera); quadros++; total++;
+    anim = podeAnimar() ? requestAnimationFrame(quadro) : 0;
+  }
+  function ligar() { if (!anim && podeAnimar()) { relogio.reset(); anim = requestAnimationFrame(quadro); } }
+  function desligar() { cancelAnimationFrame(anim); anim = 0; }
+  const io = new IntersectionObserver(([e]) => { visivel = e.isIntersecting; visivel ? ligar() : desligar(); }); io.observe(canvas);
+  const aoVisib = () => document.hidden ? desligar() : ligar(); document.addEventListener('visibilitychange', aoVisib);
+  const aoPerder = e => { e.preventDefault(); perdido = true; desligar(); canvas.classList.remove('pronta'); }; canvas.addEventListener('webglcontextlost', aoPerder);
+  const mql = matchMedia('(prefers-reduced-motion: reduce)'), aoMudarMov = () => reduzido() ? desligar() : ligar(); mql.addEventListener('change', aoMudarMov);
+
+  enquadrar(); quadro(); canvas.classList.add('pronta');
+
+  function destruir() {
+    perdido = true; desligar(); clearInterval(intervalo); mql.removeEventListener('change', aoMudarMov); io.disconnect();
+    removeEventListener('resize', enquadrar); document.removeEventListener('visibilitychange', aoVisib);
+    canvas.removeEventListener('webglcontextlost', aoPerder); relogio.dispose();
+    cena.traverse(o => { o.geometry?.dispose(); [].concat(o.material ?? []).forEach(m => { for (const k in m) if (m[k]?.isTexture) { m[k].source?.data?.close?.(); m[k].dispose(); } m.dispose(); }); });
+    desistir();
+  }
+
+  window.medirFPS = (ms = 3000) => new Promise(r => { const q0 = total, i0 = performance.now(); setTimeout(() => r(((total - q0) * 1000 / (performance.now() - i0)).toFixed(1)), ms); });
+  window.__evo = { renderer, cena, camera, evo, gltf, destruir };
+  const fpsEl = document.getElementById('fps');
+  if (anguloFixo !== null) fpsEl.textContent = 'pose fixa';
+  else intervalo = setInterval(() => { fpsEl.textContent = `${(quadros * 1000 / (performance.now() - t0)).toFixed(0)} fps`; quadros = 0; t0 = performance.now(); }, 1000);
+}
+</script>
+</body>
+</html>

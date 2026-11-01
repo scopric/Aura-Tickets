@@ -16,6 +16,13 @@ module.exports = {
         },
       },
       colors: {
+        // identidade v3.0 (DESIGN-SYSTEM.md, src/tokens-v3.css): papéis fechados, só onde a Fase 4 já chegou
+        ev3: {
+          fundo: "var(--ev3-fundo)", texto: "var(--ev3-texto)", terciario: "var(--ev3-terciario)",
+          fio: "var(--ev3-fio)", contorno: "var(--ev3-contorno)", acento: "var(--ev3-acento)",
+          "acento-texto": "var(--ev3-acento-texto)", foco: "var(--ev3-foco)", placa: "var(--ev3-placa)",
+          veu: "var(--ev3-veu)", vidro: "var(--ev3-vidro)", erro: "var(--ev3-erro)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -72,6 +79,10 @@ module.exports = {
         sans: ['Plus Jakarta Sans', 'Inter', 'Geist', 'system-ui', 'sans-serif'],
         // nome do evento e números de dado (contrato v3.4, §3); largura com font-stretch
         display: ['Archivo', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        // identidade v3.0 (Decisão 249): três famílias com papéis fechados (DESIGN-SYSTEM.md §2)
+        'ev3-chrome': ['Syne', 'system-ui', 'sans-serif'],
+        'ev3-corpo': ['Newsreader', 'Georgia', 'serif'],
+        'ev3-display': ['Big Shoulders', 'Arial Narrow', 'sans-serif'],
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -87,6 +98,10 @@ module.exports = {
         "ev-xl": "12px",
         "ev-2xl": "20px",
         "ev-pill": "999px",
+        // identidade v3.0: só estes três (DESIGN-SYSTEM.md §3)
+        "ev3-controle": "var(--ev3-raio-controle)",
+        "ev3-cartao": "var(--ev3-raio-cartao)",
+        "ev3-pilula": "var(--ev3-raio-pilula)",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",

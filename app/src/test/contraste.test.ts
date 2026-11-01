@@ -39,7 +39,7 @@ const PARES: [string, string, number][] = [
   ['muted-foreground', 'background', 4.5],
   ['muted-foreground', 'muted', 4.5],          // rótulo sobre superfície 2
   ['muted-foreground', 'card', 4.5],
-  ['primary-foreground', 'primary', 4.5],      // branco no azul da marca
+  ['primary-foreground', 'primary', 4.5],      // branco no violeta da marca
   ['card-foreground', 'card', 4.5],
   ['popover-foreground', 'popover', 4.5],
   ['secondary-foreground', 'secondary', 4.5],
@@ -58,8 +58,8 @@ const PARES: [string, string, number][] = [
   ['input', 'background', 3],                  // borda de campo
   ['input', 'secondary', 3],
   ['ring', 'background', 3],                   // anel de foco
-  ['ev-focus-field', 'background', 3],         // borda do campo em foco (marinho no claro, azul claro no escuro)
-  ['primary', 'background', 3],                // botão da marca não some no fundo (o marinho puro some no escuro)
+  ['ev-focus-field', 'background', 3],         // borda do campo em foco (violeta escuro no claro, claro no escuro)
+  ['primary', 'background', 3],                // botão da marca não some no fundo
   ['primary', 'card', 3],
   // ponytail: bg-primary no escuro dá 2,95 sobre secondary e 2,79 sobre brand-soft (< 3); o royal antigo dava parecido, então não é regressão. Subir o tom se uma borda dessas aparecer.
 ]
@@ -79,12 +79,12 @@ describe.each([['claro', claro], ['escuro', escuro]] as const)('contraste no tem
   })
 })
 
-describe('marca: marinho (Decisão 226)', () => {
+describe('marca: violeta em todo o sistema (Decisão 246)', () => {
   it.each([['claro', claro], ['escuro', escuro]] as const)('%s: hover e press do botão com branco >= 4,5', (_, t) => {
     expect(razao('#ffffff', t['ev-brand-hover'])).toBeGreaterThanOrEqual(4.5)
     expect(razao('#ffffff', t['ev-brand-press'])).toBeGreaterThanOrEqual(4.5)
   })
-  it('pílula ativa do menu: marinho no claro e azul claro no escuro, >= 4,5 sobre o fundo dela', () => {
+  it('pílula ativa do menu: violeta nos dois temas, >= 4,5 sobre o fundo dela', () => {
     const l = css.match(/\.vidro :is\([^)]*\) \{ background: #ffffff; color: (#[0-9a-f]{6});/i)?.[1]
     const e = css.match(/\.dark \.vidro :is\([^)]*\) \{ background: #2a303b; color: (#[0-9a-f]{6});/i)?.[1]
     expect(l && e).toBeTruthy()
@@ -98,7 +98,7 @@ describe('valores do contrato §2.1', () => {
   it.each([
     [claro, 'background', '#ffffff'], [claro, 'foreground', '#0b0d12'], [claro, 'muted-foreground', '#5b6472'],
     [claro, 'secondary', '#f4f5f7'], [claro, 'border', '#e3e6ea'], [claro, 'input', '#838c9a'],
-    [claro, 'primary', '#0c2340'], [claro, 'destructive', '#c8322b'],
+    [claro, 'primary', '#8f33f5'], [claro, 'destructive', '#c8322b'],
     [escuro, 'background', '#0b0d12'], [escuro, 'foreground', '#e6e8ec'], [escuro, 'card', '#14171d'],
     [escuro, 'secondary', '#1b1f27'], [escuro, 'muted-foreground', '#9aa1ad'], [escuro, 'input', '#646d7b'],
     [escuro, 'border', '#1f2025'], // branco 8% sobre #0b0d12

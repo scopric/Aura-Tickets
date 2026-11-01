@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design system v3.0 — kitchen sink</title>
+<link rel="icon" href="data:," />
+<!-- Prova local do app/DESIGN-SYSTEM.md v3.0: cada componente do §6 com os tokens reais de app/src/tokens-v3.css.
+     Servir a partir da raiz do repositório (python3 -m http.server) para os caminhos relativos funcionarem. Fora das rotas do produto. -->
+<link rel="stylesheet" href="../../../app/src/tokens-v3.css" />
+<style>
+  /* As fontes do tokens-v3.css apontam para /fonts (raiz do app); aqui, servido da raiz do repositório, o caminho é outro */
+  @font-face { font-family: 'Syne'; src: url(../../../app/public/fonts/syne.woff2) format('woff2'); font-weight: 400 800; font-display: swap; }
+  @font-face { font-family: 'Newsreader'; src: url(../../../app/public/fonts/newsreader.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
+  @font-face { font-family: 'Newsreader'; src: url(../../../app/public/fonts/newsreader-italic.woff2) format('woff2'); font-weight: 200 800; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Big Shoulders'; src: url(../../../app/public/fonts/big-shoulders.woff2) format('woff2'); font-weight: 100 900; font-display: swap; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ev3-fundo); color: var(--ev3-texto); }
+  body { padding: 0 16px var(--ev3-secao); font: 400 var(--ev3-texto-corpo)/var(--ev3-entrelinha-corpo) var(--ev3-fonte-corpo); font-synthesis: none; }
+  main { max-width: 1120px; margin: 0 auto; }
+  section { padding: var(--ev3-secao) 0; border-bottom: 1px solid var(--ev3-fio); }
+  section:last-of-type { border-bottom: 0; }
+  h2 { font: 400 var(--ev3-texto-chrome)/var(--ev3-entrelinha-chrome) var(--ev3-fonte-chrome); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ev3-terciario); margin: 0 0 var(--ev3-esp-28); }
+  .linha-itens { display: flex; flex-wrap: wrap; gap: var(--ev3-esp-12); align-items: center; }
+  .chrome { font: 400 var(--ev3-texto-chrome)/var(--ev3-entrelinha-chrome) var(--ev3-fonte-chrome); }
+  .nota { color: var(--ev3-terciario); font: 400 12px/1.5 var(--ev3-fonte-chrome); margin: var(--ev3-esp-12) 0 0; }
+  a { color: var(--ev3-terciario); text-decoration: none; border-bottom: 1px solid var(--ev3-fio); transition: color var(--ev3-mov-micro) var(--ev3-curva-sai); }
+  a:hover { color: var(--ev3-texto); }
+  a.ativo { color: var(--ev3-acento-texto); border-bottom-color: var(--ev3-acento-texto); }
+  :focus-visible { outline: 2px solid var(--ev3-foco); outline-offset: 2px; }
+
+  /* 1 cores */
+  .amostras { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--ev3-esp-12); }
+  .amostra { border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-cartao); padding: var(--ev3-esp-12); }
+  .amostra i { display: block; height: 44px; border-radius: var(--ev3-raio-controle); border: 1px solid var(--ev3-fio); margin-bottom: var(--ev3-esp-6); }
+  .amostra b { display: block; font: 700 12px/1.5 var(--ev3-fonte-chrome); }
+  .amostra span { font: 400 12px/1.5 var(--ev3-fonte-chrome); color: var(--ev3-terciario); }
+
+  /* 2 tipografia */
+  .titulo { font: 700 var(--ev3-titulo-evento)/0.92 var(--ev3-fonte-display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+  .data { font: 700 var(--ev3-data-monumental)/0.9 var(--ev3-fonte-display); } /* Big Shoulders não tem dígitos tabulares: valor fixo */
+  .data small { display: block; font: 400 12px/1.5 var(--ev3-fonte-chrome); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ev3-terciario); margin-top: var(--ev3-esp-12); }
+  .corpo { max-width: 62ch; margin: var(--ev3-esp-28) 0 0; }
+
+  /* 6 componentes */
+  .btn { font: var(--ev3-peso-botao) var(--ev3-texto-botao)/1.2 var(--ev3-fonte-chrome); background: var(--ev3-acento); color: #fff; border: 0; border-radius: var(--ev3-raio-pilula); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: pointer; transition: opacity var(--ev3-mov-micro) var(--ev3-curva-sai); }
+  .btn:hover { opacity: 0.94; }
+  .esgotado { font: 400 14px/1.2 var(--ev3-fonte-chrome); background: transparent; color: var(--ev3-terciario); border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-pilula); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: not-allowed; }
+  .fantasma { font: 400 14px/1.2 var(--ev3-fonte-chrome); background: transparent; color: var(--ev3-texto); border: 1px solid var(--ev3-contorno); border-radius: var(--ev3-raio-controle); padding: 12px 18px; min-height: var(--ev3-alvo); cursor: pointer; transition: background var(--ev3-mov-micro) var(--ev3-curva-sai); }
+  .fantasma:hover { background: var(--ev3-vidro); }
+  .pilula { font: 400 12px/1.5 var(--ev3-fonte-chrome); border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-pilula); padding: 4px 12px; min-height: 28px; color: var(--ev3-texto); background: transparent; }
+  /* pílula selecionável é botão com alvo de 44 px (área invisível, como .alvo-44 do index.css, aqui sem a condição de toque para a prova medir) */
+  button.pilula { cursor: pointer; position: relative; }
+  button.pilula::before { content: ''; position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; min-width: 44px; min-height: 44px; transform: translate(-50%, -50%); }
+  nav a, nav span { display: inline-flex; align-items: center; min-height: var(--ev3-alvo); }
+  .pilula.sel { background: var(--ev3-acento); border-color: var(--ev3-acento); color: #fff; }
+  .campo { display: grid; gap: var(--ev3-esp-6); max-width: 420px; }
+  .campo label { font: 400 12px/1.5 var(--ev3-fonte-chrome); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ev3-terciario); }
+  .campo input { font: 400 var(--ev3-texto-campo)/1.5 var(--ev3-fonte-corpo); color: var(--ev3-texto); background: transparent; border: 1px solid var(--ev3-contorno); border-radius: var(--ev3-raio-controle); padding: 12px; min-height: var(--ev3-alvo); }
+  .campo.erro input { border-color: var(--ev3-erro); }
+  .campo.erro small { color: var(--ev3-erro); font: 400 12px/1.5 var(--ev3-fonte-chrome); }
+  .cartao { border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-cartao); padding: var(--ev3-cartao-pad); max-width: 420px; }
+  .cartao h3 { font: 700 14px/1.2 var(--ev3-fonte-chrome); margin: 0 0 var(--ev3-esp-12); }
+  .cartao p { margin: 0; }
+  .cena { position: relative; border-radius: var(--ev3-raio-cartao); overflow: hidden; height: 260px; background: radial-gradient(circle at 60% 40%, #2a1050 0%, #000 65%); }
+  .cena .nota-cena { position: absolute; left: 16px; top: 16px; font: 400 12px/1.5 var(--ev3-fonte-chrome); color: var(--ev3-terciario); }
+  .painel { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ev3-veu); -webkit-backdrop-filter: var(--ev3-desfoque); backdrop-filter: var(--ev3-desfoque); border: 1px solid var(--ev3-fio); border-radius: var(--ev3-raio-cartao); padding: var(--ev3-esp-16) var(--ev3-esp-28); }
+  .painel p { margin: 0; }
+  .info { display: flex; justify-content: space-between; gap: 12px; font: 400 14px/1.5 var(--ev3-fonte-chrome); color: var(--ev3-terciario); padding: 12px 0; border-bottom: 1px solid var(--ev3-fio); }
+  .info b { color: var(--ev3-texto); font-weight: 400; }
+  .preco { font: 400 14px/1.5 var(--ev3-fonte-chrome); margin: 16px 0; }
+  .preco strong { font: 700 var(--ev3-numero)/1.2 var(--ev3-fonte-display); letter-spacing: 0.01em; margin-right: 6px; }
+  .placa { background: var(--ev3-placa); border-radius: var(--ev3-raio-cartao); padding: 24px; width: 232px; }
+  .placa svg { display: block; width: 184px; height: 184px; }
+  .placa p { margin: 12px 0 0; font: 400 12px/1.5 var(--ev3-fonte-chrome); color: #000; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h2>Design system v3.0 · kitchen sink · tokens de <code>app/src/tokens-v3.css</code></h2>
+    <p class="corpo" style="margin:0">Cada bloco abaixo é um componente do §6 do <code>DESIGN-SYSTEM.md</code>, desenhado só com os tokens. Fundo <code>#000</code>, chrome em Syne, prosa em Newsreader, cartaz em Big Shoulders. Nenhuma sombra, nenhum gradiente de chrome, raio 5 / 12 / 500.</p>
+  </section>
+
+  <section>
+    <h2>1 · Cor (contraste sobre #000)</h2>
+    <div class="amostras">
+      <div class="amostra"><i style="background:var(--ev3-texto)"></i><b>texto</b><span>#ffffff · 21,00</span></div>
+      <div class="amostra"><i style="background:var(--ev3-terciario)"></i><b>terciário</b><span>#c6c6c6 · 12,29</span></div>
+      <div class="amostra"><i style="background:var(--ev3-contorno)"></i><b>contorno</b><span>#999999 · 7,37</span></div>
+      <div class="amostra"><i style="background:var(--ev3-fio)"></i><b>fio decorativo</b><span>#4d4d4d · 2,48 (nunca em controle)</span></div>
+      <div class="amostra"><i style="background:var(--ev3-acento)"></i><b>acento</b><span>#8f33f5 · rótulo branco 5,30</span></div>
+      <div class="amostra"><i style="background:var(--ev3-acento-texto)"></i><b>acento como texto</b><span>#b57cf8 · 7,20</span></div>
+      <div class="amostra"><i style="background:var(--ev3-veu); border-color: var(--ev3-contorno)"></i><b>véu</b><span>rgb(0 0 0 / .8) + blur 4</span></div>
+      <div class="amostra"><i style="background:var(--ev3-placa)"></i><b>placa do QR</b><span>#ffffff opaco, só aqui</span></div>
+      <div class="amostra"><i style="background:var(--ev3-erro)"></i><b>erro</b><span>#ef5a52 · 6,25</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Tipografia · chrome 12/14 · corpo 16/1,88 · display só em título de evento e número</h2>
+    <nav class="linha-itens chrome" style="text-transform:uppercase; letter-spacing:.04em; margin-bottom: 28px">
+      <a href="#">Explorar</a><a href="#">Criar evento</a><a href="#">Entrar</a><a href="#" class="ativo">Meus ingressos</a>
+    </nav>
+    <h1 class="titulo">Noite de Forró<br>na Estação</h1>
+    <div class="data">14<small>novembro · sábado · 21h</small></div>
+    <p class="corpo">A Evokaa é a plataforma de ingressos feita para quem organiza e para quem vai. Você cria o evento, define os lotes e acompanha as vendas em tempo real; quem compra vê o preço completo antes de qualquer botão e recebe o ingresso com código dinâmico. Sem surpresas no caixa, sem fila na porta, com <em>ênfase real em itálico verdadeiro</em>. <a href="#">Saiba como funciona</a>.</p>
+  </section>
+
+  <section>
+    <h2>6 · Botões, pílulas e campo</h2>
+    <div class="linha-itens">
+      <button class="btn" type="button">Comprar ingresso</button>
+      <button class="esgotado" type="button" aria-disabled="true">Esgotado</button>
+      <button class="fantasma" type="button">Ver programação</button>
+      <button class="pilula" type="button" aria-pressed="false">Forró</button><button class="pilula sel" type="button" aria-pressed="true">Curitiba</button><button class="pilula" type="button" aria-pressed="false">Hoje</button><span class="pilula">só rótulo</span>
+    </div>
+    <p class="nota">Um botão principal por tela; o resto é fantasma. "Esgotado" é fantasma com fio #4d4d4d e texto terciário, nunca o acento apagado. Pílula de filtro é botão com alvo de 44 px. Foco de teclado: anel branco de 2 px (use Tab).</p>
+    <div class="linha-itens" style="align-items:flex-start; margin-top:28px; gap:28px">
+      <div class="campo"><label for="c1">E-mail para receber o ingresso</label><input id="c1" type="email" placeholder="você@exemplo.com.br" /></div>
+      <div class="campo erro"><label for="c2">CPF</label><input id="c2" type="text" value="123" aria-invalid="true" aria-describedby="c2e" /><small id="c2e">Digite os 11 números do CPF.</small></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>6 · Cartão, painel sobre cena, linhas de informação e preço total</h2>
+    <div class="linha-itens" style="align-items:flex-start; gap:28px">
+      <div class="cartao"><h3>Lote 2 · Pista</h3><p>Entrada a partir das 21h. Meia-entrada aceita com documento na portaria.</p></div>
+      <div class="cena" style="flex:1; min-width:280px"><span class="nota-cena">cena 3D (aqui só um fundo)</span>
+        <div class="painel"><p>Texto sobre a cena vai num painel com opacidade 0,8 e desfoque de 4 px. Nunca texto solto sobre o 3D.</p></div>
+      </div>
+    </div>
+    <div style="max-width:560px; margin-top:28px">
+      <div class="info"><span>Local</span><b>Estação Cultural, Curitiba</b></div>
+      <div class="info"><span>Classificação</span><b>18 anos · meia-entrada aceita</b></div>
+      <p class="preco"><strong>R$ 66,00</strong> total, com a taxa. É o preço que você paga; nada muda no fim.</p>
+      <button class="btn" type="button">Comprar ingresso</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>7 · Caminho crítico: placa do QR (2D, opaca, sem cena atrás)</h2>
+    <div class="placa">
+      <svg viewBox="0 0 29 29" shape-rendering="crispEdges" aria-label="QR de exemplo" role="img">
+        <rect width="29" height="29" fill="#fff"/>
+        <path fill="#000" d="M2 2h7v7H2zM4 4h3v3H4zM20 2h7v7h-7zM22 4h3v3h-3zM2 20h7v7H2zM4 22h3v3H4zM11 2h1v1h-1zM13 2h2v2h-2zM16 3h1v2h-1zM11 5h2v1h-2zM14 6h3v1h-3zM11 8h1v2h-1zM13 9h2v1h-2zM17 8h1v3h-1zM2 11h2v1H2zM5 11h3v2H5zM10 11h3v1h-3zM14 11h1v3h-1zM16 12h3v1h-3zM20 11h2v2h-2zM23 11h1v1h-1zM25 11h2v1h-2zM3 14h1v2H3zM6 14h2v1H6zM9 14h3v2H9zM13 15h1v1h-1zM16 14h1v2h-1zM18 15h3v1h-3zM22 14h1v2h-1zM24 15h3v1h-3zM2 17h3v1H2zM6 17h1v2H6zM8 17h2v1H8zM11 17h2v2h-2zM15 17h3v1h-3zM19 18h2v2h-2zM23 17h1v2h-1zM25 18h2v1h-2zM11 20h2v2h-2zM14 20h1v3h-1zM16 21h2v1h-2zM20 21h3v2h-3zM24 20h1v2h-1zM26 21h1v3h-1zM11 23h1v2h-1zM13 24h2v1h-2zM17 23h2v2h-2zM21 24h1v3h-1zM23 25h3v2h-3zM12 26h3v1h-3zM16 26h2v1h-2zM19 27h1v1h-1z"/>
+      </svg>
+      <p>QR #000 em placa #fff, margem de 4 módulos</p>
+    </div>
+    <p class="nota">Vale para o Pix do checkout e para o ingresso. Pagar, entrar e validar são 2D.</p>
+  </section>
+</main>
+</body>
+</html>
