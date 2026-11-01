@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fontes — prova impressa</title>
+<link rel="icon" href="data:," />
+<!-- Fase 2 do Modo Refero: três combinações para os três papéis do reference lock (chrome geométrico, corpo em serifa,
+     display comprimida só para título de evento e número). Só fontes OFL 1.1 (licenças em woff2/OFL-*.txt), auto-hospedadas,
+     subset latin servido pelo Google Fonts (cobre ç ã õ é). -->
+<style>
+  @font-face { font-family: 'Syne'; src: url(woff2/syne.woff2) format('woff2'); font-weight: 400 800; font-display: swap; }
+  @font-face { font-family: 'Jost'; src: url(woff2/jost.woff2) format('woff2'); font-weight: 100 900; font-display: swap; }
+  @font-face { font-family: 'Archivo'; src: url(woff2/archivo.woff2) format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+  @font-face { font-family: 'Newsreader'; src: url(woff2/newsreader.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
+  @font-face { font-family: 'Literata'; src: url(woff2/literata.woff2) format('woff2'); font-weight: 200 900; font-display: swap; }
+  @font-face { font-family: 'Source Serif 4'; src: url(woff2/source-serif-4.woff2) format('woff2'); font-weight: 200 900; font-display: swap; }
+  @font-face { font-family: 'Big Shoulders'; src: url(woff2/big-shoulders.woff2) format('woff2'); font-weight: 100 900; font-display: swap; }
+  @font-face { font-family: 'Antonio'; src: url(woff2/antonio.woff2) format('woff2'); font-weight: 100 700; font-display: swap; }
+  @font-face { font-family: 'League Gothic'; src: url(woff2/league-gothic.woff2) format('woff2'); font-weight: 400; font-stretch: 75% 100%; font-display: swap; }
+
+  :root { color-scheme: dark; --fundo: #000; --texto: #fff; --terciario: #c6c6c6; --fio: #4d4d4d; --contorno: #999; --acento: #8f33f5; --acento-texto: #b57cf8; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--texto); }
+  body { padding: 0 16px 48px; }
+  .combo { padding: 48px 0; border-bottom: 1px solid var(--fio); max-width: 1120px; margin: 0 auto; }
+  .combo:last-child { border-bottom: 0; }
+  .nome { font: 400 12px/1.5 var(--chrome); letter-spacing: 0.06em; text-transform: uppercase; color: var(--terciario); margin: 0 0 28px; }
+  .nome b { color: var(--texto); font-weight: 700; }
+  .nav { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 28px; }
+  .nav ul { display: flex; gap: 18px; margin: 0; padding: 0; list-style: none; font: 400 12px/1.5 var(--chrome); text-transform: uppercase; letter-spacing: 0.04em; }
+  .nav li { padding: 4px 6px; border: 1px solid var(--contorno); border-radius: 5px; min-height: 28px; }
+  .btn { font: 700 14px/1.2 var(--chrome); background: var(--acento); color: #fff; border: 0; border-radius: 500px; padding: 12px 18px; min-height: 44px; }
+  .cartaz { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: end; border-top: 1px solid var(--fio); border-bottom: 1px solid var(--fio); padding: 28px 0; }
+  .titulo { font: 700 clamp(44px, 7vw, 88px)/0.92 var(--display); text-transform: uppercase; letter-spacing: -0.005em; margin: 0; text-wrap: balance; }
+  .data { font: 700 clamp(72px, 12vw, 160px)/0.9 var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+  .data small { display: block; font: 400 12px/1.5 var(--chrome); text-transform: uppercase; letter-spacing: 0.06em; color: var(--terciario); margin-top: 12px; }
+  .linha { display: flex; justify-content: space-between; gap: 12px; font: 400 14px/1.5 var(--chrome); color: var(--terciario); padding: 12px 0; border-bottom: 1px solid var(--fio); }
+  .linha b { color: var(--texto); font-weight: 400; }
+  .preco { font: 400 14px/1.5 var(--chrome); margin: 16px 0 0; }
+  .preco strong { font: 700 28px/1.2 var(--display); letter-spacing: 0.01em; margin-right: 6px; }
+  .corpo { font: 400 16px/1.88 var(--serifa); max-width: 62ch; margin: 28px 0 0; }
+  .corpo a { color: var(--terciario); text-decoration: none; border-bottom: 1px solid var(--fio); }
+  .corpo em { font-style: italic; }
+  .campo { display: grid; gap: 6px; margin-top: 28px; max-width: 420px; }
+  .campo label { font: 400 12px/1.5 var(--chrome); text-transform: uppercase; letter-spacing: 0.04em; color: var(--terciario); }
+  .campo input { font: 400 16px/1.5 var(--serifa); color: var(--texto); background: transparent; border: 1px solid var(--contorno); border-radius: 5px; padding: 12px; min-height: 44px; }
+  .campo input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .licencas { font: 400 12px/1.5 var(--chrome); color: var(--terciario); margin: 28px 0 0; }
+  .licencas span { color: var(--acento-texto); }
+  @media (max-width: 720px) { .cartaz { grid-template-columns: 1fr; } .data { text-align: left; } }
+
+  .a { --chrome: 'Syne', system-ui, sans-serif; --serifa: 'Newsreader', Georgia, serif; --display: 'Big Shoulders', 'Arial Narrow', sans-serif; }
+  .b { --chrome: 'Jost', system-ui, sans-serif; --serifa: 'Literata', Georgia, serif; --display: 'Antonio', 'Arial Narrow', sans-serif; }
+  .c { --chrome: 'Archivo', system-ui, sans-serif; --serifa: 'Source Serif 4', Georgia, serif; --display: 'League Gothic', 'Arial Narrow', sans-serif; }
+  .c .titulo, .c .data, .c .preco strong { font-weight: 400; font-stretch: 85%; }
+  .c .btn, .c .nav ul { font-stretch: 100%; }
+</style>
+</head>
+<body>
+<template id="modelo">
+  <section class="combo">
+    <p class="nome"><b data-nome></b> · <span data-papeis></span></p>
+    <div class="nav">
+      <ul><li>Explorar</li><li>Criar evento</li><li>Entrar</li></ul>
+      <button class="btn" type="button">Comprar ingresso</button>
+    </div>
+    <div class="cartaz">
+      <h2 class="titulo">Noite de Forró<br>na Estação</h2>
+      <div class="data">14<small>novembro · sábado · 21h</small></div>
+    </div>
+    <div class="linha"><span>Local</span><b>Estação Cultural, Curitiba</b></div>
+    <div class="linha"><span>Classificação</span><b>18 anos · meia-entrada aceita</b></div>
+    <p class="preco"><strong>R$ 66,00</strong> total, com a taxa. É o preço que você paga; nada muda no fim.</p>
+    <p class="corpo">A Evokaa é a plataforma de ingressos feita para quem organiza e para quem vai. Você cria o evento, define os lotes e acompanha as vendas em tempo real; quem compra vê o <em>preço completo</em> antes de qualquer botão e recebe o ingresso com código dinâmico. Sem surpresas no caixa, sem fila na porta, com atenção às regras de cada cidade e à proteção dos seus dados. <a href="#">Saiba como funciona</a>.</p>
+    <div class="campo"><label for="">E-mail para receber o ingresso</label><input type="email" placeholder="você@exemplo.com.br" /></div>
+    <p class="licencas" data-licencas></p>
+  </section>
+</template>
+<script>
+  const combos = [
+    ['a', 'A · Syne + Newsreader + Big Shoulders', 'chrome geométrica · corpo editorial · cartaz comprimido',
+      'Syne (Bonjour Monde) · Newsreader (Production Type) · Big Shoulders (Patric King). As três sob <span>SIL Open Font License 1.1</span>: uso comercial, web e auto-hospedagem permitidos; licença junto dos arquivos.'],
+    ['b', 'B · Jost + Literata + Antonio', 'chrome geométrica · corpo editorial · cartaz comprimido',
+      'Jost (Owen Earl) · Literata (TypeTogether) · Antonio (Vernon Adams). As três sob <span>SIL Open Font License 1.1</span>.'],
+    ['c', 'C · Archivo + Source Serif 4 + League Gothic', 'chrome (já no projeto, eixo de largura) · corpo editorial · cartaz comprimido',
+      'Archivo (Omnibus-Type) · Source Serif 4 (Adobe) · League Gothic (The League of Moveable Type). As três sob <span>SIL Open Font License 1.1</span>.'],
+  ];
+  const t = document.getElementById('modelo');
+  for (const [cls, nome, papeis, lic] of combos) {
+    const n = t.content.cloneNode(true); const s = n.querySelector('section'); s.classList.add(cls);
+    n.querySelector('[data-nome]').textContent = nome; n.querySelector('[data-papeis]').textContent = papeis; n.querySelector('[data-licencas]').innerHTML = lic;
+    document.body.appendChild(n);
+  }
+</script>
+</body>
+</html>
