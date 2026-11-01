@@ -50,7 +50,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 const canvas = document.getElementById('cena');
 const params = new URLSearchParams(location.search);
 const anguloFixo = params.get('angulo');
-const modelo = params.get('modelo') ?? 'evo.glb'; // só na prova; no produto o caminho é fixo
+const modelo = params.get('modelo') ?? 'evo-web.glb'; // só na prova; no produto o caminho é fixo (34 mil triângulos, meshopt, 1,4 MB)
 const reduzido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Fica no poster (regra do lock): movimento reduzido, economia de dados, aparelho fraco, sem WebGL2
 const fraco = navigator.connection?.saveData || (navigator.deviceMemory && navigator.deviceMemory < 4);
