@@ -51,6 +51,7 @@ const AuthForgot = lazy(() => import('./pages/auth/ForgotPassword'))
 const AuthReset = lazy(() => import('./pages/auth/ResetPassword'))
 const Convite = lazy(() => import('./pages/auth/Convite'))
 const AppDownload = lazy(() => import('./pages/app/Download'))
+const EvoCena = lazy(() => import('./components/evo3d/EvoCena'))
 
 // Producer pages (lazy loaded)
 const ProducerDashboard = lazy(() => import('./pages/producer/Dashboard'))
@@ -377,6 +378,8 @@ function Layout() {
             <Route path="/contato" element={<ContactPage />} />
             <Route path="/termos" element={<TermsPage />} />
             <Route path="/privacidade" element={<PrivacyPage />} />
+            {/* Laboratório do Evo 3D (Fase 3 do Modo Refero): só em desenvolvimento ou com VITE_LAB=1 no build do e2e */}
+            {(import.meta.env.DEV || import.meta.env.VITE_LAB === '1') && <Route path="/dev/evo" element={<div style={{ height: '100vh' }}><EvoCena /></div>} />}
             <Route path="/certificado/:codigo" element={<CertificadoValidacao />} />
             <Route path="/newsletter/sair" element={<NewsletterUnsubscribe />} />
             <Route path="/p/:code/:link?" element={<AffiliateLanding />} />
