@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Evo 3D — prova</title>
 <link rel="icon" href="data:," />
-<!-- Prova local da Fase 2 do Modo Refero (Decisões 244–246), v2 depois de duas passadas do revisor. Fora das rotas do produto.
+<!-- Prova local da Fase 2 do Modo Refero (Decisões 244–246), v3 (mais parecido com o 2D, pedido do Ricardo) depois de duas passadas do revisor na v2. Fora das rotas do produto.
      three.js vem da CDN só nesta prova: o app ainda não tem a dependência (decisão do Ricardo, ver a nota do PR).
      No produto o pacote entra pelo npm, em chunk separado por rota. -->
 <style>
@@ -33,7 +33,7 @@
 <body>
 <canvas id="cena" aria-label="Evo, mascote da Evokaa, em 3D" role="img"></canvas>
 <img id="poster" src="evo-3d-poster.webp" alt="Evo, mascote da Evokaa, em 3D" />
-<div id="rotulo"><b>Evo</b> · prova 3D · v2.1 · <span id="fps"></span></div>
+<div id="rotulo"><b>Evo</b> · prova 3D · v3 · <span id="fps"></span></div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -69,6 +69,9 @@ function montar(gl) {
   const violeta = new THREE.MeshStandardMaterial({ color: 0x8f33f5, roughness: 0.65, metalness: 0, envMapIntensity: 0.4 });
   const lente = new THREE.MeshStandardMaterial({ color: 0x0a1430, roughness: 0.38, metalness: 0, envMapIntensity: 0.3 });
   const topete = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0, envMapIntensity: 0.5 });
+  const esclera = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0, envMapIntensity: 0.4 });
+  const iris = new THREE.MeshStandardMaterial({ color: 0x1d68c4, roughness: 0.35, metalness: 0, envMapIntensity: 0.5 });
+  const azul = new THREE.MeshStandardMaterial({ color: 0x2f6aa8, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.6 });
 
   const evo = new THREE.Group();
   const peca = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); evo.add(m); return m; };
@@ -77,13 +80,21 @@ function montar(gl) {
 
   // Cabeça (centro 2.55, raio 0.95): 38,5% da altura sem o topete, 32,5% com ele (medido pelo revisor)
   const cabeca = peca(new THREE.SphereGeometry(0.95, 64, 48), branco, 0, 2.55, 0); cabeca.scale.set(1, 0.97, 0.98);
-  // Olhos: lentes escuras embutidas; sem pupila desenhada, sem brilho de ambiente
+  evo.rotation.z = 0.04; // cabeça e corpo levemente inclinados, pose viva
+  // Olhos como no 2D: branco, íris azul grande, pupila escura e um brilho pequeno; sobrancelha fina; boca sorrindo
+  const naFace = (dir, dist) => dir.clone().normalize().multiplyScalar(dist).add(cabeca.position);
   for (const s of [-1, 1]) {
-    const d = new THREE.Vector3(s * 0.4, 0.05, 0.9).normalize();
-    const olho = peca(new THREE.SphereGeometry(0.23, 32, 20), lente);
-    olho.position.copy(d).multiplyScalar(0.88).add(cabeca.position); olho.lookAt(d.clone().multiplyScalar(5).add(cabeca.position));
-    olho.scale.set(1, 1.2, 0.3);
+    const d = new THREE.Vector3(s * 0.38, 0.02, 0.9);
+    const branco_ = peca(new THREE.SphereGeometry(0.25, 32, 20), esclera); branco_.position.copy(naFace(d, 0.86)); branco_.lookAt(naFace(d, 5)); branco_.scale.set(1, 1.25, 0.35);
+    const ir = peca(new THREE.SphereGeometry(0.17, 32, 20), iris); ir.position.copy(naFace(d, 0.93)); ir.lookAt(naFace(d, 5)); ir.scale.set(1, 1.2, 0.25);
+    const pu = peca(new THREE.SphereGeometry(0.095, 24, 16), lente); pu.position.copy(naFace(d, 0.965)); pu.lookAt(naFace(d, 5)); pu.scale.set(1, 1.15, 0.25);
+    const br = peca(new THREE.SphereGeometry(0.035, 12, 8), esclera); br.position.copy(naFace(new THREE.Vector3(s * 0.33, 0.1, 0.9), 0.995));
+    const sob = peca(new THREE.TorusGeometry(0.2, 0.028, 10, 32, Math.PI * 0.7), marinho); sob.position.copy(naFace(new THREE.Vector3(s * 0.38, 0.42, 0.85), 0.93));
+    sob.lookAt(naFace(new THREE.Vector3(s * 0.38, 0.42, 0.85), 5)); sob.rotation.z += Math.PI * 0.15 + s * 0.12;
   }
+  const boca = peca(new THREE.TorusGeometry(0.2, 0.03, 10, 32, Math.PI), marinho); boca.position.copy(naFace(new THREE.Vector3(0, -0.42, 0.9), 0.94));
+  boca.lookAt(naFace(new THREE.Vector3(0, -0.42, 0.9), 5)); boca.rotation.z += Math.PI;
+  const dentro = peca(new THREE.SphereGeometry(0.17, 24, 16), marinho); dentro.position.copy(naFace(new THREE.Vector3(0, -0.47, 0.9), 0.9)); dentro.lookAt(naFace(new THREE.Vector3(0, -0.47, 0.9), 5)); dentro.scale.set(1, 0.5, 0.25);
   // Fones: arco e conchas em laca marinho; anel violeta fosco na concha (a cor da marca, como no 2D)
   const arco = peca(new THREE.TorusGeometry(1.03, 0.08, 16, 64, Math.PI), marinho, 0, 2.55, -0.05); arco.rotation.x = -0.12;
   for (const s of [-1, 1]) {
@@ -114,9 +125,12 @@ function montar(gl) {
   const tronco = lathe([[0.3, 1.7], [0.42, 1.6], [0.64, 1.4], [0.7, 1.05], [0.68, 0.6], [0.63, 0.3], [0.58, 0.15], [0, 0.1]], branco);
   lathe([[0.65, 0.27], [0.635, 0.14]], violeta);                       // faixa
   lathe([[0.59, 0.12], [0.56, -0.15], [0.46, -0.4], [0.3, -0.52], [0, -0.55]], marinho);
+  // braço esquerdo (s = 1) relaxado; braço direito (s = -1) levantado, acenando, como na pose 2D. Cada braço gira no ombro.
   for (const s of [-1, 1]) {
-    const braco = peca(new THREE.CapsuleGeometry(0.17, 0.62, 6, 24), branco, s * 0.84, 0.75, 0.02); braco.rotation.z = s * -0.12;
-    peca(new THREE.SphereGeometry(0.2, 28, 20), branco, s * 0.9, 0.3, 0.06).scale.set(0.9, 1, 0.75);  // mão com pulso
+    const sobe = s === -1;
+    const ombro = new THREE.Group(); ombro.position.set(s * 0.72, 1.28, 0.02); ombro.rotation.z = sobe ? -2.5 : s * -0.1; evo.add(ombro);
+    const braco = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.62, 6, 24), branco); braco.position.y = -0.4; ombro.add(braco);
+    const mao = new THREE.Mesh(new THREE.SphereGeometry(0.21, 28, 20), azul); mao.position.y = -0.88; mao.scale.set(0.9, 1, 0.75); ombro.add(mao);  // luva, como no 2D
     peca(new THREE.CapsuleGeometry(0.2, 0.4, 6, 24), marinho, s * 0.3, -0.7, 0);
     peca(new THREE.SphereGeometry(0.33, 36, 24), marinho, s * 0.32, -1.12, 0.12).scale.set(0.95, 0.58, 1.3);
   }
