@@ -30,7 +30,7 @@ test.describe('Front 2A — navegação e rótulos', () => {
     await expect(page.getByText('Rua Treze de Maio, 336, salas 33 e 34').first()).toBeVisible()
     await expect(page.getByText('(41) 99758-5425')).toBeVisible()
     await expect(page.getByText(/Rua Augusta|São Paulo\/SP|4000-2025/)).toHaveCount(0)
-    // a Home tem a sua própria seção de contato (ContactSection), com os mesmos dados
+    // a Home v3 traz a linha da empresa (endereço e telefone) com os mesmos dados
     await page.goto('/')
     await expect(page.getByText(/Rua Augusta|São Paulo\/SP|4000-2025/)).toHaveCount(0)
     await expect(page.getByText(/Rua Treze de Maio, 336/).first()).toBeAttached()

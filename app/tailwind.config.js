@@ -74,7 +74,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        // Outfit só na Home (index.css, body.home-outfit); as telas antigas com font-serif ficam em Jakarta
+        // font-serif é Jakarta nas telas antigas; a Home v3 usa as famílias ev3-* (abaixo)
         serif: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         sans: ['Plus Jakarta Sans', 'Inter', 'Geist', 'system-ui', 'sans-serif'],
         // nome do evento e números de dado (contrato v3.4, §3); largura com font-stretch

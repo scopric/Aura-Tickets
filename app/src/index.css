@@ -220,8 +220,7 @@
     line-height: 1.6;
   }
 
-  /* Títulos em Plus Jakarta Sans 600 (contrato §3). A Outfit fica só na Home (body.home-outfit, posto pela
-     Home.tsx), com os pesos de antes; :where() mantém a especificidade de um seletor de elemento */
+  /* Títulos em Plus Jakarta Sans 600 (contrato §3); a Home v3 anula isto por classe (tokens ev3-*) */
   h1, h2, h3, h4 {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     letter-spacing: -0.03em;
@@ -233,13 +232,6 @@
   h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); }
   h3 { font-size: clamp(1.3rem, 2vw, 1.6rem); }
   h4 { font-size: 1.125rem; letter-spacing: -0.02em; }
-
-  :where(body.home-outfit) :is(h1, h2, h3, h4) {
-    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
-    font-weight: 800;
-  }
-  :where(body.home-outfit) h2 { font-weight: 700; }
-  :where(body.home-outfit) :is(h3, h4) { font-weight: 600; }
 
   /* Better selection */
   ::selection { 
@@ -1170,12 +1162,6 @@ a, button { transition: all 0.2s ease; }
   50% { filter: drop-shadow(0 0 14px rgba(29, 104, 196, 0.6)); }
 }
 
-@keyframes scrollDot {
-  0% { transform: translateY(-20px); opacity: 0; }
-  50% { opacity: 1; }
-  100% { transform: translateY(40px); opacity: 0; }
-}
-
 /* Enquanto o aviso de cookies está aberto (--cookie-banner-h publicada pelo CookieBanner), a página ganha
    espaço embaixo para o conteúdo poder rolar acima do aviso (botões no fim dos formulários) */
 body {
@@ -1303,10 +1289,6 @@ body {
 }
 .painel-produtor .font-serif {
   letter-spacing: -0.01em;
-}
-/* font-serif virou Jakarta (tailwind.config); na Home continua Outfit. Fora de @layer para vir depois das utilidades */
-:where(body.home-outfit) .font-serif {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
 }
 /* O contêiner do layout já dá o respiro (16/24/32 px); a raiz das páginas antigas (p-6 lg:p-10) não soma outro
    (as telas de carregando/vazio com py-20 ficam como estão: o respiro vertical delas centraliza o aviso).

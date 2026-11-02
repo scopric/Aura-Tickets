@@ -63,7 +63,8 @@ test.describe('Evo 3D', () => {
     await expect.poll(() => posterOpaco(page)).toBe('1')
   })
 
-  test('dez idas e voltas pelo roteador entre / e /dev/evo deixam zero contextos WebGL vivos', async ({ page }) => {
+  test('dez idas e voltas pelo roteador entre /termos e /dev/evo deixam zero contextos WebGL vivos', async ({ page }) => {
+    // /termos é a rota sem cena: a Home ganhou o Evo na Fase 4 e não serve mais de "lado sem canvas"
     // Conta contextos criados e perdidos pela própria página (instrumenta getContext antes de qualquer script)
     await page.addInitScript(() => {
       const w = window as unknown as { __gl: { criados: number; vivos: number } }
@@ -79,11 +80,11 @@ test.describe('Evo 3D', () => {
       }
     })
     await comCsp(page)
-    await page.goto('/')
+    await page.goto('/termos')
     for (let i = 0; i < 10; i++) {
       await irPara(page, '/dev/evo')
       await expect(pronta(page)).toHaveCount(1, { timeout: PRONTA_MS })
-      await irPara(page, '/')
+      await irPara(page, '/termos')
       await expect(canvas(page)).toHaveCount(0)
     }
     const gl = () => page.evaluate(() => (window as unknown as { __gl: { criados: number; vivos: number } }).__gl)
@@ -91,5 +92,18 @@ test.describe('Evo 3D', () => {
     // No StrictMode (dev) a 2ª montagem ainda pode estar baixando o glb na última volta: o contexto dela só é perdido quando
     // a carga termina e o desmonte a destrói; a perda forçada também dispara o evento de forma assíncrona. Daí a espera longa.
     await expect.poll(async () => (await gl()).vivos, { timeout: PRONTA_MS }).toBe(0)
+  })
+
+  test('o chunk do three só é pedido onde há cena: /termos não pede, a Home pede', async ({ page }) => {
+    // Fase 4: a Home é a única página pública com o Evo; o pacote de entrada e as outras páginas não podem baixar o three
+    const pedidos: string[] = []
+    page.on('request', r => { if (/\/assets\/cena-[^/]+\.js$|\/evo3d\/cena\.ts/.test(r.url())) pedidos.push(r.url()) })
+    await comCsp(page)
+    await page.goto('/termos')
+    await expect(page.getByRole('heading').first()).toBeVisible()
+    expect(pedidos).toEqual([])
+    await page.goto('/')
+    await expect(page.getByTestId('evo3d').locator('img')).toBeVisible()
+    await expect.poll(() => pedidos.length, { timeout: PRONTA_MS }).toBeGreaterThan(0)
   })
 })
