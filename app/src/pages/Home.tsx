@@ -1,5 +1,4 @@
 import { Link } from 'react-router'
-import { preload } from 'react-dom'
 import { useSEO } from '../hooks/useSEO'
 import { useFeaturedEvents } from '../hooks/useEvents'
 import { appUrl } from '../lib/appHost'
@@ -14,10 +13,10 @@ import EventoCapa from '../components/EventoCapa'
 // (a que o checkout cobra hoje, Decisão 111), eventos reais de useFeaturedEvents, Pix hoje (Decisão 228).
 
 const FOCO = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ev3-foco focus-visible:ring-offset-2 focus-visible:ring-offset-black'
-const CHROME = 'font-ev3-chrome text-[14px] font-bold leading-none tracking-normal'
+const CHROME = 'font-ev3-chrome text-[14px] font-bold leading-[1.2] tracking-normal'
 // Botão fantasma (DESIGN-SYSTEM §6): raio 5, contorno #999, vidro no hover; o principal (pílula violeta) aparece uma vez só
-const BOTAO_FANTASMA = `inline-flex h-12 items-center justify-center rounded-ev3-controle border border-ev3-contorno px-[18px] text-ev3-texto transition-colors [transition-duration:var(--ev3-mov-micro)] hover:bg-ev3-vidro ${CHROME} ${FOCO}`
-const LINK_INLINE = `alvo-44 whitespace-nowrap text-ev3-texto underline decoration-ev3-fio underline-offset-4 hover:decoration-ev3-texto ${FOCO}`
+const BOTAO_FANTASMA = `inline-flex h-12 items-center justify-center rounded-ev3-controle border border-ev3-contorno px-[18px] text-ev3-texto transition-colors [transition-duration:var(--ev3-mov-micro)] [transition-timing-function:var(--ev3-curva-sai)] hover:bg-ev3-vidro ${CHROME} ${FOCO}`
+const LINK_INLINE = `alvo-44 whitespace-nowrap text-ev3-terciario underline decoration-ev3-fio underline-offset-4 hover:text-ev3-texto ${FOCO}`
 
 export default function Home() {
   useSEO({
@@ -25,9 +24,6 @@ export default function Home() {
     description: 'Crie o evento, venda o ingresso com Pix e confira na porta pelo QR Code. Taxa só no ingresso vendido.',
     image: '/images/logo-evokaa.png',
   })
-  // as duas famílias da primeira tela; sem isto o h1 troca de fonte depois da primeira pintura (font-display: swap)
-  preload('/fonts/syne.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
-  preload('/fonts/newsreader.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
   const { data: eventos = [], isLoading } = useFeaturedEvents()
   // o gancho ordena os destaques por data e o complemento por vendidos: a lista da Home volta à ordem cronológica
   const proximos = eventos.slice(0, 4).sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
@@ -51,7 +47,7 @@ export default function Home() {
           <div className="flex flex-wrap gap-3">
             <Link
               to={registerUrl(appUrl, true)}
-              className={`inline-flex h-12 items-center justify-center rounded-ev3-pilula bg-ev3-acento px-[18px] text-white transition-opacity [transition-duration:var(--ev3-mov-micro)] hover:opacity-85 ${CHROME} ${FOCO}`}
+              className={`inline-flex h-12 items-center justify-center rounded-ev3-pilula bg-ev3-acento px-[18px] text-white transition-opacity [transition-duration:var(--ev3-mov-micro)] [transition-timing-function:var(--ev3-curva-sai)] hover:opacity-85 ${CHROME} ${FOCO}`}
             >
               Criar meu evento
             </Link>
@@ -64,9 +60,9 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-4 py-12 lg:px-6" aria-labelledby="agora">
         <h2 id="agora" className={`${CHROME} text-ev3-texto`}>Agora na Evokaa</h2>
         {isLoading ? (
-          <p role="status" className="border-b border-ev3-fio py-8 font-ev3-chrome text-[12px] text-ev3-terciario">Carregando eventos…</p>
+          <p role="status" className="mt-4 border-b border-ev3-fio py-8 font-ev3-chrome text-[12px] text-ev3-terciario">Carregando eventos…</p>
         ) : proximos.length === 0 ? (
-          <div className="border-b border-ev3-fio py-12 text-[16px] leading-[1.88]" data-testid="vitrine-vazia">
+          <div className="mt-4 border-b border-ev3-fio py-12 text-[16px] leading-[1.88]" data-testid="vitrine-vazia">
             <p className="text-ev3-texto">Em breve os primeiros eventos.</p>
             <p className="mt-2 text-ev3-terciario">
               Os eventos aprovados aparecem aqui. Produtor?{' '}
@@ -74,7 +70,7 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <ul className="m-0 list-none p-0">
+          <ul className="m-0 mt-4 list-none p-0">
             {proximos.map(e => {
               const data = diaMesDoCartaz(e.date)
               const local = [e.venue_name, e.venue_city && (e.venue_state ? `${e.venue_city}/${e.venue_state}` : e.venue_city), e.time?.slice(0, 5)]
@@ -120,7 +116,7 @@ export default function Home() {
       {/* Para quem produz: só o que está decidido e no ar (Decisões 88, 111, 214 e 228) */}
       <section className="mx-auto max-w-6xl px-4 py-12 lg:px-6" aria-labelledby="produz">
         <h2 id="produz" className={`${CHROME} text-ev3-texto`}>Para quem produz</h2>
-        <dl className="m-0">
+        <dl className="m-0 mt-4">
           {[
             ['Taxa', `Hoje quem compra paga ${TAXA_PERCENTUAL}% por ingresso, mínimo ${brl(TAXA_MINIMA)} na inteira; evento gratuito não tem taxa.`],
             ['Pagamento', 'Pix hoje. Cartão de crédito em breve.'],
@@ -133,13 +129,13 @@ export default function Home() {
           ))}
         </dl>
         <div className="pt-6">
-          <Link to="/planos" className={BOTAO_FANTASMA}>Planos e taxas</Link>
+          <Link to="/planos" className={BOTAO_FANTASMA}>Planos</Link>
         </div>
       </section>
 
       {/* Empresa e contato (os mesmos dados de /contato) */}
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-4 lg:px-6" aria-label="Empresa e contato">
-        <p className="font-ev3-chrome text-[12px] leading-[2] text-ev3-terciario">
+        <p className="font-ev3-chrome text-[12px] leading-[1.5] text-ev3-terciario">
           Evoka Soluções Ltda · Rua Treze de Maio, 336, salas 33 e 34, Curitiba/PR ·{' '}
           <a href="tel:+5541997585425" className={LINK_INLINE}>(41) 99758-5425</a> ·{' '}
           <Link to="/contato" className={LINK_INLINE}>Fale com a gente</Link>

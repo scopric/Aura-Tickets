@@ -856,7 +856,7 @@ const comparisonCategories = [
 ]
 
 export default function PricingSection() {
-  useSEO({ title: 'Planos e taxas — Evokaa', description: 'Planos para quem produz eventos na Evokaa e a taxa por ingresso vendido.' }) // página /planos desde a Home v3
+  useSEO({ title: 'Planos — Evokaa', description: 'Planos para quem produz eventos na Evokaa.', noindex: true }) // /planos desde a Home v3; noindex até a tela de preços da Fase 4 (as taxas daqui são as antigas)
   // chegada com #planos na URL (o AffiliateLanding leva a /planos; um /#planos antigo abre a Home e não redireciona): rola até os planos
   useEffect(() => {
     if (window.location.hash === '#planos') {
