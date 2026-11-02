@@ -103,7 +103,8 @@ export default function Home() {
           <p className="max-w-[44ch] text-[16px] leading-[1.88] text-ev3-terciario">
             Plataforma brasileira de ingressos. Taxa de serviço paga por quem compra, só no ingresso vendido; Pix hoje, cartão em breve.
           </p>
-          <div className="flex flex-wrap gap-3">
+          {/* No celular os botões empilham à esquerda: o flutuante de suporte (canto inferior direito) tocava "Ver eventos" a 390×844 e 375×667 (QA) */}
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               to={registerUrl(appUrl, true)}
               className={`inline-flex h-12 items-center justify-center rounded-ev3-pilula bg-ev3-acento px-[18px] text-white transition-opacity [transition-duration:var(--ev3-mov-micro)] [transition-timing-function:var(--ev3-curva-sai)] hover:opacity-85 ${CHROME} ${FOCO}`}
