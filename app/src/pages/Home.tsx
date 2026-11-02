@@ -38,7 +38,7 @@ const RECURSOS: [string, string][] = [
 const COMO_FUNCIONA: [string, string][] = [
   ['Crie', 'Tipo de evento, data, local e lotes. A taxa aparece no preço antes de publicar.'],
   ['Gerencie', 'Vendas, participantes, equipe e cronograma no mesmo painel.'],
-  ['Venda', 'Publique, receba por Pix e confira na porta pelo QR Code.'],
+  ['Venda', 'Publique, venda com Pix e confira na porta pelo QR Code.'],
 ]
 
 // Decisão 171 (06/10): preço de lançamento e taxa de serviço por plano (+ 2,5 % de processamento). Fica aqui, e não em
@@ -54,7 +54,7 @@ const PLANOS = [
 
 const PERGUNTAS: [string, string][] = [
   ['O que é a Evokaa?', 'Uma plataforma brasileira para criar eventos, vender ingressos e conferir a entrada.'],
-  ['Quanto custa usar a Evokaa?', `Criar conta é gratuito. Hoje quem compra paga ${TAXA_PERCENTUAL}% de taxa de serviço por ingresso, mínimo ${brl(TAXA_MINIMA)}; evento gratuito não tem taxa. Os planos para quem produz estão na seção Planos, acima.`],
+  ['Quanto custa usar a Evokaa?', `Criar conta é gratuito. Hoje quem compra paga ${TAXA_PERCENTUAL}% de taxa de serviço por ingresso, mínimo ${brl(TAXA_MINIMA)} na inteira; evento gratuito não tem taxa. Os planos para quem produz estão na seção Planos, acima.`],
   ['Como funciona o Match de Mesa?', 'É um ingresso de mesa compartilhada. Você responde um perfil rápido, vê o primeiro nome e a faixa de idade de quem já está em cada mesa e escolhe a sua; a formação automática das mesas, 24 horas antes do evento, chega em breve.'],
   ['Posso ter afiliados vendendo meus ingressos?', 'Você já pode vincular afiliados a um evento, com o percentual de comissão de cada um. O link de divulgação do afiliado e o registro das vendas dele ainda estão em construção.'],
   ['Quais formas de pagamento são aceitas?', 'Na compra de ingressos, hoje aceitamos Pix. O pagamento por cartão de crédito chega em breve.'],
@@ -208,7 +208,7 @@ export default function Home() {
       <section id="planos" className={SECAO} aria-labelledby="planos-titulo">
         <h2 id="planos-titulo" className={`${CHROME} text-ev3-texto`}>Planos</h2>
         <p className="mt-4 max-w-[60ch] text-[16px] leading-[1.88] text-ev3-terciario">
-          Valores de lançamento dos planos, que passam a valer quando a assinatura abrir; quem fechar até o lançamento comercial fica com o preço por um ano. Até lá, a conta é gratuita e quem compra paga a taxa de {TAXA_PERCENTUAL}%, mínimo {brl(TAXA_MINIMA)}. Nos planos, a taxa de serviço incide sobre cada ingresso vendido, mais 2,5% de processamento; evento gratuito não paga taxa.
+          Valores de lançamento dos planos, que passam a valer quando a assinatura abrir; quem fechar até o lançamento comercial fica com o preço por um ano. Até lá, a conta é gratuita e quem compra paga a taxa de {TAXA_PERCENTUAL}%, mínimo {brl(TAXA_MINIMA)} na inteira. Nos planos, a taxa de serviço incide sobre cada ingresso vendido, mais 2,5% de processamento, pagos por quem produz; evento gratuito não paga taxa.
         </p>
         <ul className="m-0 mt-6 list-none border-t border-ev3-fio p-0 lg:grid lg:grid-cols-5 lg:border-l">
           {PLANOS.map(p => (
@@ -223,7 +223,7 @@ export default function Home() {
           ))}
         </ul>
         <p className="mt-6 max-w-[60ch] text-[16px] leading-[1.88] text-ev3-terciario">
-          Durante o lançamento, todos os recursos estão liberados em todos os planos.
+          Enquanto a assinatura não abre, todos os recursos estão liberados em todas as contas.
         </p>
         <div className="pt-6">
           <Link to="/planos" className={BOTAO_FANTASMA}>Ver os planos em detalhe</Link>

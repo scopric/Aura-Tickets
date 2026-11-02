@@ -24,14 +24,16 @@ describe('FormContato', () => {
       expect(document.getElementById(el.getAttribute('aria-describedby')!)).toHaveTextContent(/Informe|Escreva/)
     }
     expect(campo('Assunto (opcional)')).not.toHaveAttribute('aria-invalid')
+    expect(campo('Assunto (opcional)')).not.toHaveAttribute('aria-required')
+    expect(campo('Nome')).toHaveAttribute('aria-required', 'true')
     expect(h.enviar).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(campo('Nome')) // o foco vai ao primeiro campo com erro
   })
 
-  it('e-mail inválido: só esse campo fica marcado e nada é enviado', () => {
+  it('e-mail inválido (regra do servidor): só esse campo fica marcado e nada é enviado', () => {
     render(<FormContato />)
     preencher('Nome', 'Ana')
-    preencher('E-mail', 'ana@')
+    preencher('E-mail', 'ana@exemplo..com')
     preencher('Celular', '41999999999')
     preencher('Mensagem', 'Olá')
     enviar()
@@ -51,7 +53,9 @@ describe('FormContato', () => {
     expect(h.enviar.mock.calls[0][0]).toEqual({
       name: 'Ana', email: 'ana@exemplo.com', phone: '(41) 99999-9999', subject: 'Contato Geral (Home)', message: 'Quero criar um evento.',
     })
-    expect(await screen.findByRole('status')).toHaveTextContent('Mensagem enviada')
+    const ok = await screen.findByRole('status')
+    expect(ok).toHaveTextContent('Mensagem enviada')
+    expect(document.activeElement).toBe(ok) // o foco vai à confirmação (o botão sumiu da tela)
     expect(h.toast.error).not.toHaveBeenCalled()
   })
 

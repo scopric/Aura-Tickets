@@ -17,6 +17,12 @@ const ASSUNTOS = [
   ['Outro assunto', 'Outro assunto'],
 ] as const
 
+// Mesma regra de e-mail da Edge Function (supabase/functions/_shared/validar.ts): o servidor é a barreira; aqui é
+// só para o erro aparecer no campo, e não voltar como aviso depois do envio
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
+// eslint-disable-next-line no-control-regex -- os caracteres de controle são o que se quer barrar
+const EMAIL_PROIBIDO = /[?&#\u0000-\u001F\u007F]/
+
 const VAZIO = { name: '', email: '', phone: '', subject: '', message: '' }
 type Campo = keyof typeof VAZIO
 type Erros = Partial<Record<Campo, string>>
@@ -24,7 +30,8 @@ type Erros = Partial<Record<Campo, string>>
 const validar = (f: typeof VAZIO): Erros => {
   const e: Erros = {}
   if (!f.name.trim()) e.name = 'Informe seu nome.'
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = 'Informe um e-mail válido.'
+  const email = f.email.trim()
+  if (!EMAIL_RE.test(email) || EMAIL_PROIBIDO.test(email) || email.length > 254) e.email = 'Informe um e-mail válido.'
   if (!f.phone.trim()) e.phone = 'Informe um celular.'
   if (!f.message.trim()) e.message = 'Escreva a mensagem.'
   return e
