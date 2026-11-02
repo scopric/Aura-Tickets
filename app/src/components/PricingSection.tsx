@@ -3,6 +3,7 @@ import { Crown, Check, X, Sparkles, Shield, Zap, Star, Gift, TrendingUp, Calcula
 import { appUrl } from '../lib/appHost'
 import { affiliateRefQuery } from '../lib/affiliateRef'
 import { planName, planPrice } from '../lib/plans'
+import { useSEO } from '../hooks/useSEO'
 
 // ================= COMPONENTE TRUST CARD COM SPOTLIGHT DE MOUSE =================
 
@@ -855,7 +856,8 @@ const comparisonCategories = [
 ]
 
 export default function PricingSection() {
-  // chegada por /#planos (links antigos; desde a Home v3 a seção vive em /planos): rola até os planos
+  useSEO({ title: 'Planos e taxas — Evokaa', description: 'Planos para quem produz eventos na Evokaa e a taxa por ingresso vendido.' }) // página /planos desde a Home v3
+  // chegada com #planos na URL (o AffiliateLanding leva a /planos; um /#planos antigo abre a Home e não redireciona): rola até os planos
   useEffect(() => {
     if (window.location.hash === '#planos') {
       requestAnimationFrame(() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' }))
