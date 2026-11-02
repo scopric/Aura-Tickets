@@ -35,7 +35,7 @@ test('Configurações do produtor sem a aba Integrações nem "API Key" (Decisã
 
 test('Home sem "Ver Demo" e sem números inventados (10K+, 500K+, 98%)', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('link', { name: /Começar Agora/ }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /Criar meu evento/ }).first()).toBeVisible() // Home v3 (Fase 4): era "Começar Agora"
   await expect(page.getByRole('link', { name: /Ver Demo/ })).toHaveCount(0)
   await expect(page.getByText(/^(10K\+|500K\+|98%)$/)).toHaveCount(0)
 })

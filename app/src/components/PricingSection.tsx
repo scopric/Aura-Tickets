@@ -855,7 +855,7 @@ const comparisonCategories = [
 ]
 
 export default function PricingSection() {
-  // chegada por link de afiliado (/p/CODIGO/link → /#planos): rola até os planos
+  // chegada por /#planos (links antigos; desde a Home v3 a seção vive em /planos): rola até os planos
   useEffect(() => {
     if (window.location.hash === '#planos') {
       requestAnimationFrame(() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' }))

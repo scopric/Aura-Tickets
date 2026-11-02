@@ -39,6 +39,7 @@ const Home = lazy(() => import('./pages/Home'))
 const EventPage = lazy(() => import('./pages/EventPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const ContactPage = lazy(() => import('./pages/Contact'))
+const Planos = lazy(() => import('./components/PricingSection')) // saiu da Home na v3 (Fase 4); a tela própria vem depois
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
 const CertificadoValidacao = lazy(() => import('./pages/CertificadoValidacao'))
@@ -376,6 +377,7 @@ function Layout() {
             <Route path="/event/:eventId" element={<EventPage />} />
             <Route path="/app/download" element={<AppDownload />} />
             <Route path="/contato" element={<ContactPage />} />
+            <Route path="/planos" element={<Planos />} />
             <Route path="/termos" element={<TermsPage />} />
             <Route path="/privacidade" element={<PrivacyPage />} />
             {/* Laboratório do Evo 3D (Fase 3 do Modo Refero): só em desenvolvimento ou com VITE_LAB=1 no build do e2e */}

@@ -27,7 +27,7 @@ export default function EvoCena({ className = '' }: { className?: string }) {
     <div ref={hostRef} className={`evo3d ${className}`} data-testid="evo3d">
       <picture>
         <source media="(max-aspect-ratio: 3/4)" srcSet={posterRetrato} />
-        <img src={poster} alt="Evo, mascote da Evokaa" />
+        <img src={poster} alt="Evo, mascote da Evokaa" fetchPriority="high" /> {/* maior elemento da primeira tela da Home (LCP) */}
       </picture>
     </div>
   )

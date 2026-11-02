@@ -37,6 +37,7 @@ Três famílias, três papéis, nenhum cruzamento (Decisão 249, escolha do Rica
 | Chrome | **Syne** (Bonjour Monde) | `--ev3-fonte-chrome` / `font-ev3-chrome` | 12 px / 1,5 · botão 14 px / 1,2 | 400 · botão 700 | navegação, rótulo, botão, metadado, tabela | prosa, título de evento |
 | Corpo | **Newsreader** (Production Type, eixo óptico; romano e itálico, dois arquivos) | `--ev3-fonte-corpo` / `font-ev3-corpo` | 16 px / 1,88 | 400 (itálico verdadeiro só em ênfase real; `font-synthesis: none` no corpo) | descrição, texto legal, e-mail, campo de formulário | botão, rótulo, número |
 | Display | **Big Shoulders** (Patric King) | `--ev3-fonte-display` / `font-ev3-display` | título 44–88 px / 0,92 · data 72–160 px / 0,9 · número 28 px | 700 | **só** título de evento, data monumental, preço e contagem | título de seção, texto corrido, botão, logotipo |
+| Título de página (site) | **Syne** | `font-ev3-chrome` | 28–44 px / 1,05 (`clamp(28px, 4vw, 44px)`) | 700 | **só** o `h1` da Home e das páginas de marketing; título de seção fica no chrome 14 px / 700 | título de evento, prosa, botão | 
 
 Descartadas: Fontshare (General Sans, Switzer, Sentient, Gambetta, Erode): a ITF Free Font License v2.0 proíbe subset, conversão de formato e repositório público; Tusker Grotesk: paga.
 
@@ -85,12 +86,12 @@ Pagar (checkout Pix), entrar (login e 2FA) e validar (QR do ingresso e portaria)
 - DPR limitado a 2; pausa fora da tela (IntersectionObserver) e na aba oculta; **fica no poster estático** (padrão do HTML até a cena ficar pronta, cruzado por opacidade) com `prefers-reduced-motion`, `navigator.connection.saveData`, `deviceMemory < 4`, sem WebGL2, quando o modelo ou a textura não carregam e na perda de contexto; `dispose()` de tudo ao desmontar (geometrias, materiais, texturas com `ImageBitmap.close()`, listeners, intervalos, carregamentos pendentes). Ressalvas abertas da 248: borda do retalho do peito, marinho das luvas, costas inventadas (fora da pose), poster só coincide com a cena a 1280×800 e 390×844.
 - Material e luz de estúdio (acetinado fosco, sem verniz, contraluz neutra); sem partículas, brilho, holograma ou foil; o acento violeta no objeto é fosco.
 - Movimento de cena por opacidade e oscilação lenta (±17°, 14 s); nunca giro de 360° contínuo.
-- O Evo em 3D é o herói da Home (Decisões 246 e 248); cena também em explorar e páginas de marketing; nunca na vitrine do evento (243) nem no caminho crítico.
+- O Evo em 3D é o herói da Home (Decisões 246 e 248; feito na Fase 4, 01/11/2026: `src/pages/Home.tsx` monta o `EvoCena` num `<div>` com altura própria, começando abaixo da pílula fixa do Header para não cobrir a cabeça do modelo); cena também em explorar e páginas de marketing; nunca na vitrine do evento (243) nem no caminho crítico. O poster leva `fetchPriority="high"`: é o maior elemento da primeira tela.
 - A capa do evento é foto real do produtor, chapada e sem filtro (243); pode ser iluminada na cena só na Home e no explorar. A cor do evento (`--evento`) como texto da data monumental passa por `derivarCor` (`src/lib/corEvento.ts`) com piso de 3:1 contra `#000` (hoje a função mira as superfícies do v3.4: ajustar na Fase 4).
 
 ## 9. O que muda no `index.css` (mapa v2.0 → v3.0)
 
-Aplicado por tela na Fase 4, exceto o violeta, que entra já (Decisão 246, testes do §2.7).
+Aplicado por tela na Fase 4, exceto o violeta, que entra já (Decisão 246, testes do §2.7). **Home feita em 01/11/2026 (tela 1 da Fase 4):** `#000`, fio `#4d4d4d`, raio 5/12/500, Syne/Newsreader/Big Shoulders, sem gradiente, sombra, GSAP ou `lucide`; saíram `ModernHero`, `EventCarousel`, `FAQSection`, `ContactSection`, `body.home-outfit`, `scrollDot` e o vídeo do topo; a `PricingSection` (pele v2) vive em `/planos` até a tela de preços. O `<link>` do Google Fonts fica no `index.html` por causa de `lib/certificados.ts`.
 
 | Hoje (`index.css`) | v3.0 | Quando |
 | --- | --- | --- |
@@ -118,6 +119,8 @@ Aplicado por tela na Fase 4, exceto o violeta, que entra já (Decisão 246, test
 - Acento em mais de uma ação por tela; violeta como texto em `#8f33f5`; foco violeta; cor do evento em chrome.
 - Cena 3D no caminho crítico; giro contínuo; "snappy", mola e deslocamento como movimento padrão.
 - Reproduzir o portal/emblema do Active Theory ou "ingresso hologramático"; copiar tela de concorrente.
+
+**Desvios conscientes registrados além do lock v2:** (i) título de página em Syne 700, 28–44 px (§2; Ricardo, 01/11/2026); (j) temporário: no computador o "Criar Conta" do Header (contrato v3.4) é violeta e divide a tela da Home com o botão principal dela até o Header ganhar a pele v3.
 
 ## 11. Acessibilidade e celular (não negociável)
 
