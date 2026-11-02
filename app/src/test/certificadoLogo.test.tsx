@@ -69,6 +69,7 @@ describe('logo no certificado', () => {
     db.logo = SALVA
     montar()
     await screen.findByText(/Usando a logo salva em/)
+    await waitFor(() => expect(botaoSalvar()).toBeEnabled()) // o botão só liga quando o modelo carrega (carregadoPara); clicar antes não salva nada (CI lento)
     fireEvent.click(botaoSalvar())
     await waitFor(() => expect(db.upserts).toHaveLength(1))
     expect((db.upserts[0] as { template: { logoUrl: string } }).template.logoUrl).toBe(SALVA)
@@ -113,6 +114,7 @@ describe('logo no certificado', () => {
     db.template = { fields: [{ id: 'title', type: 'text', label: 'Título', x: 50, y: 22, fontSize: 28, color: '#000000', value: 'Certificado', width: 80, height: 40 }] }
     montar()
     await screen.findByText(/Usando a logo salva em/)
+    await waitFor(() => expect(botaoSalvar()).toBeEnabled()) // o botão só liga quando o modelo carrega (carregadoPara); clicar antes não salva nada (CI lento)
     fireEvent.click(botaoSalvar())
     await waitFor(() => expect(db.upserts).toHaveLength(1))
     expect((db.upserts[0] as { template: { logoUrl: string | null } }).template.logoUrl).toBeNull()
