@@ -17,7 +17,7 @@ Deno.serve(req => handler(req, {
     const { data: { user }, error } = await admin.auth.getUser(t)
     return error || !user ? null : { id: user.id, email: user.email ?? null }
   },
-  captcha: (t, ip) => verificarRecaptcha(t, ip, env),
+  captcha: (t, ip, acao) => verificarRecaptcha(t, ip, env, fetch, acao),
   carregar: async (id, uid) => {
     const { data: o, error } = await admin.from('orders')
       .select('id,user_id,status,reservado_ate,total,subtotal,discount,service_fee,processing_fee,customer_name,customer_email,gateway_payment_id,events(producer_id,start_date,end_date),order_items(id,ticket_type_id,quantity,unit_price,ticket_types(name))')
@@ -43,6 +43,28 @@ Deno.serve(req => handler(req, {
       .update({ payment_gateway: 'pagbank', payment_method: 'pix', gateway_payment_id: pagbankId })
       .eq('id', id).eq('status', 'pending').is('gateway_payment_id', null).select('id')
     if (error) throw new Error(`gravação do pedido: ${error.message}`)
+    return (data?.length ?? 0) > 0
+  },
+  limitarChave: (r, prefixo, chave, max) => limitarPorIp(r, admin, (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders(r), 'Content-Type': 'application/json' } }), prefixo, { chave, max }),
+  // trava do cartão: 'CARTAO-<pedido>' em gateway_payment_id (único por pedido; confirmar_pedido_pago sobrescreve se o pagamento existiu)
+  trava: async (id) => {
+    const { data, error } = await admin.from('orders').update({ gateway_payment_id: `CARTAO-${id}` })
+      .eq('id', id).eq('status', 'pending').is('gateway_payment_id', null).select('id')
+    if (error) throw new Error(`trava do pedido: ${error.message}`)
+    return (data?.length ?? 0) > 0
+  },
+  destravar: async (id) => {
+    const { error } = await admin.from('orders').update({ gateway_payment_id: null }).eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`)
+    if (error) throw new Error(`soltar trava: ${error.message}`)
+  },
+  liberarOrde: async (id, pagbankId) => {
+    const { error } = await admin.from('orders').update({ gateway_payment_id: null }).eq('id', id).eq('gateway_payment_id', pagbankId).eq('status', 'pending')
+    if (error) throw new Error(`liberar pedido recusado: ${error.message}`)
+  },
+  trocar: async (id, pagbankId) => {
+    const { data, error } = await admin.from('orders').update({ payment_gateway: 'pagbank', payment_method: 'credit_card', gateway_payment_id: pagbankId })
+      .eq('id', id).eq('gateway_payment_id', `CARTAO-${id}`).select('id')
+    if (error) throw new Error(`troca da trava: ${error.message}`)
     return (data?.length ?? 0) > 0
   },
   pagbank: (caminho, init) => pagbankFetch(cfg(), caminho, init),

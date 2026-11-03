@@ -42,24 +42,38 @@ export type Deps = {
   /** Limite por usuário (20 a cada 10 min), chamado DEPOIS do login */
   limitar: (req: Request, userId: string) => Promise<Response | null>
   autenticar: (token: string) => Promise<{ id: string; email: string | null } | null>
-  captcha: (token: string, ip: string | null) => Promise<boolean>
+  /** `acao` = ação do reCAPTCHA v3 (padrão 'pagbank_checkout' no Pix; o cartão usa 'pagbank_cartao') */
+  captcha: (token: string, ip: string | null, acao?: string) => Promise<boolean>
   /** Pedido do usuário `userId`; pedido de outro ou inexistente = null (e nada mais é consultado); erro de banco lança */
   carregar: (orderId: string, userId: string) => Promise<Pedido | null>
   /** update ... where id and status='pending' and gateway_payment_id is null; true se gravou */
   gravar: (orderId: string, pagbankId: string) => Promise<boolean>
+  /** Limite por chave (cartão: pedido, IP, 3DS): devolve a resposta de recusa (429 igual à do Pix; outro status = tabela de limite falhou) ou null */
+  limitarChave: (req: Request, prefixo: string, chave: string, max: number) => Promise<Response | null>
+  /** Trava do cartão ANTES de cobrar: update orders set gateway_payment_id='CARTAO-'||id where id and status='pending' and gateway_payment_id is null; true se travou */
+  trava: (orderId: string) => Promise<boolean>
+  /** Solta a trava: set gateway_payment_id=null where gateway_payment_id='CARTAO-'||id */
+  destravar: (orderId: string) => Promise<void>
+  /** Devolve o pedido a 'sem pagamento' quando o ORDE_ gravado acabou recusado: set gateway_payment_id=null where id and gateway_payment_id=<ORDE_> and status='pending' */
+  liberarOrde: (orderId: string, pagbankId: string) => Promise<void>
+  /** Troca a trava pelo ORDE_ real (e grava payment_method='credit_card'): where gateway_payment_id='CARTAO-'||id; true se trocou */
+  trocar: (orderId: string, pagbankId: string) => Promise<boolean>
   pagbank: (caminho: string, init: { method: 'GET' | 'POST'; body?: unknown; idempotencia?: string }) => Promise<Record<string, unknown>>
   agora: () => Date
   esperar: (ms: number) => Promise<void>
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MAX_CORPO = 4096
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ORDE_RE = /^ORDE_[0-9A-Fa-f-]+$/
+const EM_ANDAMENTO = 'Já existe um pagamento em andamento para este pedido.'
+const MSG_INCERTO = 'Não conseguimos confirmar o pagamento. Aguarde alguns minutos e confira Meus ingressos antes de tentar de novo.'
+export const MAX_CORPO = 4096
 const HOSTS = ORIGENS.map(o => new URL(o).hostname)
 // os interruptores de teste (RECAPTCHA_ALLOW_LOCALHOST aqui e PAGBANK_WEBHOOK_SEM_ASSINATURA no webhook) morrem sozinhos no dia do lançamento
 export const ATE_LANCAMENTO = Date.parse('2026-10-16T00:00:00-03:00')
 
 /** Lê o corpo parando em MAX_CORPO bytes; null = passou do teto. Confere Content-Length antes de ler. */
-async function lerCorpo(req: Request): Promise<string | null> {
+export async function lerCorpo(req: Request): Promise<string | null> {
   const cl = Number(req.headers.get('content-length') ?? 0)
   if (cl > MAX_CORPO) return null
   const leitor = req.body?.getReader()
@@ -79,7 +93,7 @@ async function lerCorpo(req: Request): Promise<string | null> {
 
 /** Verifica o reCAPTCHA v3 no Google. Falha fechada: sem segredo, erro de rede ou timeout = false. */
 export async function verificarRecaptcha(
-  token: string, ip: string | null, env: (k: string) => string, fetchFn: typeof fetch = fetch,
+  token: string, ip: string | null, env: (k: string) => string, fetchFn: typeof fetch = fetch, acao = 'pagbank_checkout',
 ): Promise<boolean> {
   const secret = env('RECAPTCHA_SECRET')
   if (!secret || !token) return false
@@ -96,7 +110,7 @@ export async function verificarRecaptcha(
     const j = await r.json()
     // localhost só em desenvolvimento (RECAPTCHA_ALLOW_LOCALHOST=1 e PagBank no sandbox; em produção real não passa): o app roda em app.localhost e o painel em alpha.localhost
     const dev = env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && env('PAGBANK_BASE_URL').trim().replace(/\/+$/, '') === 'https://sandbox.api.pagseguro.com' && Date.now() < ATE_LANCAMENTO && ['localhost', 'app.localhost', 'alpha.localhost'].includes(String(j.hostname))
-    const ok = j.success === true && j.action === 'pagbank_checkout' && (HOSTS.includes(String(j.hostname)) || dev)
+    const ok = j.success === true && j.action === acao && (HOSTS.includes(String(j.hostname)) || dev)
        && typeof j.score === 'number' && j.score >= minimo
     // diagnóstico: só campos que o Google devolve (nenhum segredo nem token)
     if (ok && dev && !HOSTS.includes(String(j.hostname))) console.error('[pagbank-criar-pedido] ALERTA_PAGBANK RECAPTCHA_LOCALHOST token de localhost aceito (desligar RECAPTCHA_ALLOW_LOCALHOST depois do teste)')
@@ -160,8 +174,26 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
   if (typeof b.captcha_token !== 'string' || !b.captcha_token) return json(400, { error: 'Não foi possível validar a segurança do pagamento.' })
   if (!validarCpf(cliente.tax_id)) return json(400, { error: 'CPF inválido.' })
   const cpf = (cliente.tax_id as string).replace(/\D/g, '')
+  // ramo do cartão (corpo traz `cartao`): valida o formato; o cartão cifrado (`encrypted`) nunca é logado nem devolvido
+  let cartao: { encrypted: string; three_ds_id: string; holder_name: string } | null = null
+  if (b.cartao !== undefined) {
+    const c = (b.cartao ?? {}) as Record<string, unknown>
+    const nome = typeof c.holder_name === 'string' ? c.holder_name.trim() : ''
+    if (typeof c.encrypted !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(c.encrypted) || c.encrypted.length < 200 || c.encrypted.length > 600
+      || typeof c.three_ds_id !== 'string' || !/^3DS_[0-9A-Fa-f-]{36}$/.test(c.three_ds_id) || !/^[\p{L} '.-]{2,60}$/u.test(nome)) {
+      return json(400, { error: 'Dados do cartão inválidos.' })
+    }
+    cartao = { encrypted: c.encrypted, three_ds_id: c.three_ds_id, holder_name: nome }
+    // limites próprios do cartão (além do por usuário): por pedido (5) e por IP (30) em 10 min
+    const lp = await d.limitarChave(req, 'pagbank-cartao-pedido:', b.order_id, 5)
+    if (lp) return lp
+    // ponytail: teto por IP de 30/10 min (e não 15) porque operadoras móveis compartilham IP entre muitos compradores; rever com os números reais depois do lançamento
+    const ipc = clientIp(req.headers).ip
+    const lip = ipc ? await d.limitarChave(req, 'pagbank-cartao-ip:', ipc, 30) : null // sem IP identificado: pula só este limite
+    if (lip) return lip
+  }
 
-  if (!(await d.captcha(b.captcha_token, clientIp(req.headers).ip))) {
+  if (!(await d.captcha(b.captcha_token, clientIp(req.headers).ip, cartao ? 'pagbank_cartao' : 'pagbank_checkout'))) {
     return json(400, { error: 'Não foi possível validar a segurança do pagamento. Recarregue a página e tente de novo.' })
   }
 
@@ -169,12 +201,77 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
   // (o link PNG/BASE64 do PagBank exige o token e carrega o id do QR; não é repassado)
   const resposta = async (pedido: Pedido, o: Record<string, unknown>) => {
     const c = ((o.charges as Record<string, unknown>[] | undefined) ?? [])[0]
+    if ((c?.payment_method as { type?: string } | undefined)?.type === 'CREDIT_CARD') return json(409, { error: EM_ANDAMENTO })
     const pix = (c?.payment_method as { pix?: { expiration_date?: string } } | undefined)?.pix
     const texto = (c?.qr_code as { text?: string } | undefined)?.text
     if (o.reference_id !== pedido.id || !texto || !pix?.expiration_date) throw new Error('resposta do PagBank sem os campos esperados')
     const expira = new Date(pix.expiration_date)
     if (!(expira.getTime() > d.agora().getTime())) return json(409, { error: 'O Pix deste pedido expirou. Volte ao evento e faça a reserva de novo.' })
     return json(200, { order_id: pedido.id, pix_copia_e_cola: texto, expira_em: expira.toISOString() })
+  }
+  // Cartão, lista fechada de status do charge: PAID = 'pago'; AUTHORIZED/IN_ANALYSIS/WAITING = 'processando'; o resto (DECLINED,
+  // CANCELED, desconhecido) = recusado (402, sem gravar e com a trava solta); null = resposta ilegível (resultado incerto).
+  // Quem confirma o pedido no banco é o pagbank-webhook, nunca esta função.
+  const statusCartao = (pedido: Pedido, o: Record<string, unknown>) => {
+    const c = ((o.charges as Record<string, unknown>[] | undefined) ?? [])[0]
+    if (o.reference_id !== pedido.id || typeof c?.status !== 'string') return null
+    if (c.status === 'PAID') return 'pago'
+    return ['AUTHORIZED', 'IN_ANALYSIS', 'WAITING'].includes(c.status) ? 'processando' : 'recusado'
+  }
+  const respCartao = (st: 'pago' | 'processando' | 'recusado') => st === 'recusado'
+    ? json(402, { error: 'Cartão recusado pelo banco. Confira os dados ou tente outro cartão.' })
+    : json(200, { ok: true, status: st })
+  // log do erro do cartão: SÓ status, code e parameter_name (nunca a mensagem inteira); valor igual a trecho do cartão cifrado/3DS vira ***
+  const resumoPb = (e: unknown) => {
+    if (!(e instanceof PagbankErro)) return e instanceof Error ? e.name : 'erro'
+    const ruim = (t: string) => t.length >= 12 && !!cartao && (cartao.encrypted.includes(t) || cartao.three_ds_id.includes(t))
+    const m = [...e.message.matchAll(/code=(\S{1,60}) param=(\S{1,60})/g)]
+    return `status=${e.status} ` + m.map(x => `code=${ruim(x[1]) ? '***' : x[1]} param=${ruim(x[2]) ? '***' : x[2]}`).join('; ')
+  }
+  // Cobrança do cartão com a trava já tomada. Falha DEFINITIVA sem cobrança = solta a trava (pode tentar de novo); resultado INCERTO
+  // (timeout, 5xx, rede, resposta ilegível) = MANTÉM a trava: a reserva vence em 10 min e o webhook paga o pedido se a cobrança existiu.
+  const cobrarCartao = async (pedido: Pedido, corpo: unknown, idem: string, total: number, userId: string) => {
+    const alerta = (m: string) => console.error('[pagbank-criar-pedido] ALERTA_PAGBANK', mascarar(`${m} pedido=${pedido.id.slice(0, 8)}`, cfg.token))
+    const liberar = () => d.destravar(pedido.id).catch(() => alerta('CARTAO_TRAVA_NAO_LIBERADA'))
+    const incerto = () => { alerta('CARTAO_RESULTADO_INCERTO'); return json(502, { error: MSG_INCERTO }) }
+    let criado: Record<string, unknown>
+    let retentou = false
+    try {
+      try {
+        criado = await d.pagbank('/orders', { method: 'POST', body: corpo, idempotencia: idem })
+      } catch (e) {
+        if (!(e instanceof PagbankErro) || e.status < 500) throw e
+        await d.esperar(1500)
+        retentou = true
+        criado = await d.pagbank('/orders', { method: 'POST', body: corpo, idempotencia: idem })
+      }
+    } catch (e) {
+      log('cartão: erro do PagBank', resumoPb(e))
+      // depois de um 5xx a cobrança pode existir: qualquer erro da retentativa (até 4xx) é INCERTO
+      if (retentou || !(e instanceof PagbankErro) || e.status >= 500) return incerto()
+      await liberar()
+      if (e.status === 400 && /AUTHENTICATION_METHOD/i.test(e.message)) return json(409, { error: 'A verificação do cartão não confere com o valor do pedido. Tente de novo.' })
+      if (e.status === 409 && e.message.includes('IDEMPOTENCY_CONFLICT')) return json(409, { error: 'Não foi possível processar o cartão. Tente de novo.' })
+      return json(502, { error: 'Não foi possível processar o cartão agora. Tente de novo em instantes.' })
+    }
+    const st = statusCartao(pedido, criado)
+    if (!st || typeof criado.id !== 'string' || !ORDE_RE.test(criado.id)) return incerto()
+    if (st === 'recusado') { await liberar(); return respCartao(st) }
+    let trocou: boolean
+    try { trocou = await d.trocar(pedido.id, criado.id) } catch { alerta('CARTAO_TROCA_FALHOU'); return respCartao(st) } // o webhook ainda paga pelo reference_id
+    if (trocou) return respCartao(st)
+    // a trava não está mais lá: ou o webhook já gravou ESTE pedido, ou há outra cobrança
+    const atual = await d.carregar(pedido.id, userId).catch(() => undefined)
+    if (atual?.gateway_payment_id === criado.id) return respCartao(st)
+    const gid = atual?.gateway_payment_id ?? ''
+    // só cancela quando LEU de fato outro ORDE_ gravado; leitura falhou ou valor estranho = alerta e resposta normal
+    if (!atual || !ORDE_RE.test(gid) || gid === criado.id) { alerta('CARTAO_TROCA_PERDIDA_SEM_LEITURA'); return respCartao(st) }
+    alerta('CARTAO_COBRANCA_DUPLICADA')
+    const ch = (criado.charges as { id?: unknown; status?: string }[])[0]
+    if ((ch.status === 'PAID' || ch.status === 'AUTHORIZED') && typeof ch.id === 'string' && /^CHAR_[0-9A-Fa-f-]+$/.test(ch.id)) {
+      await d.pagbank(`/charges/${ch.id}/cancel`, { method: 'POST', body: { amount: { value: total } } }).catch(() => alerta('CARTAO_CANCELAMENTO_FALHOU'))
+    }
+    return json(409, { error: EM_ANDAMENTO })
   }
   try {
     const pedido = await d.carregar(b.order_id, user.id)
@@ -188,7 +285,19 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
     if (!pedido.gateway_payment_id && !validarEmail(pedido.customer_email || user.email)) {
       return json(400, { error: 'Sua conta não tem e-mail cadastrado. Cadastre um e-mail no perfil para pagar.' })
     }
-    const existente = async (id: string) => resposta(pedido, await d.pagbank(`/orders/${encodeURIComponent(id)}`, { method: 'GET' }))
+    const existente = async (id: string) => {
+      // valor provisório da trava do cartão ('CARTAO-<pedido>') ou qualquer coisa que não seja ORDE_: nunca vai ao PagBank
+      if (!ORDE_RE.test(id)) return json(409, { error: EM_ANDAMENTO })
+      const o = await d.pagbank(`/orders/${encodeURIComponent(id)}`, { method: 'GET' })
+      if (!cartao) return resposta(pedido, o)
+      const tipo = (((o.charges as Record<string, unknown>[] | undefined) ?? [])[0]?.payment_method as { type?: string } | undefined)?.type
+      if (tipo !== 'CREDIT_CARD') return json(409, { error: EM_ANDAMENTO })
+      const st = statusCartao(pedido, o)
+      if (!st) throw new Error('resposta do PagBank sem os campos esperados')
+      // ORDE_ gravado que acabou recusado/cancelado (ex.: ficou IN_ANALYSIS e depois DECLINED): libera o pedido para a próxima tentativa (cartão ou Pix)
+      if (st === 'recusado') await d.liberarOrde(pedido.id, id)
+      return respCartao(st)
+    }
     if (pedido.gateway_payment_id) return await existente(pedido.gateway_payment_id)
 
     const totalCentavos = reaisParaCentavos(pedido.total)
@@ -221,12 +330,27 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
         reference_id: pedido.id,
         description: 'Ingressos Evokaa',
         amount: { value: totalCentavos, currency: 'BRL' },
-        payment_method: { type: 'PIX', pix: { expiration_date: calcularExpiracao(reservaAte) } },
+        payment_method: cartao
+          ? {
+            type: 'CREDIT_CARD', installments: 1, capture: true, soft_descriptor: 'EVOKAA',
+            card: { encrypted: cartao.encrypted, store: false }, holder: { name: cartao.holder_name, tax_id: cpf },
+            authentication_method: { type: 'THREEDS', id: cartao.three_ds_id },
+          }
+          : { type: 'PIX', pix: { expiration_date: calcularExpiracao(reservaAte) } },
         ...(splits ? { splits } : {}),
       }],
       notification_urls: [`${d.env('SUPABASE_URL')}/functions/v1/pagbank-webhook`],
     }
-    const idem = await chaveIdempotencia(pedido.id, cpf, /^\d{10,11}$/.test(fone) ? fone : '', cfg.token)
+    // cartão: chave = HMAC(pedido | 3DS | cpf); NUNCA o cartão cifrado (cada cifragem muda e daria 409) nem o telefone
+    const idem = await chaveIdempotencia(pedido.id, cpf, cartao ? cartao.three_ds_id : /^\d{10,11}$/.test(fone) ? fone : '', cfg.token)
+    if (cartao) {
+      // 3DS de uso único: segunda vez = 409; tabela de limite falhou = fecha (503)
+      const l3 = await d.limitarChave(req, 'pagbank-3ds:', cartao.three_ds_id, 1)
+      if (l3) return l3.status === 429 ? json(409, { error: 'A verificação do cartão já foi usada. Tente de novo.' }) : indisponivel()
+      // trava atômica ANTES de cobrar: 0 linhas = outro pagamento em andamento ou já feito
+      if (!(await d.trava(pedido.id))) return json(409, { error: EM_ANDAMENTO })
+      return await cobrarCartao(pedido, corpo, idem, totalCentavos, user.id)
+    }
     let criado: Record<string, unknown>
     try {
       criado = await d.pagbank('/orders', { method: 'POST', body: corpo, idempotencia: idem })
@@ -245,11 +369,11 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
     }
     return await resposta(pedido, criado)
   } catch (e) {
-    if (e instanceof PagbankErro && e.status === 409 && e.message.includes('IDEMPOTENCY_CONFLICT')) {
+    if (!cartao && e instanceof PagbankErro && e.status === 409 && e.message.includes('IDEMPOTENCY_CONFLICT')) {
       log('conflito de idempotência', e.message)
       return json(409, { error: 'Não foi possível gerar o Pix para este pedido. Refaça a reserva e tente de novo.' })
     }
-    log('pedido', b.order_id, e instanceof Error ? e.message : e)
-    return json(502, { error: 'Não foi possível gerar o Pix agora. Tente de novo em instantes.' })
+    log('pedido', b.order_id, cartao ? resumoPb(e) : e instanceof Error ? e.message : e)
+    return json(502, { error: cartao ? 'Não foi possível processar o cartão agora. Tente de novo em instantes.' : 'Não foi possível gerar o Pix agora. Tente de novo em instantes.' })
   }
 }
