@@ -55,7 +55,8 @@ describe('FormContato', () => {
     })
     const ok = await screen.findByRole('status')
     expect(ok).toHaveTextContent('Mensagem enviada')
-    expect(document.activeElement).toBe(ok) // o foco vai à confirmação (o botão sumiu da tela)
+    // o foco vai à confirmação por um useEffect, que o React roda depois do commit: esperar, não afirmar (CI lento, Erros §43)
+    await waitFor(() => expect(document.activeElement).toBe(ok))
     expect(h.toast.error).not.toHaveBeenCalled()
   })
 
